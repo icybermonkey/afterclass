@@ -18,11 +18,17 @@ from .ui import LecapError
 LMS_FALLBACK = Path.home() / ".lmstudio" / "bin" / "lms"
 CONTEXT = 32768  # enough for a 2.5 h lecture in one go
 
-# (min RAM GB, LM Studio key, Ollama name, download GB, why)
-RECOMMENDED = [
-    (32, "qwen/qwen3-14b", "qwen3:14b", 9, "best quality that runs comfortably with 32 GB"),
-    (16, "qwen/qwen3-8b", "qwen3:8b", 5, "good balance for 16 GB"),
-    (0, "qwen/qwen3-4b", "qwen3:4b", 3, "small and fast for 8 GB Macs"),
+# Models to offer, best first per memory size (checked against the LM Studio / Ollama catalogs, Oct 2026).
+# (min RAM GB, LM Studio key, Ollama tag or None, download GB, why)
+# MoE models ("a4b", "a3b") only use a few billion parameters per word: big-model quality at small-model speed.
+# "-qat" versions are trained for compression: same size, better quality.
+MODELS = [
+    (32, "google/gemma-4-26b-a4b-qat", "gemma4:26b", 15.6, "fast (MoE, 3.8B active) and strong, 256K context"),
+    (32, "qwen/qwen3.6-35b-a3b", "qwen3.6:35b", 20.4, "very good and fast (MoE), thinks before answering; tight on 32 GB"),
+    (32, "google/gemma-4-31b-qat", "gemma4:31b", 19.0, "best Gemma quality, but dense: noticeably slower"),
+    (16, "google/gemma-4-12b-qat", "gemma4:12b", 7.4, "good and fast; the pick for 16 GB"),
+    (16, "qwen/qwen3.5-9b", None, 7.0, "good, thinks before answering"),
+    (0, "google/gemma-4-e4b-qat", "gemma4:e4b", 5.9, "small and fast; weaker summaries"),
 ]
 
 
@@ -33,9 +39,19 @@ def ram_gb():
         return 0
 
 
-def recommend(ram=None):
+def choices(ram=None, app="lmstudio"):
+    """Models that fit this Mac, best first: [(name, download GB, why)]."""
     ram = ram_gb() if ram is None else ram
-    return next(r for r in RECOMMENDED if ram >= r[0])
+    out = []
+    for min_ram, lms_key, ollama_tag, gb, why in MODELS:
+        name = lms_key if app == "lmstudio" else ollama_tag
+        if name and ram >= min_ram:
+            out.append((name, gb, why))
+    return out
+
+
+def recommend(ram=None, app="lmstudio"):
+    return choices(ram, app)[0]
 
 
 def lms_bin():
@@ -93,9 +109,11 @@ def status():
             "models": [{"name": n, "gb": gb} for n, gb in installed_models(app)] if binary else [],
             "page_allowed": page_allowed(srv["url"]) if srv else False, "allow_cmd": ALLOW_PAGE[app],
         })
-    rec = recommend()
-    return {"apps": apps, "ram_gb": round(ram_gb()), "recommended": {"lmstudio": rec[1], "ollama": rec[2],
-                                                                    "gb": rec[3], "why": rec[4]}}
+    ram = ram_gb()
+    lm, ol = recommend(ram, "lmstudio"), recommend(ram, "ollama")
+    return {"apps": apps, "ram_gb": round(ram), "recommended": {"lmstudio": lm[0], "ollama": ol[0], "gb": lm[1], "why": lm[2]},
+            "choices": {"lmstudio": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "lmstudio")],
+                        "ollama": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "ollama")]}}
 
 
 # --- the wizard ------------------------------------------------------------
@@ -184,22 +202,31 @@ def wizard():
         return 1
 
     steps.begin("Choose a model")
-    rec = recommend()
-    rec_name = rec[1] if app["app"] == "lmstudio" else rec[2]
-    ui.explain(f"Recommended for {st['ram_gb']} GB: {rec_name} (~{rec[3]} GB download), {rec[4]}. "
-               "Smaller models are faster but write weaker summaries.")
+    offer = choices(None, app["app"])
+    ui.explain(f"For {st['ram_gb']} GB the best choice is {offer[0][0]} ({offer[0][2]}). "
+               "Bigger models write better titles and answers but need more memory and time.")
+    installed = {m["name"] for m in app["models"]}
     options = [(m["name"], f"use {m['name']} ({m['gb']} GB, installed)") for m in app["models"]]
-    if rec_name not in {m["name"] for m in app["models"]}:
-        options.append(("__download__", f"download {rec_name} (~{rec[3]} GB)"))
-    choice = _choose("Which model?", options) if options else "__download__"
+    for i, (name, gb, why) in enumerate(offer):
+        if name not in installed:
+            options.append((f"dl:{name}", f"download {name} (~{gb} GB): {why}{'  ← recommended' if i == 0 else ''}"))
+    options.append(("__other__", "other model: type its name (from lmstudio.ai/models or ollama.com/library)"))
+    choice = _choose("Which model?", options)
     if choice is None:
         ui.info("nothing chosen")
         steps.end()
         return 1
-    model = choice
-    if choice == "__download__":
-        model = rec_name
-        if not _ask(f"Download {model} now (~{rec[3]} GB)?"):
+    model, size = choice, None
+    if choice == "__other__":
+        model = input(f"{ui.INDENT}Model name: ").strip() if sys.stdin.isatty() else ""
+        if not model:
+            steps.end()
+            return 1
+        choice = f"dl:{model}" if model not in installed else model
+    if choice.startswith("dl:"):
+        model = choice[3:]
+        size = next((f"~{gb} GB" for n, gb, _ in offer if n == model), "size: see the catalog")
+        if not _ask(f"Download {model} now ({size})?"):
             ui.info("download later with: " + (f"lms get {model}" if app["app"] == "lmstudio" else f"ollama pull {model}"))
             steps.end()
             return 1

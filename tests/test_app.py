@@ -66,3 +66,14 @@ def test_notification_script(monkeypatch):
     ui.notify("lecap: lesson ready", 'SPCS "Lesson 1" is ready')
     assert calls[0][:2] == ["osascript", "-e"]
     assert calls[0][2] == 'display notification "SPCS \\"Lesson 1\\" is ready" with title "lecap: lesson ready" sound name "Glass"'
+
+
+def test_model_suggestions_fit_the_memory():
+    from lecap import setup_ai
+
+    big = [n for n, _, _ in setup_ai.choices(32, "lmstudio")]
+    assert big[0] == "google/gemma-4-26b-a4b-qat" and "qwen/qwen3.6-35b-a3b" in big
+    assert [n for n, _, _ in setup_ai.choices(16, "lmstudio")][0] == "google/gemma-4-12b-qat"
+    assert [n for n, _, _ in setup_ai.choices(8, "lmstudio")] == ["google/gemma-4-e4b-qat"]
+    assert all(n for n, _, _ in setup_ai.choices(32, "ollama"))  # models without an Ollama tag are skipped
+    assert setup_ai.recommend(32, "ollama")[0] == "gemma4:26b"
