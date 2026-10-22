@@ -41,6 +41,13 @@ def clean(raw, silences):
     for s in raw:
         text = re.sub(r"\s+", " ", (s.get("text") or "")).strip()
         start, end = float(s["start"]), float(s["end"])
+        if not text:
+            dropped["empty"] += 1
+            continue
+        dur = max(end - start, 0.01)
+        if overlap(start, end, silences) / dur > 0.8:  # expected noise, not a Whisper loop
+            dropped["silence"] += 1
+            continue
         norm = text.lower()
         if norm == run_text:
             run_len += 1
@@ -48,13 +55,6 @@ def clean(raw, silences):
             if run_len >= 10:
                 loops += 1
             run_text, run_len = norm, 1
-        if not text:
-            dropped["empty"] += 1
-            continue
-        dur = max(end - start, 0.01)
-        if overlap(start, end, silences) / dur > 0.8:
-            dropped["silence"] += 1
-            continue
         if norm in FILLERS and (s.get("no_speech_prob") or 0) > 0.3:
             dropped["filler"] += 1
             continue

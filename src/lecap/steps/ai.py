@@ -1,5 +1,7 @@
 """--ai: chapters, summaries, tags, glossary and exam questions from any provider."""
 
+import bisect
+
 from pydantic import ValidationError
 
 from ..ai.schema import AiResult, json_schema
@@ -54,17 +56,41 @@ def build_prompt(lesson):
 
 def parse(data):
     try:
-        return AiResult.model_validate(data)
+        result = AiResult.model_validate(data)
     except ValidationError as e:
         raise LecapError(f"the AI answer does not match the expected format: {e.errors()[0]['msg']}")
+    # Valid JSON can still be a placeholder ("could not generate ..."): never cache or show that
+    if len(result.chapters) < 2 or not result.glossary or not result.exam_questions:
+        raise LecapError(f"the AI answer is nearly empty ({len(result.chapters)} chapters, "
+                         f"{len(result.glossary)} terms, {len(result.exam_questions)} questions): "
+                         f"{result.lesson_summary[:160]}")
+    return result
 
 
-def apply(lesson, result, meta):
-    """Use AI chapters (snapped to valid card ids) and store the extras on the lesson."""
-    valid = {c.id for c in lesson.cards}
+def card_times(lesson):
+    """{card id: start} at the time of the AI call, so cached results survive re-numbered cards."""
+    return {str(c.id): c.start for c in lesson.cards}
+
+
+def _remap(lesson, times):
+    """Old card id -> current card id (via start times when the cards changed)."""
+    starts = [c.start or 0 for c in lesson.cards]
+
+    def to_current(old):
+        t = (times or {}).get(str(old))
+        if t is None:
+            return min(max(old, 0), len(lesson.cards) - 1)
+        return max(bisect.bisect_right(starts, t + 0.5) - 1, 0)
+
+    return to_current
+
+
+def apply(lesson, result, meta, times=None):
+    """Use AI chapters and store the extras on the lesson. times: card_times() from the AI call."""
+    to_current = _remap(lesson, times)
     chapters, seen = [], set()
     for ch in sorted(result.chapters, key=lambda c: c.start_card):
-        card = ch.start_card if ch.start_card in valid else min(valid, key=lambda v: abs(v - ch.start_card))
+        card = lesson.cards[to_current(ch.start_card)].id
         if card in seen:
             continue
         seen.add(card)
@@ -78,8 +104,8 @@ def apply(lesson, result, meta):
     lesson.ai = {
         "title": result.lesson_title,
         "summary": result.lesson_summary,
-        "glossary": [t.model_dump() for t in result.glossary],
-        "questions": [q.model_dump() for q in result.exam_questions],
+        "glossary": [{**t.model_dump(), "card": to_current(t.card)} for t in result.glossary],
+        "questions": [{**q.model_dump(), "card": to_current(q.card)} for q in result.exam_questions],
         **meta,
     }
 

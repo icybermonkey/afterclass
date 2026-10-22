@@ -60,3 +60,13 @@ def test_breaks_and_segments():
     assert cards[0].kind == "break"
     assert cards[1].segments[0].text == "hi"
     assert cards[2].kind == "slide"  # silence does not cover it
+
+
+def test_long_silence_inside_a_card_becomes_a_break():
+    c = Card(id=0, kind="demo", start=0.0, end=1000.0)
+    c._ocr = {"demo": True}
+    cards = analyze.split_at_silences([c], silences=[[300.0, 900.0], [950.0, 960.0]])
+    assert [(p.kind, p.start, p.end) for p in cards] == [("demo", 0.0, 300.0), ("break", 300.0, 900.0), ("demo", 900.0, 1000.0)]
+    analyze.assign_segments(cards, [{"start": 10, "end": 12, "text": "a"}, {"start": 905, "end": 910, "text": "b"}])
+    analyze.mark_breaks(cards, [[300.0, 900.0]])
+    assert cards[1].kind == "break" and not cards[1].segments

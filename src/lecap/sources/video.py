@@ -74,7 +74,8 @@ class VideoSource(Source):
             steps.end(f"{len(silences)} silent stretches, {len(long)} longer than 3 min")
 
         segments, report = transcribe.clean(raw, silences)
-        if report["loops"] or report["dropped_share"] > 0.2:
+        speech_dropped = report["raw"] - report["kept"] - report["dropped"]["silence"] - report["dropped"]["empty"]
+        if report["loops"] or speech_dropped > 0.2 * max(report["raw"], 1):
             ctx.warnings.append(
                 f"{report['dropped_share']:.0%} of the transcript was filtered as Whisper hallucination "
                 f"({report['loops']} repetition loops). If text is missing, try: --redo transcribe -w")
@@ -82,7 +83,7 @@ class VideoSource(Source):
         # 5. Scenes
         csv_path = ctx.data / "scenes.csv"
         scenes_redone = False
-        if ctx.cached("scenes", csv_path, ctx.slides):
+        if ctx.cached("scenes", csv_path, ctx.slides, scenes.done_marker(ctx.data)):
             scene_list = scenes.parse_csv(csv_path)
             steps.skip("Detect slide changes", f"{len(scene_list)} scenes (cached, use --redo scenes or -t to change)")
         else:
@@ -127,6 +128,7 @@ class VideoSource(Source):
                     f"({', '.join(f'{n} by {h}' for h, n in by_how.items())})")
         n_before = len(cards)
         cards = analyze.merge_repeats(cards)
+        cards = analyze.split_at_silences(cards, silences)
         analyze.assign_segments(cards, segments)
         analyze.mark_breaks(cards, silences)
         if pages:
@@ -161,9 +163,14 @@ class VideoSource(Source):
                 ui.info(f"deck pages never shown in the recording: {_ranges(unseen)}")
         steps.end()
 
-        # 9. AI
+        # 9. AI (a failure here never costs you the page)
         if a.ai:
-            self._ai(ctx, steps, lesson)
+            try:
+                self._ai(ctx, steps, lesson)
+            except LecapError as e:
+                ui.warn(str(e))
+                ctx.warnings.append(f"AI step failed, page written without AI extras: {str(e)[:200]}")
+                steps.end()
 
         # 10. Render
         steps.begin("Write the page", "index.html with everything embedded; open it straight from the folder.")
@@ -215,13 +222,20 @@ class VideoSource(Source):
         steps.begin("AI study extras", f"{provider.label} ({model}): chapters with summaries, tags, glossary and "
                     "exam questions. Only text is sent (transcript + slide text), no video or images.")
         system, prompt = ai_step.build_prompt(lesson)
-        digest = hashlib.sha256((system + prompt).encode()).hexdigest()[:16]
+        # Content fingerprint without card numbers: re-cut cards don't invalidate the AI result
+        content = "\n".join(s.text for c in lesson.cards for s in c.segments) + "".join(c.text for c in lesson.cards)
+        digest = hashlib.sha256(content.encode()).hexdigest()[:16]
         ai_json = ctx.data / "ai.json"
         if ctx.cached("ai", ai_json):
             cached = json.loads(ai_json.read_text(encoding="utf-8"))
-            if cached.get("input") != digest:
-                ctx.warnings.append("the lesson changed since the AI step ran; use --redo ai to refresh it")
-            ai_step.apply(lesson, ai_step.parse(cached["result"]), cached["meta"])
+            if cached.get("input") != digest or "card_times" not in cached:
+                ctx.warnings.append("the transcript or slides changed since the AI step ran; use --redo ai to refresh it")
+            try:
+                result = ai_step.parse(cached["result"])
+            except LecapError:
+                ai_json.unlink()  # never keep an unusable answer around
+                raise
+            ai_step.apply(lesson, result, cached["meta"], cached.get("card_times"))
             steps.end(f"reused data/ai.json ({cached['meta']['provider']}, {cached['meta']['model']})")
             return
         ok, why = provider.available()
@@ -250,8 +264,8 @@ class VideoSource(Source):
         result = ai_step.parse(data)
         meta = {"provider": provider.name, "model": usage.model or model,
                 "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens, "cost_usd": usage.cost_usd}
-        ai_json.write_text(json.dumps({"input": digest, "meta": meta, "result": result.model_dump()},
-                                      ensure_ascii=False, indent=1), encoding="utf-8")
+        ai_json.write_text(json.dumps({"input": digest, "meta": meta, "card_times": ai_step.card_times(lesson),
+                                       "result": result.model_dump()}, ensure_ascii=False, indent=1), encoding="utf-8")
         ai_step.apply(lesson, result, meta)
         cost = f", ${usage.cost_usd:.2f}" if usage.cost_usd is not None else ""
         steps.end(f"{len(result.chapters)} chapters, {len(result.glossary)} glossary terms, "

@@ -24,12 +24,19 @@ def detect(video, data_dir, slides_dir, threshold):
     if slides_dir.exists():
         shutil.rmtree(slides_dir)
     (data_dir / "scenes.csv").unlink(missing_ok=True)
+    done_marker(data_dir).unlink(missing_ok=True)
     run([
         scenedetect_bin(), "-v", "warning", "-i", str(video), "-o", str(data_dir),
         "detect-adaptive", "--threshold", str(threshold),
         "list-scenes", "-q", "-f", "scenes",
         "save-images", "-n", "1", "-q", "85", "-o", str(slides_dir), "-f", "$SCENE_NUMBER",
     ])
+    # scenes.csv is written before the images, so only this marker means "complete"
+    done_marker(data_dir).touch()
+
+
+def done_marker(data_dir):
+    return data_dir / ".scenes.done"
 
 
 def parse_csv(path):

@@ -69,6 +69,32 @@ def _same_slide(a, b):
     return SequenceMatcher(None, a.text, b.text).ratio() >= 0.92
 
 
+def split_at_silences(cards, silences, min_len=180):
+    """Cut cards around long silences (breaks) so the break becomes its own foldable card."""
+    long = [s for s in silences if s[1] - s[0] >= min_len]
+    out = []
+    for c in cards:
+        pieces = [c]
+        for s0, s1 in long:
+            last = pieces[-1]
+            if s0 >= last.end or s1 <= last.start or (s0 <= last.start and s1 >= last.end):
+                continue
+            before = Card(**{**_fields(last), "end": max(s0, last.start)})
+            brk = Card(**{**_fields(last), "start": max(s0, last.start), "end": min(s1, last.end), "kind": "break"})
+            after = Card(**{**_fields(last), "start": min(s1, last.end)})
+            pieces[-1:] = [p for p in (before, brk, after) if p.end - p.start > 1]
+        for p in pieces:
+            p._ocr = c._ocr
+        out.extend(pieces)
+    for i, c in enumerate(out):
+        c.id = i
+    return out
+
+
+def _fields(card):
+    return {k: getattr(card, k) for k in card.__dataclass_fields__ if k != "segments"}
+
+
 def assign_segments(cards, segments):
     starts = [c.start for c in cards]
     for s in segments:
@@ -78,6 +104,8 @@ def assign_segments(cards, segments):
 
 def mark_breaks(cards, silences, min_len=60):
     for c in cards:
+        if c.kind == "break" and c.segments:  # speech after all: not a break
+            c.kind = "demo" if c._ocr.get("demo") else ("slide" if c._ocr.get("words") else "other")
         dur = (c.end or 0) - (c.start or 0)
         if not c.segments and dur >= min_len and overlap(c.start, c.end, silences) >= 0.7 * dur:
             c.kind = "break"
@@ -136,8 +164,11 @@ def _dedupe(chapters):
     return out
 
 
-def with_start(chapters, cards):
-    """Make sure the first card belongs to a chapter."""
+def with_start(chapters, cards, min_len=30):
+    """Drop chapters shorter than min_len seconds (the next one takes over) and make sure
+    the first card belongs to a chapter."""
+    chapters = [ch for k, ch in enumerate(chapters)
+                if k + 1 == len(chapters) or cards[chapters[k + 1].card].start - cards[ch.card].start >= min_len]
     if cards and (not chapters or chapters[0].card != cards[0].id):
         chapters.insert(0, Chapter(title="Beginning", card=cards[0].id, source="auto"))
     return chapters

@@ -50,6 +50,8 @@ def build_parser():
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    # Keep stdout and stderr in order when piped into a log
+    sys.stdout.reconfigure(line_buffering=True)
     try:
         if argv and argv[0] == "auth":
             return auth_main(argv[1:])

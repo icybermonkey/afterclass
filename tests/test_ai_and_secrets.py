@@ -37,6 +37,20 @@ def test_schema_is_self_contained_and_strict():
     assert s["additionalProperties"] is False
     assert s["properties"]["chapters"]["items"]["additionalProperties"] is False
 
+    def objects(node):
+        if isinstance(node, dict):
+            if node.get("type") == "object":
+                yield node
+            for v in node.values():
+                yield from objects(v)
+        elif isinstance(node, list):
+            for v in node:
+                yield from objects(v)
+
+    for obj in objects(s):  # every required field must be defined
+        assert set(obj.get("required", [])) <= set(obj["properties"]), obj.get("required")
+    assert "title" in s["properties"]["chapters"]["items"]["properties"]
+
 
 def test_prompt_and_apply():
     les = lesson()
@@ -124,3 +138,30 @@ def test_config_roundtrip(tmp_path, monkeypatch):
     cfg = config.load()
     assert cfg["threshold"] == 6.0 and cfg["language"] == 'de"x'
     assert "key" not in (tmp_path / "c.toml").read_text().lower().replace("api_key", "")
+
+
+def test_cached_ai_result_survives_renumbered_cards():
+    les = lesson()
+    times = ai_step.card_times(les)  # card 1 starts at 10s
+    # A break card is inserted before it: the same moment is now card 2
+    les.cards.insert(1, Card(id=1, kind="break", start=5, end=10))
+    les.cards[2].id = 2
+    ai_step.apply(les, AiResult.model_validate(RESULT), {"provider": "test", "model": "m"}, times)
+    assert les.ai["glossary"][0]["card"] == 2
+    assert les.ai["questions"][0]["card"] == 2
+
+
+def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):
+    from lecap.ui import LecapError
+
+    placeholder = {**RESULT, "chapters": RESULT["chapters"][:1], "glossary": [], "exam_questions": []}
+    with pytest.raises(LecapError, match="nearly empty"):
+        ai_step.parse(placeholder)
+    # Claude Code reporting a safety stop is retried, then fails with a clear message
+    fake = tmp_path / "claude"
+    fake.write_text("#!/bin/sh\ncat > /dev/null\n"
+                    f"echo '{json.dumps({'is_error': False, 'safety_stops': 1, 'structured_output': placeholder})}'\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    with pytest.raises(LecapError, match="safety classifier"):
+        ClaudeCodeProvider().run("sys", "prompt", json_schema(), "opus")

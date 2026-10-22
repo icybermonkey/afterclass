@@ -43,7 +43,8 @@ def json_schema():
         if isinstance(node, dict):
             if "$ref" in node:
                 return walk(dict(defs[node["$ref"].split("/")[-1]]))
-            return {k: walk(v) for k, v in node.items() if k != "title"}
+            # Drop pydantic's "title" annotations (strings), not properties that are named "title"
+            return {k: walk(v) for k, v in node.items() if not (k == "title" and isinstance(v, str))}
         if isinstance(node, list):
             return [walk(v) for v in node]
         return node

@@ -37,6 +37,11 @@ class ClaudeCodeProvider(Provider):
             except json.JSONDecodeError:
                 last = (r.stderr or r.stdout).strip()[-300:]
                 continue
+            if out.get("safety_stops"):
+                # A classifier stopped the answer; the "result" is then a placeholder, never use it
+                last = ("a safety classifier stopped the answer (lectures on security topics can trigger it). "
+                        "Try again later, or use `--ai claude` (API), which falls back to another model automatically")
+                continue
             if out.get("is_error") or not isinstance(out.get("structured_output"), dict):
                 last = str(out.get("result") or out.get("subtype"))[:300]
                 continue
