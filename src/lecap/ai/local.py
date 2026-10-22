@@ -1,6 +1,7 @@
 """Local LLM (offline): LM Studio or Ollama on this Mac. No key, nothing leaves the machine."""
 
 import json
+import time
 import urllib.error
 import urllib.request
 
@@ -58,14 +59,15 @@ class LocalProvider(Provider):
     needs_key = False
 
     def __init__(self):
-        self._server = None
+        self._server, self._checked = None, 0.0
 
     def server(self):
-        if self._server is None:
+        # Re-check every few seconds: the app may be started or stopped while `lecap open` runs
+        if time.time() - self._checked > 5:
             cfg = load_config()
             found = detect(cfg["local_llm_url"])
-            self._server = found[0] if found else False
-        return self._server or None
+            self._server, self._checked = (found[0] if found else None), time.time()
+        return self._server
 
     def available(self):
         srv = self.server()
@@ -103,7 +105,9 @@ class LocalProvider(Provider):
             pass
         return None
 
-    def run(self, system, prompt, schema, model):
+    def run(self, system, prompt, schema, model, web=False):
+        if web:
+            raise LecapError("local models can't search the web")
         srv = self.server()
         if not srv:
             raise LecapError("no local model server running. Start LM Studio or Ollama, or run `lecap setup ai`.")

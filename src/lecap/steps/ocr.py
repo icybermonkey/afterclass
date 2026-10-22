@@ -79,7 +79,7 @@ def _good(word):
 
 
 def analyze(parsed):
-    W, H, words = parsed["W"], parsed["H"], parsed["words"]
+    H, words = parsed["H"], parsed["words"]
     full = " ".join(w["text"] for w in words)
 
     top_strip = [w for w in words if w["top"] < 0.04 * H]

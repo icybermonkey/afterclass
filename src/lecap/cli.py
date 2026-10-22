@@ -3,7 +3,6 @@
 import argparse
 import getpass
 import shutil
-import subprocess
 import sys
 from pathlib import Path
 
@@ -46,7 +45,7 @@ def build_parser():
     m.add_argument("--copy", action="store_true", help="copy the video into media/ (default, see `lecap config set media`)")
     m.add_argument("--link", action="store_true", help="symlink the video into media/ instead of copying")
     m.add_argument("--move", action="store_true", help="move the video into media/ instead of copying")
-    g.add_argument("--open", action="store_true", help="open the page when done")
+    g.add_argument("--open", action="store_true", help="open the page with notes, Ask and settings (lecap open) when done")
     p.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     return p
 
@@ -60,6 +59,12 @@ def main(argv=None):
             return auth_main(argv[1:])
         if argv and argv[0] == "config":
             return config_main(argv[1:])
+        if argv[:2] == ["setup", "ai"]:
+            from .setup_ai import wizard
+            return wizard()
+        if argv and argv[0] in ("open", "settings"):
+            from .server import serve_main
+            return serve_main(argv)
         return run(build_parser().parse_args(argv))
     except LecapError as e:
         ui.error(str(e))
@@ -110,9 +115,11 @@ def run(args):
     print(f"\n{ui.GREEN}{ui.BOLD}Done{ui.RESET} in {steps.elapsed()}: {index}")
     for w in ctx.warnings:
         ui.warn(w)
-    ui.info(f"open it: open '{index}'")
+    ui.info(f"open it with notes, settings and Ask: {APP_NAME} open '{index.parent}'")
+    ui.info(f"or just the page: open '{index}'")
     if args.open:
-        subprocess.run(["open", str(index)])
+        from .server import serve
+        return serve(index.parent)
     return 0
 
 

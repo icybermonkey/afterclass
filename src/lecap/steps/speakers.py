@@ -37,8 +37,13 @@ def load_audio(video):
 def embed(audio, segments, progress=None, batch=32):
     """L2-normalised embeddings for segments >= MIN_LEN; None for the rest."""
     import numpy as np
-    import torch
-    from speechbrain.inference.speaker import EncoderClassifier
+
+    try:
+        import torch
+        from speechbrain.inference.speaker import EncoderClassifier
+    except ImportError as e:
+        raise LecapError(f"speaker detection needs SpeechBrain ({e}). Reinstall lecap: "
+                         f"uv tool install --reinstall --editable <repo>")
 
     # The Apple GPU is ~40x faster than the CPU here (seconds instead of a quarter hour)
     device = "mps" if torch.backends.mps.is_available() else "cpu"

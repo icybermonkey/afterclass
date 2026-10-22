@@ -8,132 +8,197 @@
 :root {
   --bg: #f7f7f5; --panel: #ffffff; --card: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0;
   --accent: #2f6fdb; --accent-soft: #e4edfc; --mark: #ffe58a; --now: #fff3c4; --star: #e0a100;
-  --demo: #7a4cc2; --demo-soft: #efe7fb; --break: #8a8a8f; --shadow: 0 1px 2px rgba(0,0,0,.06);
+  --demo: #7a4cc2; --demo-soft: #efe7fb; --break: #8a8a8f; --other: #0f8b6b; --other-soft: #e1f4ee;
+  --bad: #c0392b; --shadow: 0 1px 2px rgba(0,0,0,.06);
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --bg: #151517; --panel: #1c1c1f; --card: #1f1f23; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
     --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
-    --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --shadow: none;
+    --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --other: #4fd1a8; --other-soft: #173a31;
+    --bad: #ff7b6b; --shadow: none;
   }
 }
 :root[data-theme="dark"] {
   --bg: #151517; --panel: #1c1c1f; --card: #1f1f23; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
   --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
-  --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --shadow: none;
+  --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --other: #4fd1a8; --other-soft: #173a31;
+  --bad: #ff7b6b; --shadow: none;
 }
 * { box-sizing: border-box; }
-html, body { margin: 0; }
-body { background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; overflow: hidden; }
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
 a { color: var(--accent); }
 mark { background: var(--mark); color: inherit; border-radius: 2px; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
 
-/* Header */
-header { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line);
-  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; }
-#menu { display: none; font-size: 20px; width: 32px; }
-h1 { font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34ch; }
-.search { display: flex; align-items: center; gap: 6px; flex: 1 1 280px; min-width: 220px;
-  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+/* ---------- top bar ---------- */
+header { flex: none; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 16px; }
+#menu { display: none; font-size: 20px; width: 28px; }
+h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30ch; }
+.search { display: flex; align-items: center; gap: 6px; flex: 1 1 260px; min-width: 200px; max-width: 520px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; }
 .search input { flex: 1; border: 0; background: none; color: var(--fg); font: inherit; outline: none; min-width: 0; }
 .search .count { color: var(--muted); font-size: 12px; white-space: nowrap; }
 .search button { color: var(--muted); padding: 0 4px; font-size: 16px; }
 .chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
-.chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 13px; color: var(--muted); }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; font-size: 13px; color: var(--muted); }
 .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
 .tools { display: flex; gap: 10px; align-items: center; margin-left: auto; font-size: 13px; color: var(--muted); }
 .tools label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
-.tools button { border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+.tools button { border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
+#sync { font-size: 12px; }
+#sync.on { color: var(--other); }
 
-/* Layout */
-.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr) minmax(320px, 38%); gap: 16px; padding: 16px; align-items: start; }
-aside { position: sticky; top: 72px; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding-right: 4px; }
-#player { position: sticky; top: 72px; }
-#player video { width: 100%; border-radius: 8px; background: #000; display: block; }
-#nowinfo { color: var(--muted); font-size: 13px; margin-top: 6px; min-height: 1.5em; }
-#keys { color: var(--muted); font-size: 12px; margin-top: 10px; }
-kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+/* ---------- three columns ---------- */
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 290px minmax(0, 1fr) minmax(340px, 31%); }
+.pane { min-height: 0; overflow: auto; }
+#outline { border-right: 1px solid var(--line); background: var(--panel); padding: 8px 0 40px; }
+#stage { padding: 16px; overflow: auto; }
+#panel { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
 
-/* Sidebar */
-aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; }
-aside h3:first-child { margin-top: 0; }
-#toc { list-style: none; margin: 0; padding: 0; }
-#toc li button { display: flex; gap: 8px; width: 100%; text-align: left; padding: 4px 6px; border-radius: 6px; }
-#toc li button:hover { background: var(--accent-soft); }
-#toc li.on button { background: var(--accent-soft); font-weight: 600; }
-#toc time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
-.tags { display: flex; flex-wrap: wrap; gap: 4px; }
-.tag { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--fg); }
-.tag[aria-pressed="true"] { outline: 2px solid var(--accent); }
-details { border-bottom: 1px solid var(--line); padding: 4px 0; }
-details summary { cursor: pointer; }
-details p { margin: 4px 0 6px; color: var(--muted); }
-.jump { font-size: 12px; }
-.muted { color: var(--muted); }
-#summary { color: var(--muted); margin: 0; }
+/* outline */
+.chap { margin: 0; }
+.chap > summary { list-style: none; cursor: pointer; padding: 8px 14px 4px; display: flex; gap: 8px; align-items: baseline;
+  font-weight: 600; font-size: 14px; position: sticky; top: -8px; background: var(--panel); z-index: 1; }
+.chap > summary::-webkit-details-marker { display: none; }
+.chap > summary::before { content: "▸"; color: var(--muted); font-size: 11px; transition: transform .15s; }
+.chap[open] > summary::before { transform: rotate(90deg); }
+.chap > summary time { color: var(--muted); font-weight: normal; font-size: 12px; font-variant-numeric: tabular-nums; margin-left: auto; }
+.chap.on > summary { color: var(--accent); }
+.row { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 8px; width: 100%; text-align: left; align-items: center;
+  padding: 4px 14px 4px 24px; border-left: 3px solid transparent; scroll-margin: 60px; }
+.row:hover { background: var(--accent-soft); }
+.row.active { border-left-color: var(--accent); background: var(--accent-soft); }
+.row.focus { outline: 2px solid var(--accent); outline-offset: -2px; }
+.row img { width: 64px; height: 36px; object-fit: cover; border-radius: 3px; border: 1px solid var(--line); background: var(--bg); }
+.row .noimg { width: 64px; height: 36px; border-radius: 3px; background: var(--bg); border: 1px dashed var(--line); }
+.row .rt { font-size: 13px; line-height: 1.3; overflow: hidden; }
+.row .rt b { display: block; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.row .rt span { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.row .flags { color: var(--star); }
+.row[data-kind="demo"] .rt span .k { color: var(--demo); }
+.brk { margin: 2px 14px 2px 24px; font-size: 12px; color: var(--break); border: 1px dashed var(--line); border-radius: 6px; padding: 3px 8px; }
 
-/* Chapters + cards */
-.chap { margin: 22px 0 8px; }
-.chap:first-child { margin-top: 0; }
-.chap h2 { font-size: 18px; margin: 0; display: flex; gap: 10px; align-items: baseline; }
-.chap h2 time { font-size: 13px; color: var(--muted); font-weight: normal; font-variant-numeric: tabular-nums; }
-.chap p { margin: 4px 0; color: var(--muted); }
-.chap .tags { margin-top: 4px; }
-.card { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 12px; background: var(--card);
-  border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow); scroll-margin-top: 90px; }
-.card.active { border-color: var(--accent); }
-.card.focus { outline: 2px solid var(--accent); outline-offset: 1px; }
-.card[data-kind="demo"] { background: linear-gradient(90deg, var(--demo-soft), var(--card) 40%); }
-.thumb { position: relative; }
-.thumb img { width: 100%; border-radius: 6px; display: block; cursor: zoom-in; border: 1px solid var(--line); background: var(--bg); }
-.thumb .swap { position: absolute; right: 4px; bottom: 4px; background: var(--panel); border: 1px solid var(--line);
-  border-radius: 6px; font-size: 11px; padding: 1px 6px; opacity: .9; }
-.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+/* stage */
+#player { position: relative; }
+#player video { width: 100%; max-height: calc(100vh - 230px); background: #000; border-radius: 10px; display: block; }
+#now { display: flex; gap: 8px; align-items: baseline; margin: 10px 2px 4px; flex-wrap: wrap; }
+#now .ch { color: var(--muted); font-size: 13px; }
+#now .ti { font-weight: 600; }
+#now .sp { font-size: 12px; border-radius: 999px; padding: 0 8px; background: var(--other-soft); color: var(--other); }
+#slide { margin-top: 10px; }
+#slide img { max-width: 100%; max-height: 30vh; border-radius: 8px; border: 1px solid var(--line); cursor: zoom-in; background: #fff; display: block; }
+#slide .meta { font-size: 13px; color: var(--muted); margin-top: 4px; display: flex; gap: 10px; }
+#keys { color: var(--muted); font-size: 12px; margin-top: 14px; }
+
+/* panel tabs */
+.tabs { flex: none; display: flex; border-bottom: 1px solid var(--line); padding: 0 8px; }
+.tabs button { padding: 9px 12px 7px; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+.tab { flex: 1; min-height: 0; overflow: auto; padding: 12px 16px 40px; }
+.toolbar { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+.seg2 { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg2 button { padding: 1px 10px; font-size: 13px; }
+.seg2 button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); }
+
+/* transcript */
+.tcard { padding: 8px 0 12px; border-bottom: 1px solid var(--line); scroll-margin-top: 8px; }
+.tcard.active > .th .time { text-decoration: underline; }
+.th { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font-size: 13px; }
 .time { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
 .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
-.card[data-kind="demo"] .kind { color: var(--demo); }
+.tcard[data-kind="demo"] .kind { color: var(--demo); }
 .ctitle { font-weight: 600; }
-.actions { margin-left: auto; display: flex; gap: 2px; }
-.actions button { width: 28px; height: 26px; border-radius: 6px; color: var(--muted); font-size: 15px; }
-.actions button:hover { background: var(--bg); }
-.actions .star.on { color: var(--star); }
-.tx { margin: 6px 0 0; }
+.acts { margin-left: auto; display: flex; gap: 2px; }
+.acts button { width: 26px; height: 24px; border-radius: 6px; color: var(--muted); font-size: 14px; }
+.acts button:hover { background: var(--bg); }
+.acts .star.on { color: var(--star); }
+.points { margin: 6px 0 2px; padding: 6px 10px 6px 26px; background: var(--accent-soft); border-radius: 8px; font-size: 14px; }
+.points li { margin: 1px 0; }
+.para { margin: 6px 0 0; }
+.ptime { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; cursor: pointer; }
+.who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 6px; }
+.para.other { border-left: 3px solid var(--other); padding-left: 8px; background: var(--other-soft); border-radius: 0 6px 6px 0; }
+.para.other .who, .whoin.other { color: var(--other); }
+.whoin { font-size: 11px; font-weight: 600; text-transform: uppercase; margin: 0 4px; color: var(--muted); }
 .seg { cursor: pointer; border-radius: 3px; }
 .seg:hover { background: var(--accent-soft); }
 .seg.now { background: var(--now); }
-.nospeech { color: var(--muted); font-style: italic; }
+.filler { color: var(--muted); }
+.term { font-weight: 600; }
+.more { font-size: 13px; color: var(--accent); margin-top: 4px; }
+.nospeech { color: var(--muted); font-style: italic; font-size: 14px; }
 .slidehit { font-size: 13px; color: var(--muted); margin-top: 6px; border-left: 3px solid var(--mark); padding-left: 8px; }
-.note { width: 100%; margin-top: 8px; min-height: 60px; resize: vertical; font: inherit; font-size: 14px;
-  color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
-.break { display: flex; gap: 10px; align-items: center; color: var(--break); border: 1px dashed var(--line);
-  border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; }
-.break button { margin-left: auto; font-size: 13px; color: var(--accent); }
-.hidden { display: none !important; }
+.tbreak { color: var(--break); font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 #empty { color: var(--muted); padding: 30px 0; text-align: center; }
 
-/* Lightbox + toast */
+/* study, notes, ask */
+.tab h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; }
+.tab h3:first-child { margin-top: 0; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--fg); }
+.tag[aria-pressed="true"] { outline: 2px solid var(--accent); }
+details.qa { border-bottom: 1px solid var(--line); padding: 4px 0; }
+details.qa summary { cursor: pointer; }
+details.qa p { margin: 4px 0 6px; color: var(--muted); }
+.jump { font-size: 12px; color: var(--accent); }
+.spk { display: grid; grid-template-columns: 80px 1fr auto; gap: 8px; align-items: center; margin: 4px 0; font-size: 14px; }
+.spk input { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+.note { width: 100%; min-height: 90px; resize: vertical; font: inherit; font-size: 14px; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+.nitem { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.nitem .nt { white-space: pre-wrap; font-size: 14px; margin-top: 2px; }
+.btn { border: 1px solid var(--line); border-radius: 8px; padding: 3px 12px; font-size: 14px; background: var(--bg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+#asklog { display: flex; flex-direction: column; gap: 10px; margin-bottom: 12px; }
+.q { align-self: flex-end; background: var(--accent-soft); border-radius: 12px 12px 2px 12px; padding: 6px 10px; max-width: 90%; white-space: pre-wrap; }
+.a { background: var(--bg); border: 1px solid var(--line); border-radius: 12px 12px 12px 2px; padding: 8px 10px; }
+.a p { margin: 0 0 6px; }
+.a .times { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.a .times button { font-size: 12px; border: 1px solid var(--accent); color: var(--accent); border-radius: 999px; padding: 0 8px; }
+.a .by { font-size: 11px; color: var(--muted); margin-top: 6px; }
+.a .more-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.a .err { color: var(--bad); }
+.a details summary { font-size: 12px; color: var(--muted); cursor: pointer; margin-top: 4px; }
+.a details div { font-size: 13px; color: var(--muted); margin: 4px 0; }
+#askform textarea { width: 100%; min-height: 64px; resize: vertical; font: inherit; color: var(--fg); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px; }
+#askform .bar { display: flex; gap: 10px; align-items: center; margin-top: 6px; font-size: 13px; color: var(--muted); }
+#askform .bar .btn { margin-left: auto; }
+#askwho { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+
+/* overlays */
 #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 16px; }
-#lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
+#lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; background: #fff; }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
   padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
 
-/* Narrow screens: player on top, sidebar as a drawer */
-@media (max-width: 1100px) {
-  .layout { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; }
-  #player { order: -1; top: 56px; z-index: 10; background: var(--bg); padding-bottom: 6px; }
-  #player video { max-height: 32vh; }
-  #keys { display: none; }
-  #menu { display: block; }
-  aside { position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); max-height: none; z-index: 40;
-    background: var(--panel); padding: 16px; border-right: 1px solid var(--line); transform: translateX(-102%); transition: transform .2s; }
-  aside.open { transform: none; }
-  h1 { max-width: 60vw; }
+/* narrower screens */
+@media (max-width: 1250px) {
+  .layout { grid-template-columns: 250px minmax(0, 1fr) minmax(320px, 36%); }
+  h1 { max-width: 18ch; }
 }
-@media (max-width: 640px) {
-  .card { grid-template-columns: 1fr; }
-  .tools { margin-left: 0; }
+@media (max-width: 980px) {
+  body { overflow: auto; height: auto; }
+  .layout { display: flex; flex-direction: column; }
+  .pane { overflow: visible; }
+  #menu { display: block; }
+  #outline { position: fixed; top: 0; left: 0; bottom: 0; width: min(330px, 88vw); z-index: 40; transform: translateX(-102%);
+    transition: transform .2s; overflow: auto; border-right: 1px solid var(--line); }
+  #outline.open { transform: none; }
+  #stage { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 8px 16px; }
+  #player video { max-height: 34vh; }
+  #slide, #keys { display: none; }
+  #panel { border-left: 0; overflow: visible; }
+  .tab { overflow: visible; }
+  h1 { max-width: 60vw; }
 }
 </style>
 </head>
@@ -148,7 +213,7 @@ details p { margin: 4px 0 6px; color: var(--muted); }
     <button id="prev" title="Previous hit (Shift+Enter)">‹</button>
     <button id="next" title="Next hit (Enter)">›</button>
   </div>
-  <div class="chips" id="chips">
+  <div class="chips">
     <button class="chip" data-kind="all" aria-pressed="true">All</button>
     <button class="chip" data-kind="slide" aria-pressed="false">Slides</button>
     <button class="chip" data-kind="demo" aria-pressed="false">Demos</button>
@@ -156,32 +221,57 @@ details p { margin: 4px 0 6px; color: var(--muted); }
     <button class="chip hidden" id="tagchip" aria-pressed="true"></button>
   </div>
   <div class="tools">
-    <label title="Scroll along with the video"><input type="checkbox" id="follow"> Follow</label>
+    <label title="Keep the chapter list and the transcript scrolled to what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
+    <span id="sync" title=""></span>
     <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
     <button id="theme" title="Theme">◐</button>
+    <button id="settings" title="Settings">⚙</button>
   </div>
 </header>
 
 <div class="layout">
-  <aside id="side">
-    <h3>Chapters</h3>
-    <ol id="toc"></ol>
-    <div id="aibox"></div>
-    <div id="deckbox"></div>
-    <p class="muted" style="font-size:12px;margin-top:18px" id="footer"></p>
-  </aside>
-  <main id="list"></main>
-  <section id="player">
-    <video id="v" controls preload="metadata"></video>
-    <div id="nowinfo"></div>
+  <nav class="pane" id="outline"></nav>
+  <section class="pane" id="stage">
+    <div id="player"><video id="v" controls preload="metadata"></video></div>
+    <div id="now"></div>
+    <div id="slide" class="hidden"><img alt=""><div class="meta"></div></div>
     <div id="keys"><kbd>/</kbd> search · <kbd>j</kbd>/<kbd>k</kbd> next/prev card · <kbd>Enter</kbd> play card ·
-      <kbd>Space</kbd> play/pause · <kbd>s</kbd> star · <kbd>n</kbd> note</div>
+      <kbd>Space</kbd> play/pause · <kbd>s</kbd> star · <kbd>n</kbd> note · <kbd>a</kbd> ask</div>
+  </section>
+  <section class="pane" id="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="transcript" aria-selected="true">Transcript</button>
+      <button role="tab" data-tab="ask" aria-selected="false">Ask</button>
+      <button role="tab" data-tab="study" aria-selected="false">Study</button>
+      <button role="tab" data-tab="notes" aria-selected="false">Notes</button>
+    </div>
+    <div class="tab" id="tab-transcript">
+      <div class="toolbar">View
+        <span class="seg2"><button data-view="paragraphs">Paragraphs</button><button data-view="blocks">Blocks</button></span>
+      </div>
+      <div id="tx"></div>
+      <p id="empty" class="hidden">Nothing matches.</p>
+    </div>
+    <div class="tab hidden" id="tab-ask">
+      <div id="askwho"></div>
+      <div id="asklog"></div>
+      <form id="askform">
+        <textarea id="askq" placeholder="Ask about this lesson, e.g. “Where do we start talking about virtual machines?” or “Explain opaque predicates”"></textarea>
+        <div class="bar">
+          <label title="Include what is on screen right now"><input type="checkbox" id="asknow"> about the current moment</label>
+          <button class="btn primary" type="submit">Ask</button>
+        </div>
+      </form>
+    </div>
+    <div class="tab hidden" id="tab-study"></div>
+    <div class="tab hidden" id="tab-notes"></div>
   </section>
 </div>
 <div id="lightbox" class="hidden"><img alt=""></div>
 <div id="toast"></div>
 
 <script id="lesson-data" type="application/json">/*LESSON_DATA*/</script>
+<script id="lesson-notes" type="application/json">/*NOTES_DATA*/</script>
 <script>
 "use strict";
 const L = JSON.parse(document.getElementById("lesson-data").textContent);
@@ -191,172 +281,233 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": 
 const fold = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const fmt = t => { t = Math.max(0, Math.floor(t || 0)); return [t / 3600 | 0, (t % 3600) / 60 | 0, t % 60].map(n => String(n).padStart(2, "0")).join(":"); };
 const parseT = s => { if (!s) return null; const p = String(s).split(":").map(Number); return p.some(isNaN) ? null : p.reduce((a, b) => a * 60 + b, 0); };
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+const SERVER = location.protocol.startsWith("http");
+const api = async (method, path, body) => {
+  const r = await fetch(path, { method, headers: { "X-Lecap": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+};
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
 
-/* ---------- storage (per lesson, per browser) ---------- */
+/* ---------- notes: folder file (via lecap open) + this browser ---------- */
 const KEY = "lecap:" + L.id;
-let store = { stars: {}, notes: {} };
-try { store = Object.assign(store, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
-const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+let store = { stars: {}, notes: {}, speakers: {} };
+function mergeNotes(a, b) {  // union of stars, notes: keep the longer text when both differ
+  const out = { stars: { ...(a.stars || {}), ...(b.stars || {}) }, notes: { ...(a.notes || {}) }, speakers: { ...(a.speakers || {}), ...(b.speakers || {}) } };
+  for (const [k, v] of Object.entries(b.notes || {})) if (!out.notes[k] || v.length > out.notes[k].length) out.notes[k] = v;
+  return out;
+}
+try { store = mergeNotes(store, JSON.parse(document.getElementById("lesson-notes").textContent || "{}")); } catch (e) {}
+try { store = mergeNotes(store, JSON.parse(lsGet(KEY) || "{}")); } catch (e) {}
+let serverOK = false, saveTimer;
+function save() {
+  lsSet(KEY, JSON.stringify(store));
+  if (!serverOK) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => api("PUT", "/api/notes", store).catch(() => setSync(false)), 400);
+}
+function setSync(on) {
+  serverOK = on;
+  const s = $("#sync");
+  s.className = on ? "on" : "";
+  s.textContent = on ? "● saved in folder" : "○ this browser";
+  s.title = on ? "Notes are saved in the lesson's notes/ folder" : "Notes are kept in this browser. Open with `lecap open <folder>` to save them in the folder.";
+}
+setSync(false);
+if (SERVER) $("#sync").textContent = "… connecting";
 
 /* ---------- theme ---------- */
-const themes = ["auto", "light", "dark"];
-let theme = "auto";
-try { theme = localStorage.getItem("lecap:theme") || "auto"; } catch (e) {}
+let theme = lsGet("lecap:theme") || "auto";
 function applyTheme() {
-  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
-  else document.documentElement.setAttribute("data-theme", theme);
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", theme);
   $("#theme").textContent = { auto: "◐ Auto", light: "☀ Light", dark: "☾ Dark" }[theme];
 }
-$("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; try { localStorage.setItem("lecap:theme", theme); } catch (e) {} applyTheme(); };
+$("#theme").onclick = () => { theme = ["auto", "light", "dark"][(["auto", "light", "dark"].indexOf(theme) + 1) % 3]; lsSet("lecap:theme", theme); applyTheme(); };
 applyTheme();
 
-/* ---------- header + player ---------- */
+/* ---------- basics ---------- */
 const title = (L.ai && L.ai.title) || L.title;
-$("#title").textContent = title;
-document.title = title;
+$("#title").textContent = document.title = title;
 const v = $("#v");
 if (L.media) v.src = L.media; else $("#player").classList.add("hidden");
-
-/* ---------- build the list ---------- */
 const cards = L.cards;
 const chapterAt = {};
 L.chapters.forEach((ch, i) => { chapterAt[ch.card] = i; });
 const cardChapter = [];
 { let cur = 0; cards.forEach((c, i) => { if (chapterAt[c.id] !== undefined) cur = chapterAt[c.id]; cardChapter[i] = cur; }); }
+const speakerName = id => store.speakers[id] || (L.speakers.find(s => s.id === id) || {}).label || (id === "A" ? "Lecturer" : id ? "Speaker " + id : "");
+const multiSpeaker = L.speakers.length > 1;
+const terms = new Set((L.ai ? L.ai.glossary : []).map(g => g.term.replace(/\s*\(.*\)\s*$/, "").trim()).filter(t => t.length > 2));
+const termRe = terms.size ? new RegExp("\\b(" + [...terms].sort((a, b) => b.length - a.length).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi") : null;
+const FILLER = /^((?:okay|ok|so|um+|uh+|yeah|well|alright|right)[,.]?\s+)+/i;
+let view = lsGet("lecap:view") || L.transcript_view || "paragraphs";
 
-function tagsHtml(tags) {
-  return tags && tags.length ? `<div class="tags">${tags.map(t => `<button class="tag" data-tag="${esc(t)}">${esc(t)}</button>`).join("")}</div>` : "";
-}
-
-function cardHtml(c) {
-  const img = c.deck_image || c.image;
-  const swap = c.deck_image && c.image ? `<button class="swap" data-alt="${esc(c.image)}" title="Switch between slide deck and video frame">video</button>` : "";
-  const pdf = L.deck && c.deck_page ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank" class="kind">PDF p.${c.deck_page}</a>` : "";
-  const segs = c.segments.length
-    ? c.segments.map((s, j) => `<span class="seg" data-t="${s.start}" data-j="${j}">${esc(s.text)}</span>`).join(" ")
-    : `<span class="nospeech">no speech</span>`;
-  const note = store.notes[c.id] || "";
-  return `<article class="card" id="c${c.id}" data-id="${c.id}" data-kind="${c.kind}">
-    <div class="thumb">${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : ""}${swap}</div>
-    <div class="body">
-      <div class="meta">
-        <button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
-        <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
-        <span class="ctitle">${esc(c.title)}</span>
-        <span class="actions">
-          <button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
-          <button class="notebtn" title="Note (n)">✎</button>
-          <button class="link" title="Copy link to this moment">🔗</button>
-        </span>
-      </div>
-      <p class="tx">${segs}</p>
-      <div class="slidehit hidden"></div>
-      <textarea class="note${note ? "" : " hidden"}" placeholder="Your note…">${esc(note)}</textarea>
-    </div></article>`;
-}
-
-const parts = [];
-let i = 0;
-while (i < cards.length) {
-  const c = cards[i];
-  if (chapterAt[c.id] !== undefined) {
-    const k = chapterAt[c.id], ch = L.chapters[k];
-    parts.push(`<section class="chap" id="ch${k}" data-ch="${k}"><h2><span>${esc(ch.title)}</span><time>${fmt(c.start)}</time></h2>
-      ${ch.summary ? `<p>${esc(ch.summary)}</p>` : ""}${tagsHtml(ch.tags)}</section>`);
-  }
-  if (c.kind === "break") {  // fold consecutive breaks into one row
-    let j = i;
-    while (j + 1 < cards.length && cards[j + 1].kind === "break" && chapterAt[cards[j + 1].id] === undefined) j++;
-    const a = cards[i].start, b = cards[j].end;
-    parts.push(`<div class="break" data-from="${i}" data-to="${j}">⏸ <span>Silence / break · ${Math.round((b - a) / 60)} min · ${fmt(a)}–${fmt(b)}</span><button>show</button></div>`);
-    for (let k = i; k <= j; k++) parts.push(cardHtml(cards[k]).replace('class="card"', 'class="card folded hidden"'));
-    i = j + 1;
-    continue;
-  }
-  parts.push(cardHtml(c));
-  i++;
-}
-$("#list").innerHTML = parts.join("") + `<p id="empty" class="hidden">Nothing matches.</p>`;
-const cardEls = cards.map(c => document.getElementById("c" + c.id));
-
-/* search haystacks (kept up to date with notes) */
+/* ---------- search state ---------- */
+let kind = "all", starredOnly = false, tag = null, q = "", qterms = [];
 const hay = cards.map(c => fold([c.title, c.text, c.segments.map(s => s.text).join(" "), store.notes[c.id] || ""].join("\n")));
+const markRe = () => qterms.length ? new RegExp("(" + qterms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi") : null;
+function decorate(text, opts = {}) {  // escape, dim leading filler, emphasise glossary terms, mark search hits
+  let lead = "", rest = text;
+  if (opts.filler) { const m = text.match(FILLER); if (m) { lead = m[0]; rest = text.slice(m[0].length); } }
+  let h = (lead ? `<span class="filler">${esc(lead)}</span>` : "") + esc(rest);
+  if (termRe && opts.terms) h = h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(termRe, '<span class="term">$1</span>'));
+  const re = markRe();
+  if (re) h = h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(re, "<mark>$1</mark>"));
+  return h;
+}
 
-/* ---------- sidebar ---------- */
-$("#toc").innerHTML = L.chapters.map((ch, k) => {
-  const c = cards.find(x => x.id === ch.card);
-  return `<li data-ch="${k}"><button data-ch="${k}"><time>${fmt(c && c.start)}</time><span>${esc(ch.title)}</span></button></li>`;
-}).join("");
-if (L.ai) {
-  const allTags = [...new Set(L.chapters.flatMap(ch => ch.tags || []))];
-  const jump = id => { const c = cards.find(x => x.id === id); return c ? ` <button class="jump" data-card="${id}">→ ${fmt(c.start)}</button>` : ""; };
-  $("#aibox").innerHTML = `
-    <h3>Summary</h3><p id="summary">${esc(L.ai.summary)}</p>
-    ${allTags.length ? `<h3>Tags</h3>${tagsHtml(allTags)}` : ""}
-    <h3>Glossary</h3>${L.ai.glossary.map(t => `<details><summary>${esc(t.term)}</summary><p>${esc(t.definition)}${jump(t.card)}</p></details>`).join("")}
-    <h3>Exam questions</h3>${L.ai.questions.map(q => `<details><summary>${esc(q.question)}</summary><p>${esc(q.answer)}${jump(q.card)}</p></details>`).join("")}`;
+/* ---------- outline (left) ---------- */
+function renderOutline() {
+  const parts = [];
+  let i = 0;
+  const open = k => `<details class="chap" open data-ch="${k}"><summary><span>${esc(L.chapters[k].title)}</span><time>${fmt(cards[L.chapters[k].card].start)}</time></summary>`;
+  let inChap = false;
+  while (i < cards.length) {
+    const c = cards[i];
+    if (chapterAt[c.id] !== undefined) { if (inChap) parts.push("</details>"); parts.push(open(chapterAt[c.id])); inChap = true; }
+    if (c.kind === "break") {
+      let j = i;
+      while (j + 1 < cards.length && cards[j + 1].kind === "break" && chapterAt[cards[j + 1].id] === undefined) j++;
+      parts.push(`<div class="brk" data-from="${i}" data-to="${j}">⏸ break · ${Math.round((cards[j].end - c.start) / 60)} min · ${fmt(c.start)}</div>`);
+      i = j + 1;
+      continue;
+    }
+    const img = c.deck_image || c.image;
+    const label = c.title || (c.segments[0] ? c.segments[0].text.slice(0, 60) : (c.kind === "demo" ? "Live demo" : "—"));
+    parts.push(`<button class="row" id="r${c.id}" data-id="${c.id}" data-kind="${c.kind}">
+      ${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : `<span class="noimg"></span>`}
+      <span class="rt"><b>${esc(label)}</b><span>${fmt(c.start)} <span class="k">${c.kind === "demo" ? "· demo" : ""}</span> <span class="flags"></span></span></span></button>`);
+    i++;
+  }
+  if (inChap) parts.push("</details>");
+  $("#outline").innerHTML = parts.join("");
+  cards.forEach(c => updateFlags(c.id));
 }
-if (L.deck) {
-  const shown = new Set(cards.filter(c => c.deck_page).map(c => c.deck_page));
-  $("#deckbox").innerHTML = `<h3>Slide deck</h3><p class="muted" style="margin:0"><a href="${esc(L.deck)}" target="_blank">Open PDF</a> ·
-    ${shown.size} of ${L.deck_pages} pages shown in the recording</p>`;
+function updateFlags(id) {
+  const f = $(`#r${id} .flags`);
+  if (f) f.textContent = (store.stars[id] ? "★" : "") + (store.notes[id] ? " ✎" : "");
 }
-$("#footer").textContent = `Made with lecap · ${cards.length} cards` + (L.ai ? ` · AI: ${L.ai.provider} (${L.ai.model})` : "");
+
+/* ---------- transcript (right) ---------- */
+const expanded = new Set();
+function paragraphsOf(c) {
+  const out = [];
+  c.segments.forEach((s, j) => { if (!out.length || s.para) out.push({ start: s.start, speaker: s.speaker, segs: [] }); out[out.length - 1].segs.push(j); });
+  return out;
+}
+function segHTML(c, j) { return `<span class="seg" data-c="${c.id}" data-j="${j}" data-t="${c.segments[j].start}">${decorate(c.segments[j].text, { filler: true, terms: true })}</span>`; }
+function transcriptBody(c) {
+  if (!c.segments.length) return `<p class="nospeech">no speech</p>`;
+  if (view === "blocks") {
+    let last = null;
+    return `<p class="para">` + c.segments.map((s, j) => {
+      let lab = "";
+      if (multiSpeaker && s.speaker !== last && (last !== null || s.speaker !== "A")) lab = `<span class="whoin ${s.speaker !== "A" ? "other" : ""}">${esc(speakerName(s.speaker))}:</span>`;
+      last = s.speaker;
+      return lab + segHTML(c, j);
+    }).join(" ") + `</p>`;
+  }
+  const paras = paragraphsOf(c);
+  const searching = qterms.length > 0;
+  const limit = expanded.has(c.id) || searching || paras.length <= 3 ? paras.length : 2;
+  let prevSpk = null;
+  const html = paras.slice(0, limit).map(p => {
+    const other = multiSpeaker && p.speaker && p.speaker !== "A";
+    const showWho = multiSpeaker && (p.speaker !== prevSpk) && (prevSpk !== null || other);
+    prevSpk = p.speaker;
+    return `<p class="para ${other ? "other" : ""}"><span class="ptime" data-t="${p.start}">${fmt(p.start)}</span>${showWho ? `<span class="who">${esc(speakerName(p.speaker))}</span>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
+  }).join("");
+  return html + (limit < paras.length ? `<button class="more" data-more="${c.id}">show all ${paras.length} paragraphs</button>` : "");
+}
+function tcardHTML(c) {
+  const pdf = L.deck && c.deck_page ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank" class="kind">PDF p.${c.deck_page}</a>` : "";
+  const points = c.points && c.points.length ? `<ul class="points">${c.points.map(p => `<li>${esc(p)}</li>`).join("")}</ul>` : "";
+  return `<article class="tcard" id="t${c.id}" data-id="${c.id}" data-kind="${c.kind}">
+    <div class="th"><button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
+      <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}<span class="ctitle">${decorate(c.title)}</span>
+      <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
+        <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment">🔗</button></span></div>
+    ${points}<div class="body">${transcriptBody(c)}</div><div class="slidehit hidden"></div></article>`;
+}
+function renderTranscript() {
+  const parts = [];
+  let i = 0;
+  while (i < cards.length) {
+    const c = cards[i];
+    if (c.kind === "break") {
+      let j = i;
+      while (j + 1 < cards.length && cards[j + 1].kind === "break") j++;
+      parts.push(`<div class="tbreak" data-from="${i}" data-to="${j}">⏸ silence / break · ${Math.round((cards[j].end - c.start) / 60)} min (${fmt(c.start)}–${fmt(cards[j].end)})</div>`);
+      i = j + 1;
+      continue;
+    }
+    parts.push(tcardHTML(c));
+    i++;
+  }
+  $("#tx").innerHTML = parts.join("");
+  $$(".seg2 [data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === view));
+  activeSeg = null;
+  applyFilter(false);
+}
+function refreshCard(id) {  // re-render one transcript card (expand, search marks)
+  const el = document.getElementById("t" + id);
+  if (el) { const n = document.createElement("div"); n.innerHTML = tcardHTML(cards[id]); el.replaceWith(n.firstElementChild); }
+}
 
 /* ---------- filters + search ---------- */
-let kind = "all", starredOnly = false, tag = null, q = "", terms = [];
 const tagCards = t => new Set(cards.filter((c, idx) => (L.chapters[cardChapter[idx]]?.tags || []).includes(t)).map(c => c.id));
-
-function highlight(text) {
-  let h = esc(text);
-  if (!terms.length) return h;
-  const re = new RegExp("(" + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
-  return h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(re, "<mark>$1</mark>"));
+function visible(c, idx, tset) {
+  if (c.kind === "break") return !(kind !== "all" || starredOnly || tag || qterms.length);
+  let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]) && (!tset || tset.has(c.id));
+  if (ok && qterms.length) ok = qterms.every(t => hay[idx].includes(t));
+  return ok;
 }
-
-function apply() {
-  terms = fold(q).split(/\s+/).filter(Boolean);
+function applyFilter(rerender = true) {
+  qterms = fold(q).split(/\s+/).filter(Boolean);
   const tset = tag ? tagCards(tag) : null;
-  const filtering = kind !== "all" || starredOnly || tag || terms.length;
-  let shownCards = 0;
+  let shown = 0;
   cards.forEach((c, idx) => {
-    const el = cardEls[idx];
-    let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]) && (!tset || tset.has(c.id));
-    if (ok && terms.length) ok = terms.every(t => hay[idx].includes(t));
-    if (el.classList.contains("folded")) ok = ok && filtering && c.segments.length > 0 || (!filtering && el.dataset.open === "1");
-    el.classList.toggle("hidden", !ok);
-    if (ok) shownCards++;
-    // highlight transcript + title, show slide-text hits
-    $$(".seg", el).forEach(s => { s.innerHTML = highlight(c.segments[+s.dataset.j].text); });
-    $(".ctitle", el).innerHTML = highlight(c.title);
-    const sh = $(".slidehit", el);
-    const slideMatch = terms.length && ok && terms.some(t => fold(c.text).includes(t));
-    sh.classList.toggle("hidden", !slideMatch);
-    if (slideMatch) sh.innerHTML = "Slide: " + highlight(snippet(c.text, terms));
+    const ok = visible(c, idx, tset);
+    const row = document.getElementById("r" + c.id), tc = document.getElementById("t" + c.id);
+    row?.classList.toggle("hidden", !ok);
+    if (tc) {
+      tc.classList.toggle("hidden", !ok);
+      if (rerender && ok) { refreshCard(c.id); }
+    }
+    if (ok && c.kind !== "break") shown++;
+    const tc2 = document.getElementById("t" + c.id);
+    if (tc2 && ok) {
+      const sh = $(".slidehit", tc2);
+      const hit = qterms.length && qterms.some(t => fold(c.text).includes(t));
+      sh.classList.toggle("hidden", !hit);
+      if (hit) sh.innerHTML = "Slide: " + decorate(snippet(c.text, qterms));
+    }
   });
-  $$(".break").forEach(b => b.classList.toggle("hidden", !!filtering));
+  const filtering = kind !== "all" || starredOnly || tag || qterms.length;
+  $$(".brk, .tbreak").forEach(b => b.classList.toggle("hidden", !!filtering));
   $$(".chap").forEach(ch => {
     const k = +ch.dataset.ch;
-    const any = cards.some((c, idx) => cardChapter[idx] === k && !cardEls[idx].classList.contains("hidden"));
-    ch.classList.toggle("hidden", filtering && !any);
+    ch.classList.toggle("hidden", !!filtering && !cards.some((c, idx) => cardChapter[idx] === k && !document.getElementById("r" + c.id)?.classList.contains("hidden")));
   });
-  $("#empty").classList.toggle("hidden", shownCards > 0);
-  const hits = $$("#list mark").filter(m => !m.closest(".hidden")).length;
-  $("#count").textContent = terms.length ? `${shownCards} cards · ${hits} hits` : (filtering ? `${shownCards} cards` : "");
+  $("#empty").classList.toggle("hidden", shown > 0);
+  const hits = $$("#tx mark").filter(m => !m.closest(".hidden")).length;
+  $("#count").textContent = qterms.length ? `${shown} cards · ${hits} hits` : (filtering ? `${shown} cards` : "");
   hitIndex = -1;
   setHash();
 }
-
 function snippet(text, ts) {
   const f = fold(text), pos = Math.min(...ts.map(t => f.indexOf(t)).filter(p => p >= 0));
   const a = Math.max(0, pos - 60);
   return (a ? "…" : "") + text.slice(a, a + 180).replace(/\s+/g, " ") + (a + 180 < text.length ? "…" : "");
 }
-
 let hitIndex = -1;
 function gotoHit(dir) {
-  const marks = $$("#list mark").filter(m => !m.closest(".hidden"));
+  const marks = $$("#tx mark").filter(m => !m.closest(".hidden"));
   if (!marks.length) return;
+  showTab("transcript");
   hitIndex = (hitIndex + dir + marks.length) % marks.length;
   marks.forEach(m => m.style.outline = "");
   const m = marks[hitIndex];
@@ -364,115 +515,171 @@ function gotoHit(dir) {
   m.scrollIntoView({ block: "center", behavior: "smooth" });
   $("#count").textContent = $("#count").textContent.replace(/^(\d+ cards · )(?:\d+\/)?/, `$1${hitIndex + 1}/`);
 }
-
-let timer;
-$("#q").addEventListener("input", e => { clearTimeout(timer); timer = setTimeout(() => { q = e.target.value; apply(); }, 120); });
+let qTimer;
+$("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { q = e.target.value; applyFilter(); }, 150); });
 $("#q").addEventListener("keydown", e => {
-  if (e.key === "Enter") { e.preventDefault(); clearTimeout(timer); if (q !== e.target.value) { q = e.target.value; apply(); } gotoHit(e.shiftKey ? -1 : 1); }
-  if (e.key === "Escape") { e.target.value = ""; q = ""; apply(); e.target.blur(); }
+  if (e.key === "Enter") { e.preventDefault(); clearTimeout(qTimer); if (q !== e.target.value) { q = e.target.value; applyFilter(); } gotoHit(e.shiftKey ? -1 : 1); }
+  if (e.key === "Escape") { e.target.value = ""; q = ""; applyFilter(); e.target.blur(); }
 });
 $("#next").onclick = () => gotoHit(1);
 $("#prev").onclick = () => gotoHit(-1);
-$$("#chips [data-kind]").forEach(b => b.onclick = () => {
-  kind = b.dataset.kind;
-  $$("#chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x === b));
-  apply();
-});
-$("#starred").onclick = () => { starredOnly = !starredOnly; $("#starred").setAttribute("aria-pressed", starredOnly); apply(); };
+$$(".chips [data-kind]").forEach(b => b.onclick = () => { kind = b.dataset.kind; $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x === b)); applyFilter(false); });
+$("#starred").onclick = () => { starredOnly = !starredOnly; $("#starred").setAttribute("aria-pressed", starredOnly); applyFilter(false); };
 function setTag(t) {
   tag = tag === t ? null : t;
   $("#tagchip").classList.toggle("hidden", !tag);
   $("#tagchip").textContent = tag ? `#${tag} ✕` : "";
   $$(".tag").forEach(x => x.setAttribute("aria-pressed", x.dataset.tag === tag));
-  apply();
+  applyFilter(false);
 }
 $("#tagchip").onclick = () => setTag(tag);
 
-/* ---------- clicks ---------- */
-function seek(t, play = true) {
-  if (!L.media) return;
-  v.currentTime = t;
-  if (play) v.play().catch(() => {});
+/* ---------- tabs ---------- */
+function showTab(name) {
+  $$(".tabs [data-tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  $$(".tab").forEach(t => t.classList.toggle("hidden", t.id !== "tab-" + name));
+  if (name === "notes") renderNotes();
+  if (name === "ask") setTimeout(() => $("#askq").focus(), 0);
 }
-function scrollToCard(id) {
-  const el = document.getElementById("c" + id);
-  if (!el) return;
-  if (el.classList.contains("hidden")) { // reveal it: clear filters
-    kind = "all"; starredOnly = false; tag = null; q = ""; $("#q").value = "";
-    $$("#chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
-    $("#starred").setAttribute("aria-pressed", false); $("#tagchip").classList.add("hidden");
-    if (el.classList.contains("folded")) el.dataset.open = "1";
-    apply();
+$$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+
+/* ---------- study tab ---------- */
+function renderStudy() {
+  const jump = id => { const c = cards[id]; return c ? ` <button class="jump" data-card="${id}">→ ${fmt(c.start)}</button>` : ""; };
+  let h = "";
+  if (L.ai) {
+    const allTags = [...new Set(L.chapters.flatMap(ch => ch.tags || []))];
+    h += `<h3>Summary</h3><p>${esc(L.ai.summary)}</p>`;
+    if (allTags.length) h += `<h3>Tags</h3><div class="tags">${allTags.map(t => `<button class="tag" data-tag="${esc(t)}">${esc(t)}</button>`).join("")}</div>`;
+    h += `<h3>Chapters</h3>` + L.chapters.map((ch, k) => `<details class="qa"><summary>${esc(ch.title)} <span class="muted">${fmt(cards[ch.card].start)}</span></summary><p>${esc(ch.summary || "")}${jump(ch.card)}</p></details>`).join("");
+    h += `<h3>Glossary</h3>` + L.ai.glossary.map(t => `<details class="qa"><summary>${esc(t.term)}</summary><p>${esc(t.definition)}${jump(t.card)}</p></details>`).join("");
+    h += `<h3>Exam questions</h3>` + L.ai.questions.map(x => `<details class="qa"><summary>${esc(x.question)}</summary><p>${esc(x.answer)}${jump(x.card)}</p></details>`).join("");
+  } else {
+    h += `<h3>Study extras</h3><p class="muted">Summaries, tags, a glossary, exam questions and key points come from a language model.
+      Rebuild with <code>--ai</code> (a local model, offline, or Claude online) to add them.</p>`;
   }
-  el.scrollIntoView({ block: "start", behavior: "smooth" });
-  setFocus(cardEls.indexOf(el));
+  if (multiSpeaker) {
+    h += `<h3>Speakers <span class="muted" style="text-transform:none">(experimental, rename them)</span></h3>` +
+      L.speakers.map(s => `<div class="spk"><span class="muted">${s.minutes} min</span><input data-spk="${s.id}" value="${esc(speakerName(s.id))}"><button class="jump" data-firstspk="${s.id}">first →</button></div>`).join("");
+  }
+  if (L.deck) {
+    const shown = new Set(cards.filter(c => c.deck_page).map(c => c.deck_page));
+    h += `<h3>Slide deck</h3><p class="muted"><a href="${esc(L.deck)}" target="_blank">Open PDF</a> · ${shown.size} of ${L.deck_pages} pages shown in the recording</p>`;
+  }
+  h += `<p class="muted" style="font-size:12px;margin-top:18px">Made with lecap · ${cards.length} cards${L.ai ? ` · AI: ${esc(L.ai.provider)} (${esc(L.ai.model)})` : ""}</p>`;
+  $("#tab-study").innerHTML = h;
 }
+
+/* ---------- notes tab ---------- */
+let current = -1;  // card shown in the player
+function renderNotes() {
+  const id = focusIdx >= 0 ? focusIdx : Math.max(current, 0);
+  const c = cards[id];
+  let h = `<h3>Note for ${fmt(c.start)} · ${esc(c.title || c.kind)}</h3>
+    <textarea class="note" data-id="${id}" placeholder="Your note for this moment…">${esc(store.notes[id] || "")}</textarea>
+    <div style="display:flex;gap:8px;margin-top:6px"><button class="btn" data-starbtn="${id}">${store.stars[id] ? "★ Starred" : "☆ Star"}</button>
+    <button class="btn" id="export2">Export as Markdown</button></div>`;
+  const items = cards.filter(x => store.stars[x.id] || store.notes[x.id]);
+  h += `<h3>All notes and stars (${items.length})</h3>` + (items.length ? items.map(x => `<div class="nitem"><button class="time" data-t="${x.start}" data-card="${x.id}">${fmt(x.start)}</button>
+    ${store.stars[x.id] ? "★" : ""} <b>${esc(x.title || "")}</b><div class="nt">${esc(store.notes[x.id] || "")}</div></div>`).join("")
+    : `<p class="muted">Star a card (<kbd>s</kbd>) or write a note (<kbd>n</kbd>).</p>`);
+  $("#tab-notes").innerHTML = h;
+}
+
+/* ---------- player + clicks ---------- */
+function seek(t, play = true) { if (!L.media) return; v.currentTime = t; if (play) v.play().catch(() => {}); }
+function revealCard(id) {
+  const tc = document.getElementById("t" + id);
+  if (tc && tc.classList.contains("hidden")) {
+    kind = "all"; starredOnly = false; tag = null; q = ""; $("#q").value = "";
+    $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
+    $("#starred").setAttribute("aria-pressed", false); $("#tagchip").classList.add("hidden");
+    applyFilter();
+  }
+}
+function goCard(id, play = true) {
+  revealCard(id);
+  setFocus(id);
+  scrollToCard(id, true);
+  seek(cards[id].start, play);
+}
+function scrollToCard(id, force) {
+  if (!force && (!$("#follow").checked || Date.now() - userScroll < 6000)) return;
+  const row = document.getElementById("r" + id), tc = document.getElementById("t" + id);
+  row?.closest("details")?.setAttribute("open", "");
+  row?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  if (tc && !$("#tab-transcript").classList.contains("hidden")) tc.scrollIntoView({ block: "start", behavior: "smooth" });
+}
+let userScroll = 0;
+["wheel", "touchmove"].forEach(ev => { $("#outline").addEventListener(ev, () => userScroll = Date.now(), { passive: true });
+  $("#tab-transcript").addEventListener(ev, () => userScroll = Date.now(), { passive: true }); });
 
 document.addEventListener("click", e => {
   const t = e.target;
   if (t.closest("#lightbox")) { $("#lightbox").classList.add("hidden"); return; }
+  const row = t.closest(".row");
+  if (row) { goCard(+row.dataset.id); closeOutline(); return; }
   const seg = t.closest(".seg");
-  if (seg) { seek(+seg.dataset.t); return; }
-  if (t.closest(".time")) { seek(+t.closest(".time").dataset.t); return; }
-  if (t.matches(".thumb img")) { $("#lightbox img").src = t.src; $("#lightbox").classList.remove("hidden"); return; }
-  if (t.matches(".swap")) {
-    const img = $("img", t.parentNode), alt = t.dataset.alt;
-    t.dataset.alt = img.getAttribute("src"); img.src = alt;
-    t.textContent = t.textContent === "video" ? "slide" : "video";
-    return;
-  }
-  const card = t.closest(".card");
-  if (t.closest(".star")) { toggleStar(+card.dataset.id); return; }
-  if (t.closest(".notebtn")) { openNote(+card.dataset.id); return; }
-  if (t.closest(".link")) { copyLink(cards[+card.dataset.id].start); return; }
+  if (seg) { seek(+seg.dataset.t); setFocus(+seg.dataset.c); return; }
+  if (t.closest(".ptime")) { seek(+t.closest(".ptime").dataset.t); return; }
+  const tm = t.closest(".time");
+  if (tm) { if (tm.dataset.card) goCard(+tm.dataset.card); else seek(+tm.dataset.t); return; }
+  if (t.id === "slidetoggle") { lsSet("lecap:slide", lsGet("lecap:slide") === "off" ? "on" : "off"); showNow(current >= 0 ? current : 0); return; }
+  if (t.matches("#slide img")) { $("#lightbox img").src = t.src; $("#lightbox").classList.remove("hidden"); return; }
+  const more = t.closest("[data-more]");
+  if (more) { expanded.add(+more.dataset.more); refreshCard(+more.dataset.more); return; }
+  const tc = t.closest(".tcard");
+  if (t.closest(".star")) { toggleStar(+tc.dataset.id); return; }
+  if (t.closest(".notebtn")) { openNote(+tc.dataset.id); return; }
+  if (t.closest(".link")) { copyLink(cards[+tc.dataset.id].start); return; }
   if (t.closest(".tag")) { setTag(t.closest(".tag").dataset.tag); return; }
-  if (t.closest(".jump")) { const id = +t.closest(".jump").dataset.card; scrollToCard(id); seek(cards[id].start); closeSide(); return; }
-  const toc = t.closest("#toc button");
-  if (toc) { const ch = L.chapters[+toc.dataset.ch]; scrollToCard(ch.card); seek(cards[ch.card].start, false); closeSide(); return; }
-  const br = t.closest(".break button");
-  if (br) {
-    const box = br.parentNode, open = br.textContent === "show";
-    for (let k = +box.dataset.from; k <= +box.dataset.to; k++) { cardEls[k].dataset.open = open ? "1" : ""; cardEls[k].classList.toggle("hidden", !open); }
-    br.textContent = open ? "hide" : "show";
-    return;
+  if (t.dataset.starbtn !== undefined) { toggleStar(+t.dataset.starbtn); renderNotes(); return; }
+  if (t.id === "export2") { exportNotes(); return; }
+  if (t.closest(".jump")) {
+    const j = t.closest(".jump");
+    if (j.dataset.firstspk) { const c = cards.find(c => c.segments.some(s => s.speaker === j.dataset.firstspk)); if (c) { const s = c.segments.find(s => s.speaker === j.dataset.firstspk); goCard(c.id, false); seek(s.start); } return; }
+    goCard(+j.dataset.card); return;
   }
+  if (t.dataset.seek !== undefined) { seek(+t.dataset.seek); const ci = cardAt(+t.dataset.seek); if (ci >= 0) { revealCard(ci); setFocus(ci); scrollToCard(ci, true); } return; }
 });
-$("#menu").onclick = () => $("#side").classList.toggle("open");
-const closeSide = () => $("#side").classList.remove("open");
+$("#menu").onclick = () => $("#outline").classList.toggle("open");
+const closeOutline = () => $("#outline").classList.remove("open");
+$$(".seg2 [data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; lsSet("lecap:view", view); renderTranscript(); if (current >= 0) scrollToCard(current, true); });
+$("#settings").onclick = () => SERVER && serverOK ? window.open("/settings", "_blank") : toast("Settings: run `lecap settings` in Terminal (or open this lesson with `lecap open`)");
 
 function toggleStar(id) {
   if (store.stars[id]) delete store.stars[id]; else store.stars[id] = true;
   save();
-  const b = $(".star", cardEls[id]);
-  b.classList.toggle("on", !!store.stars[id]);
-  b.textContent = store.stars[id] ? "★" : "☆";
-  if (starredOnly) apply();
+  const b = $(`#t${id} .star`);
+  if (b) { b.classList.toggle("on", !!store.stars[id]); b.textContent = store.stars[id] ? "★" : "☆"; }
+  updateFlags(id);
+  if (starredOnly) applyFilter(false);
 }
-function openNote(id) {
-  const ta = $(".note", cardEls[id]);
-  ta.classList.remove("hidden");
-  ta.focus();
-}
+function openNote(id) { setFocus(id); showTab("notes"); setTimeout(() => $("#tab-notes .note")?.focus(), 0); }
 document.addEventListener("input", e => {
-  if (!e.target.matches(".note")) return;
-  const id = +e.target.closest(".card").dataset.id;
-  const val = e.target.value;
-  if (val.trim()) store.notes[id] = val; else delete store.notes[id];
-  const c = cards[id];
-  hay[id] = fold([c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
-  save();
+  if (e.target.matches(".note")) {
+    const id = +e.target.dataset.id, val = e.target.value;
+    if (val.trim()) store.notes[id] = val; else delete store.notes[id];
+    const c = cards[id];
+    hay[id] = fold([c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
+    updateFlags(id);
+    save();
+  }
+  if (e.target.dataset.spk) {
+    const val = e.target.value.trim();
+    if (val) store.speakers[e.target.dataset.spk] = val; else delete store.speakers[e.target.dataset.spk];
+    save();
+    clearTimeout(window._spkT);
+    window._spkT = setTimeout(renderTranscript, 500);
+  }
 });
-
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1600); }
 function copyLink(t) {
   const url = location.href.split("#")[0] + "#t=" + fmt(t);
   (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
     .then(() => toast("Link copied: " + fmt(t)), () => { history.replaceState(null, "", "#t=" + fmt(t)); toast("Link is in the address bar"); });
 }
-
-/* ---------- export notes ---------- */
-$("#export").onclick = () => {
-  const lines = [`# ${title} — notes`, ""];
+function exportNotes() {
+  const lines = [`# ${title}: notes`, ""];
   let n = 0;
   L.chapters.forEach((ch, k) => {
     const items = cards.filter((c, idx) => cardChapter[idx] === k && (store.stars[c.id] || store.notes[c.id]));
@@ -489,74 +696,189 @@ $("#export").onclick = () => {
     });
   });
   if (!n) { toast("Star a card or write a note first"); return; }
-  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/markdown" }));
   a.download = `${title.replace(/[\\/:*?"<>|]+/g, "-")} notes.md`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   toast(`Exported ${n} card${n > 1 ? "s" : ""}`);
-};
+}
+$("#export").onclick = exportNotes;
 
 /* ---------- playback sync ---------- */
-const segIndex = [];
-cards.forEach((c, idx) => c.segments.forEach((s, j) => segIndex.push({ t: s.start, end: s.end, idx, j })));
-segIndex.sort((a, b) => a.t - b.t);
 const cardStarts = cards.map(c => c.start ?? 0);
 const find = (arr, t, key) => { let lo = 0, hi = arr.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (key(arr[m]) <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; };
-let activeCard = -1, activeSeg = null, activeCh = -1;
-v.addEventListener("timeupdate", () => {
-  const t = v.currentTime;
-  const ci = find(cardStarts, t, x => x);
-  if (ci !== activeCard) {
-    if (activeCard >= 0) cardEls[activeCard].classList.remove("active");
-    activeCard = ci;
-    if (ci >= 0) {
-      cardEls[ci].classList.add("active");
-      if ($("#follow").checked && !cardEls[ci].classList.contains("hidden")) cardEls[ci].scrollIntoView({ block: "start", behavior: "smooth" });
-    }
-    const ch = ci >= 0 ? cardChapter[ci] : -1;
-    if (ch !== activeCh) {
-      activeCh = ch;
-      $$("#toc li").forEach(li => li.classList.toggle("on", +li.dataset.ch === ch));
-    }
-    $("#nowinfo").textContent = ci >= 0 ? [L.chapters[cardChapter[ci]]?.title, cards[ci].title].filter(Boolean).join(" › ") : "";
+const cardAt = t => find(cardStarts, t, x => x);
+let activeSeg = null, activeCh = -1;
+function showNow(ci) {
+  const c = cards[ci], ch = L.chapters[cardChapter[ci]];
+  $("#now").innerHTML = `<span class="ch">${esc(ch ? ch.title : "")} ›</span><span class="ti">${esc(c.title || (c.kind === "demo" ? "Live demo" : ""))}</span>`;
+  const img = c.deck_image, showSlide = lsGet("lecap:slide") !== "off";
+  $("#slide").classList.toggle("hidden", !img);
+  if (img) {
+    $("#slide img").src = img;
+    $("#slide img").classList.toggle("hidden", !showSlide);
+    $("#slide .meta").innerHTML = `<span>sharp slide p.${c.deck_page}</span>${L.deck ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank">open in PDF ↗</a>` : ""}
+      <button class="jump" id="slidetoggle">${showSlide ? "hide" : "show"}</button>`;
   }
-  const si = find(segIndex, t, s => s.t);
-  const s = si >= 0 && t <= segIndex[si].end + 1 ? segIndex[si] : null;
-  const el = s ? $(`.seg[data-j="${s.j}"]`, cardEls[s.idx]) : null;
+}
+v.addEventListener("timeupdate", () => {
+  const t = v.currentTime, ci = cardAt(t);
+  if (ci !== current) {
+    document.getElementById("r" + current)?.classList.remove("active");
+    document.getElementById("t" + current)?.classList.remove("active");
+    current = ci;
+    if (ci >= 0) {
+      document.getElementById("r" + ci)?.classList.add("active");
+      document.getElementById("t" + ci)?.classList.add("active");
+      if (!expanded.has(ci)) { expanded.add(ci); refreshCard(ci); document.getElementById("t" + ci)?.classList.add("active"); }
+      showNow(ci);
+      scrollToCard(ci, false);
+      const ch = cardChapter[ci];
+      if (ch !== activeCh) { activeCh = ch; $$(".chap").forEach(d => d.classList.toggle("on", +d.dataset.ch === ch)); }
+      if (!$("#tab-notes").classList.contains("hidden") && focusIdx < 0) renderNotes();
+    }
+  }
+  // current sentence
+  let el = null;
+  if (ci >= 0) {
+    const segs = cards[ci].segments, j = find(segs, t, s => s.start);
+    if (j >= 0 && t <= segs[j].end + 1) el = $(`#t${ci} .seg[data-j="${j}"]`);
+  }
   if (el !== activeSeg) { activeSeg?.classList.remove("now"); activeSeg = el; el?.classList.add("now"); }
 });
 
 /* ---------- keyboard ---------- */
 let focusIdx = -1;
-function setFocus(idx) {
-  if (focusIdx >= 0) cardEls[focusIdx]?.classList.remove("focus");
-  focusIdx = idx;
-  if (idx >= 0) cardEls[idx].classList.add("focus");
+function setFocus(id) {
+  document.getElementById("r" + focusIdx)?.classList.remove("focus");
+  focusIdx = id;
+  if (id >= 0) document.getElementById("r" + id)?.classList.add("focus");
 }
 function moveFocus(dir) {
-  const visible = cardEls.map((el, idx) => el.classList.contains("hidden") ? -1 : idx).filter(x => x >= 0);
-  if (!visible.length) return;
-  let pos = visible.indexOf(focusIdx);
-  pos = pos < 0 ? (dir > 0 ? 0 : visible.length - 1) : Math.min(Math.max(pos + dir, 0), visible.length - 1);
-  setFocus(visible[pos]);
-  cardEls[visible[pos]].scrollIntoView({ block: "start", behavior: "smooth" });
+  const vis = cards.filter(c => c.kind !== "break" && !document.getElementById("r" + c.id)?.classList.contains("hidden")).map(c => c.id);
+  if (!vis.length) return;
+  const base = focusIdx >= 0 ? focusIdx : current;
+  let pos = vis.indexOf(base);
+  pos = pos < 0 ? (dir > 0 ? 0 : vis.length - 1) : Math.min(Math.max(pos + dir, 0), vis.length - 1);
+  setFocus(vis[pos]);
+  scrollToCard(vis[pos], true);
 }
 document.addEventListener("keydown", e => {
   const typing = e.target.matches("input, textarea");
   if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); if (typing) e.target.blur(); return; }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-  const target = focusIdx >= 0 ? focusIdx : activeCard;
+  const target = focusIdx >= 0 ? focusIdx : current;
   switch (e.key) {
     case "/": e.preventDefault(); $("#q").focus(); $("#q").select(); break;
     case "j": moveFocus(1); break;
     case "k": moveFocus(-1); break;
     case "Enter": if (focusIdx >= 0) seek(cards[focusIdx].start); break;
     case " ": if (L.media) { e.preventDefault(); v.paused ? v.play() : v.pause(); } break;
-    case "s": if (target >= 0) toggleStar(cards[target].id); break;
-    case "n": if (target >= 0) { e.preventDefault(); openNote(cards[target].id); } break;
+    case "s": if (target >= 0) toggleStar(target); break;
+    case "n": if (target >= 0) { e.preventDefault(); openNote(target); } break;
+    case "a": e.preventDefault(); showTab("ask"); break;
   }
+});
+
+/* ---------- Ask ---------- */
+const STOP = new Set(("a an and are as at be but by can do does for from how i in is it its me my of on or so that the their them then there these they this to up us was we what when where which who why will with you your der die das und ist ein eine einer zu den dem des im in mit von für auf nicht sich wir ich es wie was wo wann warum " +
+  "start started starting begin begins talk talks talking talked discuss discussed discussing explain explained mention mentioned speak speaking lecture lesson part about please tell show find " +
+  "anfangen beginnen sprechen reden erklären erklärt erkläre zeig zeige thema").split(" "));  // same list as ask.py
+const stem = w => { for (const suf of ["ing", "ed", "es", "s", "e"]) if (w.length > 4 && w.endsWith(suf)) return w.slice(0, -suf.length); return w; };
+const words = s => (String(s || "").toLowerCase().match(/[a-zäöüß0-9][a-zäöüß0-9\-_]*/g) || []).filter(w => w.length > 1 && !STOP.has(w)).map(stem);
+let index = null;
+function buildIndex() {  // same passages and BM25 as lecap's server (ask.py), for offline search
+  const items = [];
+  cards.forEach(c => {
+    if (c.kind === "break") return;
+    paragraphsOf(c).forEach(p => items.push({ kind: "speech", card: c.id, t: p.start, text: p.segs.map(j => c.segments[j].text).join(" ") }));
+    const slide = [c.title, c.text].filter(Boolean).join(" ");
+    if (slide.trim()) items.push({ kind: "slide", card: c.id, t: c.start || 0, text: slide.slice(0, 800) });
+  });
+  (L.ai ? L.ai.glossary : []).forEach(g => items.push({ kind: "glossary", card: g.card, t: cards[g.card]?.start || 0, text: `${g.term}: ${g.definition}` }));
+  const docs = items.map(p => { const m = new Map(); words(p.text).forEach(w => m.set(w, (m.get(w) || 0) + 1)); return m; });
+  const lens = docs.map(d => [...d.values()].reduce((a, b) => a + b, 0));
+  const avg = lens.reduce((a, b) => a + b, 0) / Math.max(lens.length, 1);
+  const df = new Map(); docs.forEach(d => d.forEach((_, w) => df.set(w, (df.get(w) || 0) + 1)));
+  const idf = new Map([...df].map(([w, f]) => [w, Math.log(1 + (docs.length - f + 0.5) / (f + 0.5))]));
+  index = { items, docs, lens, avg, idf };
+}
+function searchIndex(query, k = 8) {
+  if (!index) buildIndex();
+  const qw = [...new Set(words(query))], out = [];
+  index.docs.forEach((d, i) => {
+    let s = 0, matched = 0;
+    qw.forEach(w => { const tf = d.get(w); if (tf) { matched++; s += index.idf.get(w) * tf * 2.4 / (tf + 1.4 * (0.25 + 0.75 * index.lens[i] / index.avg)); } });
+    s *= (matched / Math.max(qw.length, 1)) ** 2;  // all of the question's terms beat a lucky single word
+    if (s > 0) out.push({ ...index.items[i], score: s * (index.items[i].kind === "slide" ? 1.3 : index.items[i].kind === "glossary" ? 1.2 : 1) });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, k);
+}
+let settings = null, providers = [];
+function askWho() {
+  const local = providers.find(p => p.name === "local");
+  let txt;
+  if (!SERVER || !serverOK) txt = "Offline search in this page. For written answers open the lesson with <code>lecap open &lt;folder&gt;</code>.";
+  else if (local && local.available) txt = `Answers by your local model (offline): ${esc(local.detail)}`;
+  else if (settings && settings.allow_online !== "off") txt = "No local model running: answers would use Claude online (asks first). Start one with <code>lecap setup ai</code>, or open ⚙ Settings.";
+  else txt = "Offline search only (no local model running, online answers are off).";
+  $("#askwho").innerHTML = txt;
+}
+function answerHTML(r, q) {
+  const times = (r.times || []).map(t => `<button data-seek="${t}">${fmt(t)}</button>`).join("");
+  let body = "";
+  if (r.error) body = `<p class="err">${esc(r.error)}</p>`;
+  else if (r.answer) body = r.answer.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("");
+  else body = r.passages && r.passages.length ? `<p>Best matching moments${r.times && r.times.length ? ` (first strong match at ${fmt(r.times[0])})` : ""}:</p>` : `<p>Nothing in this lesson matches.</p>`;
+  const passages = (r.passages || []).map(p => `<div><button class="jump" data-seek="${p.t}">${fmt(p.t)}</button> ${esc(p.text)}</div>`).join("");
+  const offerOnline = SERVER && serverOK && settings && settings.allow_online !== "off" && (r.in_lesson === false || !r.answer);
+  const more = offerOnline && !r.error && r.mode !== "general" && r.mode !== "web" ? `<div class="more-btns">
+      <button class="btn" data-online="general" data-q="${esc(q)}">Answer with general knowledge (Claude, online)</button>
+      ${settings.allow_web !== "off" ? `<button class="btn" data-online="web" data-q="${esc(q)}">Search the web (Claude, online)</button>` : ""}</div>` : "";
+  const by = r.provider ? `answered by ${esc(r.provider)}${r.model ? " · " + esc(r.model) : ""}${r.mode === "web" ? " · with web search" : r.mode === "general" ? " · general knowledge" : ""}` : "offline search";
+  return `${body}${times ? `<div class="times">${times}</div>` : ""}${passages ? `<details ${r.answer ? "" : "open"}><summary>passages from the lesson</summary>${passages}</details>` : ""}${more}<div class="by">${by}</div>`;
+}
+function addQA(q, html) {
+  const log = $("#asklog");
+  log.insertAdjacentHTML("beforeend", `<div class="q">${esc(q)}</div><div class="a">${html}</div>`);
+  const last = log.lastElementChild;
+  last.scrollIntoView({ block: "nearest" });
+  return last;
+}
+async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
+  const t = $("#asknow").checked ? v.currentTime : null;
+  box = box || addQA(q, `<p class="muted">${mode === "lesson" && serverOK ? "thinking…" : mode === "lesson" ? "" : "asking Claude online…"}</p>`);
+  if (!SERVER || !serverOK) {
+    const hits = searchIndex(q);
+    const strong = hits.filter(h => h.score >= 0.6 * (hits[0]?.score || 0));
+    // "where do we start …": the earliest strong hit; otherwise the best one (same rule as ask.py)
+    const wantsStart = /\b(start|begin|first|introduc|anfang|beginn|zuerst|erstmal)/i.test(q);
+    const first = !hits.length ? null : wantsStart ? Math.min(...strong.map(h => h.t)) : hits[0].t;
+    box.innerHTML = answerHTML({ passages: hits.slice(0, 6).map(h => ({ t: h.t, text: h.text.slice(0, 240) })), times: first !== null ? [first] : [] }, q);
+    return;
+  }
+  try {
+    const r = await api("POST", "/api/ask", { question: q, mode, t, confirm_online: confirmOnline });
+    if (r.needs_confirm) {
+      box.innerHTML = `<p>No local model is running. Send this question with lesson excerpts to <b>${esc(r.label)}</b> (online)?</p>
+        <div class="more-btns"><button class="btn primary" data-confirm="1">Send online</button><button class="btn" data-confirm="0">Offline search only</button></div>`;
+      box.dataset.q = q;
+      return;
+    }
+    box.innerHTML = answerHTML(r, q);
+  } catch (err) {
+    box.innerHTML = answerHTML({ error: err.message }, q);
+  }
+}
+$("#askform").addEventListener("submit", e => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return; $("#askq").value = ""; ask(q); });
+$("#askq").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#askform").requestSubmit(); } });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-online], [data-confirm]");
+  if (!b) return;
+  if (b.dataset.online) { ask(b.dataset.q, b.dataset.online); b.parentNode.remove(); }
+  else { const box = b.closest(".a"); const q = box.dataset.q; box.innerHTML = `<p class="muted">${b.dataset.confirm === "1" ? "asking online…" : ""}</p>`;
+    ask(q, b.dataset.confirm === "1" ? "lesson" : "search", b.dataset.confirm === "1", box); }
 });
 
 /* ---------- deep links: #t=01:23:45&q=term ---------- */
@@ -568,18 +890,38 @@ function setHash() {
 }
 function readHash() {
   const p = new URLSearchParams(location.hash.slice(1));
-  if (p.get("q")) { q = p.get("q"); $("#q").value = q; }
-  apply();
+  if (p.get("q")) { q = p.get("q"); $("#q").value = q; applyFilter(); }
   const t = parseT(p.get("t"));
   if (t !== null) {
-    const ci = find(cardStarts, t, x => x);
-    if (ci >= 0) scrollToCard(cards[ci].id);
+    const ci = cardAt(t);
+    if (ci >= 0) { revealCard(ci); setFocus(ci); setTimeout(() => scrollToCard(ci, true), 50); showNow(ci); }
     const go = () => seek(t, false);
     if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
   }
 }
 window.addEventListener("hashchange", readHash);
+
+/* ---------- start ---------- */
+renderOutline();
+renderTranscript();
+renderStudy();
+if (cards.length) showNow(0);
 readHash();
+askWho();
+if (SERVER) {
+  api("GET", "/api/state").then(s => {
+    setSync(true);
+    settings = s.settings; providers = s.providers || [];
+    const merged = mergeNotes(s.notes || {}, store);
+    const changed = JSON.stringify(merged) !== JSON.stringify(s.notes || {});
+    store = merged;
+    if (changed) save();
+    cards.forEach(c => updateFlags(c.id));
+    renderTranscript(); renderStudy();
+    (s.chat || []).slice(-20).forEach(x => addQA(x.q, answerHTML(x, x.q)));
+    askWho();
+  }).catch(() => { setSync(false); askWho(); });
+}
 </script>
 </body>
 </html>

@@ -1,33 +1,68 @@
 # lecap
 
-**Lecture recording in, searchable study page out.**
+**Lecture recording in, searchable study page out. Offline first.**
 
-```
-lecap lesson.mp4 lesson-01/ --deck slides.pdf --ai
+```bash
+lecap lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
+lecap open lesson-01/                                # study: notes saved in the folder, Ask, settings
 ```
 
-creates
+One self-contained folder per lesson, so it syncs well to a cloud drive or file share:
 
 ```
 lesson-01/
-  index.html      ← open this (works offline, straight from the folder)
-  media/          the video (and the deck PDF)
+  index.html      ← the page (also works straight from the folder, without `lecap open`)
+  media/          the video (copied by default) and the deck PDF
   slides/         one frame per slide change
   deck/           sharp renders of the deck pages
-  data/           transcript.srt, scenes.csv, ocr.json, deck.json, ai.json, lesson.json
+  data/           transcript, scenes, OCR, speakers, AI results, lesson.json (generated, can be rebuilt)
+  notes/          your stars, notes, speaker names and Ask history (never touched by a rebuild)
 ```
 
-## What the page does
+## The page
 
-- **Video + cards**: one card per slide/screen with what was said while it was shown. Click any sentence to jump there, and the current sentence is highlighted while playing.
-- **Search** across the transcript, the slide text and your notes, with highlights, next/previous hit (`Enter`), and filters for slides, live demos or starred cards.
-- **Chapters** in a sidebar, taken from the section slides (in the deck or in the video), or from the AI step.
-- **Slide deck** (`--deck`): video frames are matched to deck pages, so cards show the sharp slide and its exact text, plus a link to that PDF page.
-- **Notes and stars** per card, saved in your browser, with an **export to Markdown**.
-- **Breaks and silence** are folded away, and live demos (screen recordings of apps) are marked.
-- **Deep links** like `index.html#t=01:23:45` or `#q=opaque`, copied from the 🔗 button.
-- **AI extras** (`--ai`): chapter summaries, clickable tags, a glossary and exam questions.
-- Keyboard: `/` search · `j`/`k` next/previous card · `Enter` play card · `Space` play/pause · `s` star · `n` note.
+```
+┌ search · Slides · Demos · ★ · Auto-scroll · Export · Theme · ⚙ ─────────────────┐
+│ chapters + cards │            video            │ Transcript │ Ask │ Study │ Notes │
+│ (orientation)    │  sharp slide · now playing  │ readable, with speakers         │
+└──────────────────┴─────────────────────────────┴─────────────────────────────────┘
+```
+
+- **Video in the middle**. On the left, chapters with compact cards (one per slide or screen); click one to jump there.
+- **Transcript** on the right, in **paragraphs** (speaker changes, pauses, sentence runs) or **blocks** (one per card). Click any sentence to jump there. The current sentence is highlighted, and glossary terms are emphasized.
+- **Speakers**: the lecturer and the people asking questions are told apart (offline, experimental) and can be renamed.
+- **Search** in the top bar across the transcript, slide text and notes, with hits and filters for slides, demos or ★.
+- **Auto-scroll** keeps the chapter list and transcript on what is playing. It pauses for a few seconds when you scroll yourself.
+- **Notes and stars** per card. Export them to Markdown.
+- **Ask**: "Where do we start talking about virtual machines?", "Explain opaque predicates".
+- **Study**: summary, tags, chapters, glossary and exam questions (with `--ai`).
+- **Slide deck** (`--deck`): sharp slides, exact slide text and chapters from the deck's section pages.
+- Deep links like `index.html#t=01:23:45` or `#q=opaque`. Keyboard: `/` search · `j`/`k` cards · `Enter` play · `Space` pause · `s` star · `n` note · `a` ask.
+
+## What runs where
+
+| Step | Where |
+|---|---|
+| Transcription (Whisper), speakers, slide detection, OCR, deck matching, chapters from slides | **on your Mac**, offline |
+| The page, search, notes | **on your Mac**, offline |
+| `--ai` and Ask with a **local model** (LM Studio / Ollama) | **on your Mac**, offline |
+| `--ai` and Ask with **Claude** (`claude-code` = your subscription, `claude` = API key) | online: only text is sent (transcript + slide text), never the video |
+
+`--ai` and Ask use the local model first when one is running. Ask only goes online after you click (and asks first if that's set in the settings).
+
+## What `--ai` adds
+
+Without AI, you already get the transcript, slides, search, notes and chapters, *if the slides have section pages*. A language model adds:
+
+| | Without AI | With `--ai` (local or Claude) |
+|---|---|---|
+| Chapters | from section slides only | always, with good names |
+| Summaries, tags, glossary, exam questions | – | ✔ |
+| Key points for long transcript parts | – | ✔ |
+| Ask "where is X?" | offline search jumps to the best moment | a written answer with clickable times |
+| Ask "explain X" | – | ✔ (from the lesson; web or general knowledge only after a click) |
+
+Local models are free, offline and slower, with lower quality. Claude is online, with the best quality.
 
 ## Install (macOS, Apple Silicon)
 
@@ -38,83 +73,100 @@ uv tool install --python 3.14 --editable "$HOME/Projects/lecap[claude]"
 lecap --help
 ```
 
-`--editable` means changes in the repo apply immediately. Leave out `[claude]` if you don't want the Claude API provider.
-For German OCR: `brew install tesseract-lang`. To convert `.pptx` decks you need LibreOffice (`brew install --cask libreoffice`), or export the deck to PDF yourself.
+`--editable` means code changes in the repo apply immediately. After a change to the dependencies, run the same command with `--reinstall`.
+For German OCR: `brew install tesseract-lang`. `.pptx` decks need LibreOffice (`brew install --cask libreoffice`), or export them to PDF yourself.
+
+## Local AI in 5 minutes
+
+```bash
+lecap setup ai
+```
+
+The wizard finds LM Studio or Ollama and recommends a model for your Mac's memory (32 GB → a ~14B model). It shows each command and **asks before every download or start**, then tests the model and saves the choice. It works the same from the ⚙ settings page. By hand with LM Studio:
+
+```bash
+lms server start
+lms get qwen/qwen3-14b                                   # ~9 GB, once
+lms load qwen/qwen3-14b --context-length 32768 -y        # enough context for a whole lecture
+```
+
+If a model's context is too small for a lecture, lecap works in parts and merges the result.
 
 ## Usage
 
 ```bash
 lecap <video> <output-folder> [options]
 
-  --deck FILE        slide deck (.pdf/.pptx): sharp slides, exact text, chapters
-  --title TEXT       page title (default: file name)
-  -l LANG            spoken language (default en)
-  -t NUM             slide-change sensitivity, higher = fewer cards (default 4)
-  -w                 word timestamps + extra hallucination filter (slower)
-  --ai [PROVIDER]    AI extras: claude (API key) or claude-code (your Claude subscription)
-  --ai-model MODEL   e.g. claude-sonnet-5-5, or sonnet for claude-code
-  -y                 don't ask before paid API calls
-  --redo STEP        redo one step: transcribe, scenes, ocr, deck, ai (repeatable)
-  -f                 redo everything
-  --link | --move    symlink or move the video instead of copying it
-  --open             open the page when done
+  --deck FILE           slide deck (.pdf/.pptx): sharp slides, exact text, chapters
+  --title TEXT          page title (default: file name)
+  -l LANG               spoken language (default en)
+  -t NUM                slide-change sensitivity, higher = fewer cards (default 4)
+  -w                    word timestamps + extra hallucination filter (slower)
+  --speakers / --no-speakers   tell speakers apart (default on)
+  --ai [PROVIDER]       study extras: local, claude-code (subscription), claude (API key); default: local first
+  --ai-model MODEL      e.g. claude-sonnet-5-5, sonnet for claude-code, or a local model name
+  -y                    don't ask before paid API calls
+  --redo STEP           redo one step: transcribe, speakers, scenes, ocr, deck, ai (repeatable)
+  -f                    redo everything (your notes/ are kept)
+  --copy | --link | --move   how the video gets into media/ (default: copy, see settings)
+  --open                open the page with `lecap open` when done
+
+lecap open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
+lecap settings          global settings in the browser
+lecap setup ai          guided local AI setup
+lecap auth set|status|remove claude    Claude API key in the macOS Keychain
+lecap config show|set|path             settings in the terminal
 ```
 
-Steps are cached in `data/`, so a second run only redoes what you ask for, e.g. `lecap lesson.mp4 out/ -t 6 --redo scenes` for fewer cards.
+Steps are cached in `data/`, so a rerun only redoes what you ask for, e.g. `lecap lesson.mp4 out/ -t 2 --redo scenes` for more cards.
 
-Timing for a 2.5 h lecture on an M-series Mac: transcript ~5 min, slides ~3 min, OCR ~20 s.
+Timing for a 2.5 h lecture on an M2 Pro: transcript ~5 min, speakers ~25 s, slides ~3.5 min, OCR ~20 s.
 
-## AI providers and keys
+## Settings, keys and notes
+
+- **Settings** are global for all lessons, in `~/.config/lecap/config.toml`. They are edited with `lecap settings` (browser) or `lecap config`. They are kept outside the installed tool on purpose, so upgrades and reinstalls don't wipe them. `LECAP_CONFIG=/path/config.toml` moves them.
+- **API keys** live in the macOS Keychain (`lecap auth set claude`, or the settings page). They are never written to a file, a lesson folder or a log. An `ANTHROPIC_API_KEY` environment variable or an `ant auth login` profile also works.
+- **Notes**: with `lecap open`, they are saved in `<lesson>/notes/notes.json` (atomic writes, cloud-sync friendly) and appear in every window. Opened straight from the folder (`file://`), the page keeps notes in that browser and shows the folder's notes from the last build.
+
+`lecap open` runs a small server on `127.0.0.1` only. It refuses other hosts and origins, and the API needs a header other websites can't send.
+
+## AI providers
 
 | Provider | Needs | Cost |
 |---|---|---|
+| `local` | LM Studio or Ollama running with a model (`lecap setup ai`) | free, offline |
 | `claude-code` | the [Claude Code](https://claude.com/claude-code) CLI, logged in | included in your Claude subscription (uses its limits) |
 | `claude` | an API key from console.anthropic.com | pay per use, ≈ $0.30–0.40 per 2.5 h lecture (Claude Opus 5.5) |
 
-`--ai` without a name picks `claude` when a key is set, otherwise `claude-code`. Before a paid call, lecap shows the token count and an estimated price and asks first.
-
-Only text is sent (transcript and slide text), never the video or images.
-
-**Keys are never stored in files.** Store them in the macOS Keychain:
-
-```bash
-lecap auth set claude      # asks for the key (hidden input)
-lecap auth status          # shows which providers work (keys masked)
-lecap auth remove claude
-```
-
-An `ANTHROPIC_API_KEY` environment variable or an `ant auth login` profile also works.
-
-Non-secret defaults live in `~/.config/lecap/config.toml`:
-
-```bash
-lecap config show
-lecap config set language de
-lecap config set ai_provider claude-code
-```
+Lectures on security topics can occasionally trip a model's safety filter. lecap then reports it and never shows a placeholder answer. The `claude` API provider automatically falls back to another model.
 
 ## How it works
 
-1. **ffprobe** checks the input, **ffmpeg silencedetect** finds breaks.
-2. **mlx-whisper** (large-v3-turbo) transcribes on the GPU. `condition_on_previous_text` is off and a filter drops typical Whisper hallucinations ("Thank you." in silence, repetition loops). lecap warns if a lot was dropped.
-3. **PySceneDetect** finds slide changes, and **tesseract** reads each frame: title, "Page X of N", section slides, and macOS menu bars (= live demo).
-4. With `--deck`, **PyMuPDF** reads the deck: page text, titles, divider pages, outline. Frames are matched to pages by page number or text similarity.
-5. Cards, chapters and the transcript are combined into `data/lesson.json` and embedded into `index.html`.
+1. **ffprobe** checks the input. **ffmpeg silencedetect** finds breaks, and cards are cut around them so breaks fold away.
+2. **mlx-whisper** (large-v3-turbo) transcribes on the GPU, with a filter for typical Whisper hallucinations.
+3. **SpeechBrain ECAPA** voice fingerprints (on the Apple GPU) separate the lecturer from other voices.
+4. **PySceneDetect** finds slide changes. **tesseract** reads each frame: titles, "Page X of N", section slides, and macOS menu bars (= live demo).
+5. With `--deck`, **PyMuPDF** reads the deck, and frames are matched to pages by page number or text similarity.
+6. Cards, paragraphs, chapters and speakers go into `data/lesson.json`, which is embedded in `index.html`.
+7. Ask uses BM25 search over paragraphs, slides and the glossary, optionally followed by a model that answers only from those passages.
 
 ## Project layout
 
 ```
 src/lecap/
-  cli.py            commands, options, auth/config
+  cli.py            commands and options
   model.py          source-neutral Lesson model (the page only reads this)
   sources/          input types: video (now); audio, pdf, pptx are registered as planned
-  steps/            probe, transcribe, silence, scenes, ocr, deck, analyze, ai, render
-  ai/               provider interface + claude (API) + claude_code (subscription)
-  web/template.html the page (inline CSS/JS, no external requests)
+  steps/            probe, transcribe, silence, speakers, scenes, ocr, deck, analyze, ai, render
+  ai/               provider interface + local, claude (API), claude_code (subscription)
+  ask.py            offline search + answers for the Ask tab
+  server.py         `lecap open` / `lecap settings`
+  setup_ai.py       `lecap setup ai`
+  web/              template.html (the page), settings.html
 ```
 
 **Adding an input type**: write `sources/<type>.py` that builds a `Lesson`, then register it in `sources/registry.py`.
-**Adding an AI provider** (OpenAI, Gemini, Ollama, …): write `ai/<name>.py` implementing `ai/base.py:Provider`, then list it in `ai/registry.py`. All providers share the prompt and the result schema (`ai/schema.py`).
+**Adding an AI provider** (OpenAI, Gemini, …): write `ai/<name>.py` implementing `ai/base.py:Provider`, then list it in `ai/registry.py`.
 
 ## Rename the tool
 
@@ -124,13 +176,13 @@ The command name is in two places: `[project.scripts]` in `pyproject.toml` and `
 
 ```bash
 uv sync
-uv run pytest
-uv run lecap clip.mp4 /tmp/out --deck slides.pdf
+uv run pytest            # no network, no keys; AI providers are tested against fakes
 ```
 
-The tests need no network or key. The Claude API test intercepts the HTTP request.
+If the repo lives in iCloud Drive, keep the virtualenv out of sync: `mkdir .venv.nosync && ln -s .venv.nosync .venv`. Otherwise iCloud hides files inside it and imports break.
 
 ## Notes
 
 - mlx-whisper runs on Apple Silicon only. Other platforms would need a different transcriber (e.g. faster-whisper) behind `steps/transcribe.py`.
 - PyMuPDF is AGPL-licensed. Keep that in mind when choosing this project's license.
+- Generated lesson folders can contain webcam frames of classmates. Share the tool, not the lessons.

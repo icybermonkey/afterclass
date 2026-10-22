@@ -19,12 +19,14 @@ class ClaudeCodeProvider(Provider):
             return True, ""
         return False, "the `claude` CLI is not installed (https://claude.com/claude-code)"
 
-    def run(self, system, prompt, schema, model):
+    def run(self, system, prompt, schema, model, web=False):
+        # Text in, JSON out: no file or shell access; with web=True only the two web tools
+        tools = ["--tools", "WebSearch", "WebFetch", "--allowedTools", "WebSearch", "WebFetch"] if web else ["--tools", ""]
         cmd = [
             "claude", "-p",
             "--output-format", "json",
             "--json-schema", json.dumps(schema),
-            "--tools", "",  # text in, JSON out: no file or shell access
+            *tools,
             "--no-session-persistence",
             "--model", model,
             "--system-prompt", system,

@@ -10,8 +10,12 @@ def place(src, media_dir, mode):
     dest = media_dir / src.name
     if dest.resolve() == src.resolve():
         return dest, "already in place"
-    if dest.exists() or dest.is_symlink():
-        if dest.is_symlink() or dest.stat().st_size == src.stat().st_size:
+    if dest.is_symlink():
+        if mode == "link":
+            return dest, "already linked"
+        dest.unlink()  # switching from a link to a real copy (or move)
+    elif dest.exists():
+        if dest.stat().st_size == src.stat().st_size:
             return dest, "already in place"
         dest.unlink()
     if mode == "link":

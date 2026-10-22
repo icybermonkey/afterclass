@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>lecap settings</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0;
+  --accent: #2f6fdb; --accent-soft: #e4edfc; --ok: #1f8a4c; --warn: #b26b00; --bad: #c0392b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151517; --panel: #1c1c1f; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
+    --accent: #79a6ff; --accent-soft: #1f2d48; --ok: #4cc27f; --warn: #f2b44e; --bad: #ff7b6b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151517; --panel: #1c1c1f; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
+  --accent: #79a6ff; --accent-soft: #1f2d48; --ok: #4cc27f; --warn: #f2b44e; --bad: #ff7b6b;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+main { max-width: 860px; margin: 0 auto; padding: 24px 16px 60px; }
+h1 { font-size: 22px; margin: 0 0 4px; }
+.sub { color: var(--muted); margin: 0 0 20px; }
+section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin-bottom: 16px; }
+h2 { font-size: 16px; margin: 0 0 4px; }
+section > p.hint { color: var(--muted); margin: 0 0 12px; font-size: 14px; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(180px, 280px); gap: 12px; align-items: center;
+  padding: 10px 0; border-top: 1px solid var(--line); }
+.row:first-of-type { border-top: 0; }
+.row label { font-weight: 600; font-size: 14px; }
+.row small { display: block; color: var(--muted); font-weight: normal; }
+select, input[type=text], input[type=password], input[type=number] {
+  width: 100%; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line);
+  border-radius: 8px; padding: 6px 8px; }
+button { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px;
+  padding: 5px 12px; cursor: pointer; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.switch { display: flex; justify-content: flex-end; }
+.status { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0 2px; }
+.pill { font-size: 13px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; }
+.pill.ok { color: var(--ok); border-color: currentColor; }
+.pill.no { color: var(--muted); }
+.pill.warn { color: var(--warn); border-color: currentColor; }
+code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
+.cmd { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.cmd code { flex: 1; overflow-x: auto; white-space: nowrap; padding: 5px 8px; }
+ol { padding-left: 20px; margin: 8px 0; }
+ol li { margin: 4px 0; }
+.keyrow { display: flex; gap: 8px; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
+  padding: 6px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.show { opacity: 1; }
+#toast.bad { background: var(--bad); color: #fff; }
+.muted { color: var(--muted); }
+@media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main>
+  <h1>lecap settings</h1>
+  <p class="sub">Global for all lessons, saved in <code id="path">…</code>. Changes save immediately. API keys go to the macOS Keychain, never into a file.</p>
+
+  <section>
+    <h2>Lessons</h2>
+    <p class="hint">Defaults for new runs of <code>lecap &lt;video&gt; &lt;folder&gt;</code>. A flag on the command line always wins.</p>
+    <div id="general"></div>
+  </section>
+
+  <section>
+    <h2>AI</h2>
+    <p class="hint">“auto” uses a local model when one is running (offline), otherwise Claude. Online models only ever get text
+      (transcript and slide text), never the video.</p>
+    <div class="status" id="providers"></div>
+    <div id="ai"></div>
+  </section>
+
+  <section>
+    <h2>Local AI (offline)</h2>
+    <p class="hint">Runs on this Mac with LM Studio or Ollama. Needed once: an app, a model, and its server running.</p>
+    <div class="status" id="localstatus"></div>
+    <div id="localguide"></div>
+    <div id="local"></div>
+  </section>
+
+  <section>
+    <h2>Claude API key</h2>
+    <p class="hint">Only for the “claude” provider (pay per use, ≈ $0.35 per lecture). The “claude-code” provider uses your
+      Claude subscription and needs no key.</p>
+    <div id="keys"></div>
+  </section>
+</main>
+<div id="toast"></div>
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+let S = null;
+try { const t = localStorage.getItem("lecap:theme"); if (t && t !== "auto") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
+
+async function api(method, path, body) {
+  const r = await fetch(path, { method, headers: { "X-Lecap": "1", "Content-Type": "application/json" },
+    body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || r.statusText);
+  return data;
+}
+function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.className = "show" + (bad ? " bad" : ""); setTimeout(() => t.className = "", 1800); }
+
+const LABELS = {
+  language: "Spoken language", threshold: "Slide change sensitivity", whisper_model: "Speech-to-text model",
+  media: "Video in the lesson folder", speakers: "Tell speakers apart", transcript_view: "Transcript view",
+  ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for the Ask tab",
+  allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
+  local_llm_url: "Local AI server", local_llm_model: "Local model",
+};
+const OPTION_TEXT = {
+  copy: "copy (self-contained, recommended)", link: "symlink (saves space)", move: "move into the folder",
+  paragraphs: "paragraphs", blocks: "blocks (one per card)", auto: "auto",
+  local: "local (offline)", claude: "Claude API (key)", "claude-code": "Claude Code (subscription)",
+  off: "off", ask: "ask me each time", on: "allowed",
+};
+
+function field(key) {
+  const v = S.values[key], choices = S.choices[key];
+  let input;
+  if (typeof S.defaults[key] === "boolean") {
+    input = `<div class="switch"><input type="checkbox" data-key="${key}" ${v ? "checked" : ""}></div>`;
+  } else if (choices) {
+    input = `<select data-key="${key}">${choices.map(c => `<option value="${c}" ${c === v ? "selected" : ""}>${esc(OPTION_TEXT[c] || c)}</option>`).join("")}</select>`;
+  } else if (key === "local_llm_model") {
+    const models = new Set();
+    S.local.apps.forEach(a => { a.loaded.forEach(m => models.add(m)); a.models.forEach(m => models.add(m.name)); });
+    input = `<input type="text" data-key="${key}" list="models" value="${esc(v)}" placeholder="first loaded model">
+      <datalist id="models">${[...models].map(m => `<option value="${esc(m)}">`).join("")}</datalist>`;
+  } else {
+    input = `<input type="${typeof S.defaults[key] === "number" ? "number" : "text"}" step="0.5" data-key="${key}" value="${esc(v)}" placeholder="${esc(S.defaults[key])}">`;
+  }
+  return `<div class="row"><label>${esc(LABELS[key] || key)}<small>${esc(S.help[key] || "")}</small></label>${input}</div>`;
+}
+
+function pill(ok, text, warn) { return `<span class="pill ${ok ? "ok" : warn ? "warn" : "no"}">${ok ? "✔" : "✗"} ${esc(text)}</span>`; }
+
+function render() {
+  $("#path").textContent = S.config_path;
+  $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "speakers", "transcript_view"].map(field).join("");
+  $("#ai").innerHTML = ["ai_provider", "ai_model", "ask_provider", "allow_online", "allow_web"].map(field).join("");
+  $("#providers").innerHTML = S.providers.map(p => pill(p.available, `${p.label}${p.online ? " (online)" : " (offline)"}${p.detail ? ": " + p.detail : ""}`)).join("");
+  $("#local").innerHTML = ["local_llm_url", "local_llm_model"].map(field).join("");
+
+  const L = S.local, apps = L.apps;
+  $("#localstatus").innerHTML = apps.map(a => pill(a.running, `${a.name}: ${!a.installed ? "not installed" : a.running ? "running" + (a.loaded.length ? " · " + a.loaded.join(", ") : "") : "installed, server off"}`, a.installed && !a.running)).join("")
+    + `<span class="pill no">${L.ram_gb} GB RAM</span>`;
+  const lm = apps.find(a => a.app === "lmstudio"), ol = apps.find(a => a.app === "ollama");
+  const running = apps.some(a => a.running && a.loaded.length);
+  const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button data-copy="${esc(c)}">Copy</button></div>`;
+  let guide = "";
+  if (running) {
+    guide = `<p class="muted">Ready. lecap will use the running model when the provider is “auto” or “local”.</p>`;
+  } else {
+    guide = `<p><b>Easiest:</b> run the guided setup in Terminal; it asks before every download or start:</p>${cmd("lecap setup ai")}
+      <p>Or step by step${lm && lm.installed ? " with LM Studio" : ol && ol.installed ? " with Ollama" : ""}:</p><ol>`;
+    if (lm && lm.installed) {
+      guide += `<li>Start the server: ${cmd("lms server start")}</li>
+        <li>${lm.models.length ? "Use an installed model or get" : "Get"} the recommended one (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("lms get " + L.recommended.lmstudio)}</li>
+        <li>Load it with enough context for a whole lecture: ${cmd(`lms load ${lm.models[0] ? lm.models[0].name : L.recommended.lmstudio} --context-length 32768 -y`)}</li>`;
+    } else if (ol && ol.installed) {
+      guide += `<li>Start Ollama: ${cmd("brew services start ollama")}</li>
+        <li>Get the recommended model (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("ollama pull " + L.recommended.ollama)}</li>`;
+    } else {
+      guide += `<li>Install LM Studio from <a href="https://lmstudio.ai" target="_blank">lmstudio.ai</a> (easiest) or Ollama: ${cmd("brew install ollama")}</li>
+        <li>Then run ${cmd("lecap setup ai")}</li>`;
+    }
+    guide += `</ol><button id="recheck">Check again</button>`;
+  }
+  $("#localguide").innerHTML = guide;
+
+  $("#keys").innerHTML = Object.entries(S.keys).map(([p, k]) => `
+    <div class="row"><label>${esc(p)}<small>${k.set ? `stored: ${esc(k.masked)} (${esc(k.source)})` : "no key stored"}</small></label>
+      <div class="keyrow"><input type="password" id="key-${p}" placeholder="${k.set ? "replace key" : "paste key"}" autocomplete="off">
+        <button class="primary" data-savekey="${p}">Save</button>${k.set && k.source.includes("Keychain") ? `<button data-delkey="${p}">Remove</button>` : ""}</div></div>`).join("");
+}
+
+async function load() { S = await api("GET", "/api/settings"); render(); }
+
+document.addEventListener("change", async e => {
+  const key = e.target.dataset.key;
+  if (!key) return;
+  const value = e.target.type === "checkbox" ? e.target.checked : e.target.value;
+  try { S = await api("PUT", "/api/settings", { [key]: value }); render(); toast("Saved"); }
+  catch (err) { toast(err.message, true); load(); }
+});
+document.addEventListener("click", async e => {
+  const t = e.target;
+  if (t.dataset.copy) { navigator.clipboard?.writeText(t.dataset.copy).then(() => toast("Copied")); }
+  if (t.id === "recheck") { t.textContent = "Checking…"; await load(); toast("Updated"); }
+  if (t.dataset.savekey) {
+    const p = t.dataset.savekey, input = $("#key-" + p);
+    if (!input.value.trim()) return;
+    try { S = await api("POST", "/api/keys/" + p, { key: input.value.trim() }); input.value = ""; render(); toast("Key stored in the Keychain"); }
+    catch (err) { toast(err.message, true); }
+  }
+  if (t.dataset.delkey) {
+    try { S = await api("DELETE", "/api/keys/" + t.dataset.delkey); render(); toast("Key removed"); }
+    catch (err) { toast(err.message, true); }
+  }
+});
+load().catch(err => { document.querySelector("main").insertAdjacentHTML("beforeend",
+  `<section><b>Not connected.</b> Open this page with <code>lecap settings</code>. (${esc(err.message)})</section>`); });
+</script>
+</body>
+</html>

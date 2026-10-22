@@ -55,7 +55,7 @@ class ClaudeProvider(Provider):
             raise LecapError(f"Claude API: {_describe(e)}")
         return Usage(input_tokens=n, output_tokens=EXPECTED_OUTPUT, cost_usd=cost(model, n, EXPECTED_OUTPUT), model=model)
 
-    def run(self, system, prompt, schema, model):
+    def run(self, system, prompt, schema, model, web=False):
         import json
 
         client = self._client()
@@ -64,6 +64,7 @@ class ClaudeProvider(Provider):
         if model in FALLBACK_MODELS:
             body["fallbacks"] = "default"
             betas.append(FALLBACK_BETA)
+        extra = {"tools": [{"type": "web_search_20260209", "name": "web_search", "max_uses": 5}]} if web else {}
         try:
             with client.beta.messages.stream(
                 model=model,
@@ -73,6 +74,7 @@ class ClaudeProvider(Provider):
                 thinking={"type": "adaptive"},
                 betas=betas,
                 extra_body=body,
+                **extra,
             ) as stream:
                 msg = stream.get_final_message()
         except Exception as e:
@@ -81,7 +83,9 @@ class ClaudeProvider(Provider):
             raise LecapError("Claude declined this request (refusal)")
         if msg.stop_reason == "max_tokens":
             raise LecapError("Claude's answer was cut off (max_tokens)")
-        text = "".join(b.text for b in msg.content if b.type == "text")
+        # With web search there can be text before the searches; the JSON answer is the last text block
+        texts = [b.text for b in msg.content if b.type == "text"]
+        text = texts[-1] if texts else ""
         try:
             data = json.loads(text)
         except json.JSONDecodeError:
