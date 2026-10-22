@@ -3,6 +3,7 @@
 import argparse
 import getpass
 import shutil
+import signal
 import sys
 from pathlib import Path
 
@@ -54,8 +55,14 @@ def build_parser():
     return p
 
 
+def _cancel(*_):
+    raise KeyboardInterrupt
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    # The app's Cancel button sends SIGTERM: treat it like Ctrl+C so cleanup runs
+    signal.signal(signal.SIGTERM, _cancel)
     # Keep stdout and stderr in order when piped into a log
     sys.stdout.reconfigure(line_buffering=True)
     try:
@@ -125,6 +132,8 @@ def run(args):
 
     if args.out.exists() and any(args.out.iterdir()) and not (args.out / "data").exists():
         raise LecapError(f"{args.out} exists and is not a {APP_NAME} folder. Pick an empty or new folder.")
+    # A folder this run creates is removed again if the run is cancelled; an existing lesson never is
+    fresh = not args.out.exists() or not any(args.out.iterdir())
     ctx = Ctx(input=args.input, out=args.out, args=args, cfg=cfg)
     ui.title(f"{APP_NAME} {__version__}: lecture → study page")
     ui.kv("input", args.input)
@@ -135,6 +144,13 @@ def run(args):
     notify = cfg["notify"] if args.notify is None else args.notify
     try:
         index, steps = source.run(ctx)
+    except KeyboardInterrupt:
+        if fresh and args.out.exists():
+            shutil.rmtree(args.out, ignore_errors=True)
+            ui.info(f"cancelled: removed the unfinished folder {args.out} (your files were not touched)")
+        else:
+            ui.info("cancelled: your files were not touched")
+        raise
     except LecapError as e:
         if notify:
             ui.notify(f"{APP_NAME}: lesson failed", f"{args.input.name}: {str(e)[:120]}", sound="Basso")

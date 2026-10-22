@@ -38,7 +38,10 @@ def read(pdf):
     """Pages [{page, title, text, divider}] and the outline [(level, title, page)]."""
     import pymupdf
 
-    doc = pymupdf.open(pdf)
+    try:
+        doc = pymupdf.open(pdf)
+    except Exception as e:
+        raise LecapError(f"can't read the slides {Path(pdf).name} ({str(e).rstrip(".")}). Is it a valid PDF/PPTX?")
     raw = []
     sizes = []
     for i, page in enumerate(doc, 1):

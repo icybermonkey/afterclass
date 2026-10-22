@@ -38,12 +38,10 @@ class VideoSource(Source):
         ui.kv("video", f"{info['width']}×{info['height']}")
         steps.end()
 
-        # 2. Media
+        # The recording and slides are read where they are; they are only copied/moved/linked into
+        # media/ at the very end, after every step succeeded (a failed run leaves your files untouched)
+        dest = ctx.input
         mode = "copy" if a.copy else "link" if a.link else "move" if a.move else cfg["media"]
-        steps.begin("Place the video", f"The page plays media/{ctx.input.name}. Mode: {mode} (copy keeps the folder "
-                    "self-contained, link saves space, move moves the file; default in ⚙ Settings).")
-        dest, what = media.place(ctx.input, ctx.media, mode)
-        steps.end(f"{what} → media/{dest.name}")
 
         # 3. Transcript
         raw_json = ctx.data / "transcript.raw.json"
@@ -182,7 +180,16 @@ class VideoSource(Source):
                 ctx.warnings.append(f"AI step failed, page written without AI extras: {str(e)[:200]}")
                 steps.end()
 
-        # 10. Render
+        # Everything succeeded: now place the recording and the slides
+        steps.begin("Place the files", f"Recording: {mode}, slides: {a.deck_mode or cfg['deck_media']} "
+                    "(change in ⚙ Settings). Done only now, so a failed run leaves your files untouched.")
+        placed, what = media.place(ctx.input, ctx.media, mode)
+        ui.info(f"recording {what} → media/{placed.name}")
+        if a.deck:
+            self._place_deck(ctx)
+        steps.end()
+
+        # Render
         steps.begin("Write the page", "index.html with everything embedded; open it straight from the folder.")
         analyze.decorate_chapters(lesson.chapters, lesson.cards, {p["page"] for p in pages or [] if p["divider"]})
         lesson.save(ctx.data / "lesson.json")
@@ -239,19 +246,12 @@ class VideoSource(Source):
                 return d["pages"], [tuple(o) for o in d["outline"]], d["rel"]
         steps.begin("Read the slide deck", "Exact slide text, titles and section pages from the deck; each video "
                     "frame is matched to its page so cards show the sharp slide.")
-        # The slides have their own copy/link/move setting (--deck-mode or ⚙ Settings)
-        placed, what = media.place(src, ctx.media, ctx.args.deck_mode or ctx.cfg["deck_media"])
-        ui.info(f"{what} → media/{placed.name}")
-        pdf = deck.to_pdf(placed, ctx.data)
-        if pdf != placed:  # a PPTX converted to PDF: the PDF (ours) goes next to it
-            dest = ctx.media / pdf.name
-            shutil.move(pdf, dest)
-            ui.info(f"converted {src.name} → media/{dest.name} with LibreOffice")
-        else:
-            dest = placed
-        pages, outline = deck.read(dest)
-        n = deck.render(dest, ctx.deck)
-        rel = f"media/{dest.name}"
+        pdf = deck.to_pdf(src, ctx.data)  # a PPTX becomes data/<name>.pdf; a PDF is read where it is
+        if pdf != src:
+            ui.info(f"converted {src.name} → PDF with LibreOffice")
+        pages, outline = deck.read(pdf)
+        n = deck.render(pdf, ctx.deck)
+        rel = f"media/{pdf.name}"  # where the PDF will be once the run succeeded
         deck_json.write_text(json.dumps({"source": src.name, "pages": pages, "outline": outline, "rel": rel},
                                         ensure_ascii=False),
                              encoding="utf-8")
@@ -259,6 +259,16 @@ class VideoSource(Source):
         ui.info(f"{n} pages, {len(divs)} section pages, outline entries: {len(outline)}")
         steps.end(f"pages rendered → deck/, PDF → {rel}")
         return pages, outline, rel
+
+    def _place_deck(self, ctx):
+        """Put the slides into media/ (their own copy/link/move setting); a converted PDF moves next to them."""
+        src = ctx.args.deck
+        placed, what = media.place(src, ctx.media, ctx.args.deck_mode or ctx.cfg["deck_media"])
+        ui.info(f"slides {what} → media/{placed.name}")
+        converted = ctx.data / (src.stem + ".pdf")
+        if src.suffix.lower() != ".pdf" and converted.exists():
+            shutil.move(converted, ctx.media / converted.name)
+            ui.info(f"converted PDF → media/{converted.name}")
 
     # --- ai ------------------------------------------------------------------
 
