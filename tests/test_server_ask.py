@@ -82,10 +82,11 @@ def test_server_guards(lesson_folder):
 
 def test_notes_are_saved_atomically_in_the_folder(lesson_folder):
     folder, base = lesson_folder
-    status, _, _ = call(base + "/api/notes", "PUT", {"stars": {"2": True}, "notes": {"2": "VMs!"}, "evil": 1})
+    status, _, _ = call(base + "/api/notes", "PUT", {"stars": {"2": True}, "notes": {"2": "VMs!"}, "evil": 1,
+                                                       "title": "  My SPCS lesson  "})
     assert status == 200
     saved = json.loads((folder / "notes" / "notes.json").read_text())
-    assert saved == {"stars": {"2": True}, "notes": {"2": "VMs!"}, "speakers": {}}
+    assert saved == {"stars": {"2": True}, "notes": {"2": "VMs!"}, "speakers": {}, "title": "My SPCS lesson"}
     assert not list((folder / "notes").glob(".*.tmp"))
 
 

@@ -37,7 +37,7 @@ lesson-01/
   - **Paragraphs**: each part is split at speaker changes, pauses and every ~4 sentences, with a small time and speaker label per paragraph; long parts show 2 paragraphs and "show all".
   - **Blocks**: each part is one continuous text block (like v0.1), with speaker names inline.
 - **Overview**: the lesson summary, all your stars and notes by chapter (export to Markdown), and the glossary.
-- **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
+- **Click the title** to rename the lesson (saved with your notes, kept on rebuild). **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
 - **◧ ◨** in the top bar (or `[` `]`) hide the chapter or transcript lane for a bigger video; drag the edges between the lanes to resize them (double-click resets). **⋯** next to Ask: shortcuts to add a local model, a Claude key or Claude Code.
 
 ## What runs where

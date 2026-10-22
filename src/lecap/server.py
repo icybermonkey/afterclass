@@ -45,7 +45,7 @@ def read_json(path, default):
 
 
 def clean_notes(data):
-    """Only the known shapes: {stars: {id: true}, notes: {id: text}, speakers: {id: name}}."""
+    """Only the known shapes: {stars: {id: true}, notes: {id: text}, speakers: {id: name}, title?: text}."""
     if not isinstance(data, dict):
         raise ValueError("notes must be an object")
     out = {}
@@ -55,6 +55,8 @@ def clean_notes(data):
             raise ValueError(f"{key} must be an object")
         out[key] = {str(k)[:12]: (v if kind is bool else str(v)[:20000]) for k, v in part.items()
                     if isinstance(v, kind) and (kind is not bool or v)}
+    if isinstance(data.get("title"), str) and data["title"].strip():
+        out["title"] = data["title"].strip()[:200]  # the lesson renamed on the page
     return out
 
 
