@@ -108,6 +108,10 @@ h1[contenteditable="true"] { outline: 2px solid var(--accent); background: var(-
 .gutter:hover::after, body.dragging .gutter.active::after { background: var(--accent); }
 body.dragging { user-select: none; cursor: col-resize; }
 body.dragging video { pointer-events: none; }
+/* between video and Ask: drag up/down */
+.gutter.h { flex: none; height: 10px; margin: -10px 0 -10px; cursor: row-resize; }
+.gutter.h::after { top: 4px; bottom: auto; left: 0; right: 0; width: auto; height: 2px; }
+#player.hidden + .gutter.h { display: none; }
 .pane { min-height: 0; overflow: auto; }
 
 /* left: chapters */
@@ -132,7 +136,7 @@ body.dragging video { pointer-events: none; }
 /* middle: video + ask */
 #stage { display: flex; flex-direction: column; overflow: hidden; padding: 16px 16px 0; gap: 10px; }
 #player { flex: none; }
-#player video { width: 100%; max-height: calc(100vh - 290px); background: #000; border-radius: 10px; display: block; }
+#player video { width: 100%; max-height: var(--vidh, calc(100vh - 290px)); background: #000; border-radius: 10px; display: block; }
 #now { font-size: 13px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #ask { flex: 1; min-height: 150px; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 8px; }
 #askbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
@@ -323,6 +327,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   <div class="gutter l" data-side="left" title="Drag to resize · double-click to reset"></div>
   <section class="pane" id="stage">
     <div id="player"><video id="v" controls preload="metadata"></video><div id="now"></div></div>
+    <div class="gutter h" data-side="ask" title="Drag to resize · double-click to reset"></div>
     <section id="ask">
       <div id="askbar" class="hidden"><button type="button" class="btn" id="clearchat" title="Remove all questions and answers of this lesson">Clear chat</button></div>
       <div id="asklog"></div>
@@ -742,6 +747,15 @@ $$(".gutter").forEach(g => {
     g.setPointerCapture(e.pointerId);
     document.body.classList.add("dragging"); g.classList.add("active");
     const box = $(".layout").getBoundingClientRect(), side = g.dataset.side;
+    if (side === "ask") {  // the video's height; Ask takes the rest (at least its min-height)
+      const top = v.getBoundingClientRect().top, below = $("#player").getBoundingClientRect().bottom - v.getBoundingClientRect().bottom;
+      const room = $("#stage").getBoundingClientRect().bottom - top - below - 160;
+      const move = ev => setVideoHeight(Math.round(Math.min(Math.max(ev.clientY - top - below, 120), room)));
+      const up = () => { g.removeEventListener("pointermove", move); document.body.classList.remove("dragging"); g.classList.remove("active"); };
+      g.addEventListener("pointermove", move);
+      g.addEventListener("pointerup", up, { once: true });
+      return;
+    }
     const move = ev => {
       const px = side === "left" ? ev.clientX - box.left : box.right - ev.clientX;
       setLaneWidth(side, Math.round(Math.min(Math.max(px, side === "left" ? 160 : 260), box.width * 0.5)));
@@ -750,8 +764,13 @@ $$(".gutter").forEach(g => {
     g.addEventListener("pointermove", move);
     g.addEventListener("pointerup", up, { once: true });
   });
-  g.addEventListener("dblclick", () => setLaneWidth(g.dataset.side, 0));
+  g.addEventListener("dblclick", () => g.dataset.side === "ask" ? setVideoHeight(0) : setLaneWidth(g.dataset.side, 0));
 });
+function setVideoHeight(px) {
+  if (px) document.body.style.setProperty("--vidh", px + "px"); else document.body.style.removeProperty("--vidh");
+  lsSet("lecap:--vidh", px ? String(px) : "");
+}
+if (+lsGet("lecap:--vidh")) setVideoHeight(+lsGet("lecap:--vidh"));
 ["left", "right"].forEach(side => { const w = +lsGet("lecap:" + (side === "left" ? "--lw" : "--rw")); if (w) setLaneWidth(side, w); });
 $("#toggleLeft").onclick = () => toggleLane("left");
 $("#toggleRight").onclick = () => toggleLane("right");
