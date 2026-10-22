@@ -160,15 +160,25 @@ def _ask(question, default=False):
 
 
 def _choose(question, options):
-    """options: [(key, label)]. Returns a key or None."""
-    for i, (_k, label) in enumerate(options, 1):
-        ui.info(f"  {i}) {label}")
+    """options: [(key, label)]; a key of None is a group heading (not numbered). Returns a key or None."""
+    keys = []
+    for key, label in options:
+        if key is None:
+            ui.info(f"{ui.BOLD}{label}{ui.RESET}")
+            continue
+        keys.append(key)
+        ui.info(f"  {len(keys)}) {label}")
     if not sys.stdin.isatty():
         return None
-    answer = input(f"{ui.INDENT}{question} [1-{len(options)}] ").strip()
-    if answer.isdigit() and 1 <= int(answer) <= len(options):
-        return options[int(answer) - 1][0]
+    answer = input(f"{ui.INDENT}{question} [1-{len(keys)}] ").strip()
+    if answer.isdigit() and 1 <= int(answer) <= len(keys):
+        return keys[int(answer) - 1]
     return None
+
+
+def family(name):
+    n = name.lower()
+    return "Gemma (Google)" if "gemma" in n else "Qwen (Alibaba)" if "qwen" in n else "Other models"
 
 
 def _run(cmd):
@@ -242,11 +252,21 @@ def wizard():
     ui.explain(f"For your {m['chip']} with {m['ram_gb']} GB I recommend {best[0]} (~{best[1]} GB): {best[2]}. "
                "Bigger models write better titles and answers but need more memory and time.")
     installed = {x["name"] for x in app["models"]}
-    options = [(x["name"], f"use {x['name']} ({x['gb']} GB, installed)") for x in app["models"]]
-    for name, gb, why in offer:
-        if name not in installed:
-            options.append((f"dl:{name}", f"download {name} (~{gb} GB): {why}{'  ← recommended' if name == best[0] else ''}"))
-    options.append(("__other__", "other model: type its name (from lmstudio.ai/models or ollama.com/library)"))
+    star = f"{ui.GREEN}{ui.BOLD}★ recommended{ui.RESET} "
+    options = []
+    if app["models"]:
+        options.append((None, "Installed"))
+        options += [(x["name"], f"use {x['name']} ({x['gb']} GB)") for x in app["models"]]
+    # Downloads grouped by model family; the recommended one first in its group and marked with ★
+    downloads = [c for c in offer if c[0] not in installed]
+    downloads.sort(key=lambda c: c[0] != best[0])
+    for fam in sorted({family(c[0]) for c in downloads}, key=lambda f: f != family(best[0])):
+        options.append((None, f"Download · {fam}"))
+        for name, gb, why in downloads:
+            if family(name) == fam:
+                options.append((f"dl:{name}", f"{star if name == best[0] else ''}{name} (~{gb} GB): {why}"))
+    options.append((None, "Something else"))
+    options.append(("__other__", "type a model name (from lmstudio.ai/models or ollama.com/library)"))
     choice = _choose("Which model?", options)
     if choice is None:
         ui.info("nothing chosen")

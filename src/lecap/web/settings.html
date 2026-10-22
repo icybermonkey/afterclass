@@ -51,6 +51,14 @@ code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px;
 ol { padding-left: 20px; margin: 8px 0; }
 ol li { margin: 4px 0; }
 .keyrow { display: flex; gap: 8px; }
+.fam { font-weight: 600; margin: 8px 0 2px; }
+ul.models { list-style: none; padding-left: 0; margin: 0; }
+ul.models li { padding: 6px 8px; border-radius: 8px; margin: 2px 0; }
+ul.models li.best { background: color-mix(in srgb, var(--ok) 12%, transparent); }
+ul.models .mline { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+ul.models .mwhy { font-size: 12px; margin-top: 2px; }
+ul.models li button { font-size: 11px; padding: 0 6px; }
+.star { color: var(--ok); font-weight: 700; }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
   padding: 6px 14px; border-radius: 8px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
@@ -170,6 +178,15 @@ function field(key) {
   return `<div class="row"><label>${esc(LABELS[key] || key)}${liveTag(key, v)}<small>${esc(S.help[key] || "")}</small></label>${input}</div>`;
 }
 
+const family = n => /gemma/i.test(n) ? "Gemma (Google)" : /qwen/i.test(n) ? "Qwen (Alibaba)" : "Other models";
+function modelList(list, best) {
+  const fams = [...new Set(list.map(c => family(c.name)))].sort((a, b) => (a !== family(best)) - (b !== family(best)));
+  return fams.map(f => `<div class="fam">${esc(f)}</div><ul class="models">` + list.filter(c => family(c.name) === f)
+    .sort((a, b) => (a.name !== best) - (b.name !== best))
+    .map(c => `<li class="${c.name === best ? "best" : ""}"><div class="mline">${c.name === best ? `<span class="star">★ recommended</span>` : ""}
+      <code>${esc(c.name)}</code><span class="muted">~${c.gb} GB</span><button data-copy="lms get ${esc(c.name)}" title="Copies: lms get ${esc(c.name)}">Copy</button></div>
+      <div class="muted mwhy">${esc(c.why)}</div></li>`).join("") + `</ul>`).join("");
+}
 function pill(ok, text, warn) { return `<span class="pill ${ok ? "ok" : warn ? "warn" : "no"}">${ok ? "✔" : "✗"} ${esc(text)}</span>`; }
 
 function render() {
@@ -194,7 +211,10 @@ function render() {
   const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button data-copy="${esc(c)}">Copy</button></div>`;
   let guide = "";
   if (running) {
-    guide = `<p class="muted">Ready. lecap will use the running model when the provider is “auto” or “local”.</p>`;
+    guide = `<p class="muted">Ready. lecap will use the running model when the provider is “auto” or “local”.</p>
+      <details><summary>Other models for your ${esc(L.mac.chip)} (bigger = better answers, slower)</summary>
+      ${modelList(L.choices.lmstudio, L.recommended.lmstudio)}
+      <p class="muted">Download with the copied command (or <code>lecap setup ai</code>), then pick it under “Local model” below.</p></details>`;
   } else {
     guide = `<p><b>Easiest:</b> run the guided setup in Terminal; it asks before every download or start:</p>${cmd("lecap setup ai")}
       <p>Or step by step${lm && lm.installed ? " with LM Studio" : ol && ol.installed ? " with Ollama" : ""}:</p><ol>`;
@@ -202,7 +222,7 @@ function render() {
       guide += `<li>Start the server: ${cmd("lms server start")}</li>
         <li>${lm.models.length ? "Use an installed model or get" : "Get"} the one recommended for your ${esc(L.mac.chip)} (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("lms get " + L.recommended.lmstudio)}</li>
         <li>Load it with enough context for a whole lecture: ${cmd(`lms load ${lm.models[0] ? lm.models[0].name : L.recommended.lmstudio} --context-length 32768 -y`)}</li>
-        <li>Other options for your Mac:<ul>${L.choices.lmstudio.filter(c => c.name !== L.recommended.lmstudio).map(c => `<li><code>${esc(c.name)}</code> ~${c.gb} GB: ${esc(c.why)}</li>`).join("")}</ul></li>`;
+        <li>Models for your Mac, by family:${modelList(L.choices.lmstudio, L.recommended.lmstudio)}</li>`;
     } else if (ol && ol.installed) {
       guide += `<li>Start Ollama: ${cmd("brew services start ollama")}</li>
         <li>Get the recommended model (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("ollama pull " + L.recommended.ollama)}</li>`;
