@@ -4,7 +4,7 @@ import sys
 
 import pytest
 
-from lecap import gui, macapp
+from afterclass import gui, macapp
 
 
 def form(**kw):
@@ -26,23 +26,23 @@ def test_form_becomes_the_normal_command_line():
 
 
 def test_app_bundle(tmp_path):
-    app = macapp.build(tmp_path / "lecap.app", command=["/usr/local/bin/lecap"])
+    app = macapp.build(tmp_path / "afterclass.app", command=["/usr/local/bin/afterclass"])
     info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
-    assert info["CFBundleExecutable"] == "lecap" and info["CFBundleIconFile"] == "lecap"
-    exe = app / "Contents/MacOS/lecap"
+    assert info["CFBundleExecutable"] == "afterclass" and info["CFBundleIconFile"] == "afterclass"
+    exe = app / "Contents/MacOS/afterclass"
     text = exe.read_text()
-    assert exe.stat().st_mode & 0o111 and '/opt/homebrew/bin' in text and text.rstrip().endswith('exec "/usr/local/bin/lecap" app')
-    assert (app / "Contents/Resources/lecap.icns").stat().st_size > 1000
+    assert exe.stat().st_mode & 0o111 and '/opt/homebrew/bin' in text and text.rstrip().endswith('exec "/usr/local/bin/afterclass" app')
+    assert (app / "Contents/Resources/afterclass.icns").stat().st_size > 1000
 
 
 @pytest.mark.skipif(sys.platform != "darwin", reason="the link helper is built with osacompile/codesign")
 def test_link_helper(tmp_path):
-    app = macapp.build(tmp_path / "lecap.app", command=["/usr/local/bin/lecap"])
+    app = macapp.build(tmp_path / "afterclass.app", command=["/usr/local/bin/afterclass"])
     helper = app / macapp.HELPER
     info = plistlib.loads((helper / "Contents/Info.plist").read_bytes())
-    assert info["CFBundleURLTypes"][0]["CFBundleURLSchemes"] == ["lecap"] and info["LSBackgroundOnly"] is True
+    assert info["CFBundleURLTypes"][0]["CFBundleURLSchemes"] == ["afterclass", "lecap"] and info["LSBackgroundOnly"] is True
     script = (helper / "Contents/Resources/open-url").read_text()
-    assert script.rstrip().endswith('exec "/usr/local/bin/lecap" open-url "$1"')
+    assert script.rstrip().endswith('exec "/usr/local/bin/afterclass" open-url "$1"')
     assert subprocess.run(["codesign", "--verify", str(helper)]).returncode == 0
 
 
@@ -54,7 +54,7 @@ def test_media_choice_is_passed_on():
 def test_rerun_finds_files_that_were_moved_into_the_lesson(tmp_path):
     from pathlib import Path
 
-    from lecap import cli
+    from afterclass import cli
 
     out = tmp_path / "lesson"
     (out / "media").mkdir(parents=True)
@@ -73,18 +73,18 @@ def test_recording_and_slides_have_their_own_mode():
 def test_notification_script(monkeypatch):
     import sys
 
-    from lecap import ui
+    from afterclass import ui
 
     calls = []
     monkeypatch.setattr(sys, "platform", "darwin")
     monkeypatch.setattr(ui.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
-    ui.notify("lecap: lesson ready", 'SPCS "Lesson 1" is ready')
+    ui.notify("afterclass: lesson ready", 'SPCS "Lesson 1" is ready')
     assert calls[0][:2] == ["osascript", "-e"]
-    assert calls[0][2] == 'display notification "SPCS \\"Lesson 1\\" is ready" with title "lecap: lesson ready" sound name "Glass"'
+    assert calls[0][2] == 'display notification "SPCS \\"Lesson 1\\" is ready" with title "afterclass: lesson ready" sound name "Glass"'
 
 
 def test_model_suggestions_fit_the_memory():
-    from lecap import setup_ai
+    from afterclass import setup_ai
 
     big = [n for n, _, _ in setup_ai.choices(32, "lmstudio")]
     assert big[0] == "google/gemma-4-26b-a4b-qat" and "qwen/qwen3.6-35b-a3b" in big
@@ -95,7 +95,7 @@ def test_model_suggestions_fit_the_memory():
 
 
 def test_recommendation_uses_this_mac():
-    from lecap import setup_ai
+    from afterclass import setup_ai
 
     m2pro = {"chip": "Apple M2 Pro", "ram_gb": 32, "free_gb": 36, "bandwidth": 200}
     offer = setup_ai.choices(32, "lmstudio", m2pro)

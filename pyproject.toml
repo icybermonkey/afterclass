@@ -1,5 +1,5 @@
 [project]
-name = "lecap"
+name = "afterclass"
 version = "0.4.0"
 description = "Turn a lecture recording (and optionally its slide deck) into a searchable study page"
 readme = "README.md"
@@ -18,8 +18,8 @@ dependencies = [
 claude = ["anthropic>=1.0"]
 
 [project.scripts]
-# The command name lives here and in lecap.APP_NAME (see README, "Rename the tool")
-lecap = "lecap.cli:main"
+# The command name lives here and in afterclass.APP_NAME (see README, "Rename the tool")
+afterclass = "afterclass.cli:main"
 
 [dependency-groups]
 dev = ["pytest>=8", "anthropic>=1.0"]
@@ -29,7 +29,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/lecap"]
+packages = ["src/afterclass"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

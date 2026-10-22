@@ -1,18 +1,18 @@
 import pytest
 
-from lecap import cli
-from lecap.sources import registry
-from lecap.ui import LecapError
+from afterclass import cli
+from afterclass.sources import registry
+from afterclass.ui import AfterclassError
 
 
 @pytest.mark.parametrize("name,kind", [("a.mp3", "AUDIO"), ("b.pdf", "PDF"), ("c.pptx", "PPTX")])
 def test_planned_inputs_have_clear_message(tmp_path, name, kind):
-    with pytest.raises(LecapError, match=f"{kind} input is not supported yet"):
+    with pytest.raises(AfterclassError, match=f"{kind} input is not supported yet"):
         registry.pick(tmp_path / name)
 
 
 def test_unknown_input():
-    with pytest.raises(LecapError, match="don't know how to read"):
+    with pytest.raises(AfterclassError, match="don't know how to read"):
         registry.pick(__import__("pathlib").Path("x.xyz"))
 
 

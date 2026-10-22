@@ -5,12 +5,12 @@ import stat
 import httpx2
 import pytest
 
-from lecap import config
-from lecap.ai import claude as claude_mod
-from lecap.ai.claude_code import ClaudeCodeProvider
-from lecap.ai.schema import AiResult, json_schema
-from lecap.model import Card, Chapter, Lesson, Segment
-from lecap.steps import ai as ai_step
+from afterclass import config
+from afterclass.ai import claude as claude_mod
+from afterclass.ai.claude_code import ClaudeCodeProvider
+from afterclass.ai.schema import AiResult, json_schema
+from afterclass.model import Card, Chapter, Lesson, Segment
+from afterclass.steps import ai as ai_step
 
 RESULT = {
     "lesson_title": "Code Obfuscation",
@@ -123,7 +123,7 @@ def test_claude_code_provider_with_fake_cli(tmp_path, monkeypatch):
 
 def test_secret_order_env_before_keychain(monkeypatch):
     class FakeKeyring:
-        store = {("lecap", "claude"): "fake-from-keychain-abcd"}
+        store = {("afterclass", "claude"): "fake-from-keychain-abcd"}
 
         def get_password(self, s, u):
             return self.store.get((s, u))
@@ -137,12 +137,21 @@ def test_secret_order_env_before_keychain(monkeypatch):
 
 
 def test_config_roundtrip(tmp_path, monkeypatch):
-    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "c.toml"))
     config.set_value("threshold", "6")
     config.set_value("language", 'de"x')
     cfg = config.load()
     assert cfg["threshold"] == 6.0 and cfg["language"] == 'de"x'
     assert "key" not in (tmp_path / "c.toml").read_text().lower().replace("api_key", "")
+
+
+def test_config_moves_from_old_name(tmp_path, monkeypatch):
+    monkeypatch.delenv("AFTERCLASS_CONFIG", raising=False)
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    (tmp_path / "lecap").mkdir()
+    (tmp_path / "lecap" / "config.toml").write_text('language = "de"\n')
+    assert config.load()["language"] == "de"
+    assert not (tmp_path / "lecap").exists()
 
 
 def test_cached_ai_result_survives_renumbered_cards():
@@ -157,10 +166,10 @@ def test_cached_ai_result_survives_renumbered_cards():
 
 
 def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):
-    from lecap.ui import LecapError
+    from afterclass.ui import AfterclassError
 
     placeholder = {**RESULT, "chapters": RESULT["chapters"][:1], "glossary": []}
-    with pytest.raises(LecapError, match="nearly empty"):
+    with pytest.raises(AfterclassError, match="nearly empty"):
         ai_step.parse(placeholder)
     # Claude Code reporting a safety stop is retried, then fails with a clear message
     fake = tmp_path / "claude"
@@ -168,7 +177,7 @@ def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):
                     f"echo '{json.dumps({'is_error': False, 'safety_stops': 1, 'structured_output': placeholder})}'\n")
     fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
-    with pytest.raises(LecapError, match="safety classifier"):
+    with pytest.raises(AfterclassError, match="safety classifier"):
         ClaudeCodeProvider().run("sys", "prompt", json_schema(), "opus")
 
 

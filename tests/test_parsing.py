@@ -1,4 +1,4 @@
-from lecap.steps import analyze, ocr, scenes, silence, transcribe
+from afterclass.steps import analyze, ocr, scenes, silence, transcribe
 
 
 def test_silence_parse_open_end():

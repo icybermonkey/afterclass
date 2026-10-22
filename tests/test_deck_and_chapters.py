@@ -1,5 +1,5 @@
-from lecap.model import Card
-from lecap.steps import analyze, deck
+from afterclass.model import Card
+from afterclass.steps import analyze, deck
 
 
 def page(n, text, title="", divider=()):
@@ -73,7 +73,7 @@ def test_long_silence_inside_a_card_becomes_a_break():
 
 
 def test_chapter_picture_and_text_subchapters():
-    from lecap.model import Chapter
+    from afterclass.model import Chapter
 
     def card(i, kind, title, deck=None, page=None, length=10):
         return Card(id=i, kind=kind, start=i * 100.0, end=i * 100.0 + length, title=title,

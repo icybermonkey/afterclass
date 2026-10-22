@@ -7,6 +7,50 @@ resolution-markers = [
 ]
 
 [[package]]
+name = "afterclass"
+version = "0.4.0"
+source = { editable = "." }
+dependencies = [
+    { name = "keyring" },
+    { name = "mlx-whisper" },
+    { name = "pydantic" },
+    { name = "pymupdf" },
+    { name = "pywebview" },
+    { name = "scenedetect" },
+    { name = "speechbrain" },
+]
+
+[package.optional-dependencies]
+claude = [
+    { name = "anthropic" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "anthropic" },
+    { name = "pytest" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anthropic", marker = "extra == 'claude'", specifier = ">=1.0" },
+    { name = "keyring", specifier = ">=25" },
+    { name = "mlx-whisper", specifier = ">=0.4" },
+    { name = "pydantic", specifier = ">=2.6" },
+    { name = "pymupdf", specifier = ">=1.24" },
+    { name = "pywebview", specifier = ">=6.2.1" },
+    { name = "scenedetect", specifier = ">=0.7" },
+    { name = "speechbrain", specifier = ">=1.1.2" },
+]
+provides-extras = ["claude"]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "anthropic", specifier = ">=1.0" },
+    { name = "pytest", specifier = ">=8" },
+]
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 source = { registry = "https://pypi.org/simple" }
@@ -779,50 +823,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/43/4b/674af6ef2f97d56f0ab5153bf0bfa28ccb6c3ed4d1babf4305449668807b/keyring-25.7.0.tar.gz", hash = "sha256:fe01bd85eb3f8fb3dd0405defdeac9a5b4f6f0439edbb3149577f244a2e8245b", size = 63516, upload-time = "2025-11-16T16:26:09.482Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/81/db/e655086b7f3a705df045bf0933bdd9c2f79bb3c97bfef1384598bb79a217/keyring-25.7.0-py3-none-any.whl", hash = "sha256:be4a0b195f149690c166e850609a477c532ddbfbaed96a404d4e43f8d5e2689f", size = 39160, upload-time = "2025-11-16T16:26:08.402Z" },
-]
-
-[[package]]
-name = "lecap"
-version = "0.4.0"
-source = { editable = "." }
-dependencies = [
-    { name = "keyring" },
-    { name = "mlx-whisper" },
-    { name = "pydantic" },
-    { name = "pymupdf" },
-    { name = "pywebview" },
-    { name = "scenedetect" },
-    { name = "speechbrain" },
-]
-
-[package.optional-dependencies]
-claude = [
-    { name = "anthropic" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "anthropic" },
-    { name = "pytest" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "anthropic", marker = "extra == 'claude'", specifier = ">=1.0" },
-    { name = "keyring", specifier = ">=25" },
-    { name = "mlx-whisper", specifier = ">=0.4" },
-    { name = "pydantic", specifier = ">=2.6" },
-    { name = "pymupdf", specifier = ">=1.24" },
-    { name = "pywebview", specifier = ">=6.2.1" },
-    { name = "scenedetect", specifier = ">=0.7" },
-    { name = "speechbrain", specifier = ">=1.1.2" },
-]
-provides-extras = ["claude"]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "anthropic", specifier = ">=1.0" },
-    { name = "pytest", specifier = ">=8" },
 ]
 
 [[package]]

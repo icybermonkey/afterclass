@@ -1,7 +1,7 @@
 import numpy as np
 
-from lecap.model import Card, Segment
-from lecap.steps import analyze, speakers
+from afterclass.model import Card, Segment
+from afterclass.steps import analyze, speakers
 
 
 def _voice(rng, base, noise=0.25):

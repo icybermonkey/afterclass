@@ -1,0 +1,1210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<link rel="icon" href="__ICON__">
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --faint: #9a9aa0; --line: #e3e3e0;
+  --accent: #2f6fdb; --accent-soft: #e4edfc; --mark: #ffe58a; --now: #fff3c4; --star: #e0a100;
+  --demo: #7a4cc2; --break: #8a8a8f; --bad: #c0392b;
+  --off: #1f8a4c; --off-soft: #e3f4ea; --on: #c25e00; --on-soft: #fdeedd;
+  --note-bg: #fbf6e3; --note-edge: #e2cf86; --raster: #f4f4f1;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151517; --panel: #1c1c1f; --fg: #ececee; --muted: #9a9aa2; --faint: #6f6f77; --line: #2e2e33;
+    --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
+    --demo: #b996f0; --break: #77777e; --bad: #ff7b6b;
+    --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
+    --note-bg: #2b2819; --note-edge: #6e6233; --raster: #26262b;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151517; --panel: #1c1c1f; --fg: #ececee; --muted: #9a9aa2; --faint: #6f6f77; --line: #2e2e33;
+  --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
+  --demo: #b996f0; --break: #77777e; --bad: #ff7b6b;
+  --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
+  --note-bg: #2b2819; --note-edge: #6e6233; --raster: #26262b;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  display: flex; flex-direction: column; overflow: hidden; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+a { color: var(--accent); }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+.hidden { display: none !important; }
+.muted { color: var(--muted); }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .05em; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; }
+.tag.off { color: var(--off); background: var(--off-soft); }
+.tag.on { color: var(--on); background: var(--on-soft); }
+
+/* top bar (as in v0.1) */
+header { flex: none; background: var(--panel); border-bottom: 1px solid var(--line); z-index: 20;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 8px 16px; }
+#menu { display: none; font-size: 20px; width: 28px; }
+h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 0 1 auto; min-width: 8ch; max-width: 50vw;
+  cursor: text; border-radius: 6px; padding: 2px 6px; margin-left: -6px; }
+h1:hover { background: var(--accent-soft); }
+h1[contenteditable="true"] { outline: 2px solid var(--accent); background: var(--bg); text-overflow: clip; cursor: text; }
+.search { display: flex; align-items: center; gap: 6px; flex: 1 1 240px; min-width: 180px; max-width: 520px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 3px 8px; }
+.search input { flex: 1; border: 0; background: none; color: var(--fg); font: inherit; outline: none; min-width: 0; }
+.search .count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.search button { color: var(--muted); padding: 0 4px; font-size: 16px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 1px 10px; font-size: 13px; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+.tools { display: flex; gap: 10px; align-items: center; margin-left: auto; font-size: 13px; color: var(--muted); }
+.tools label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+.tools button { border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
+#sync { font-size: 12px; }
+#sync.on { color: var(--off); }
+#openwrap { position: relative; display: flex; gap: 10px; align-items: center; }
+#sync.info { cursor: pointer; }
+#sync.info:hover { color: var(--fg); }
+#openafterclass { border: 1px solid var(--accent); border-radius: 6px; padding: 1px 8px; color: var(--accent); text-decoration: none; cursor: pointer; }
+#openafterclass:hover { background: var(--accent-soft); }
+#openhint { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 380px; padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--fg); box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: 13px; line-height: 1.5; }
+#openhint .hhead { display: flex; align-items: center; margin-bottom: 6px; font-size: 14px; }
+#openhint .hhead button { margin-left: auto; border: 0; font-size: 16px; line-height: 1; padding: 0 4px; color: var(--muted); }
+#openhint .cmp { width: 100%; border-collapse: separate; border-spacing: 0; margin: 0 0 12px; font-size: 12px; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+#openhint .cmp th, #openhint .cmp td { padding: 6px 8px; text-align: left; vertical-align: top; border-top: 1px solid var(--line); }
+#openhint .cmp tr:first-child th { border-top: 0; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg); }
+#openhint .cmp td:first-child { font-weight: 600; white-space: nowrap; }
+#openhint .cmp td:last-child, #openhint .cmp th.good { background: var(--accent-soft); }
+#openhint .cmp th.good { color: var(--accent); }
+#openhint .cmp .ok, #openhint .cmp .no { display: inline-block; width: 14px; font-weight: 700; }
+#openhint .cmp .ok { color: var(--off); }
+#openhint .cmp .no { color: var(--muted); }
+#openhint p { margin: 0 0 8px; }
+#openhint .go { display: inline-block; border: 1px solid var(--accent); border-radius: 6px; padding: 3px 12px; background: var(--accent); color: var(--panel); text-decoration: none; font-weight: 600; }
+#openhint .go:hover { filter: brightness(1.1); background: var(--accent); }
+#openhint .stay { margin-left: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; color: var(--muted); }
+#openhint:not(.first) .stay { display: none; }
+#openhint .lead { margin: 0 0 10px; font-size: 14px; }
+/* the first time: a centered dialog over the dimmed page, so it isn't missed */
+#openhint.first { position: fixed; top: 18vh; left: 50%; right: auto; transform: translateX(-50%); width: min(480px, calc(100vw - 32px));
+  z-index: 60; padding: 20px 22px; font-size: 14px; }
+#openhint.first .hhead { font-size: 18px; margin-bottom: 10px; }
+#openhint.first .go, #openhint.first .stay { padding: 6px 16px; font-size: 14px; }
+#hintback { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); }
+#openhint .fallback { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+#openhint .cmd { display: flex; gap: 6px; align-items: center; margin: 3px 0 6px; }
+#openhint code { flex: 1; min-width: 0; padding: 3px 6px; border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; word-break: break-all; }
+#openhint .btn { flex: none; font-size: 11px; padding: 0 6px; }
+
+/* three columns */
+:root { --lw: 300px; --rw: minmax(360px, 34%); }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--lw) 6px minmax(0, 1fr) 6px var(--rw); }
+#chapters { grid-column: 1; } .gutter.l { grid-column: 2; } #stage { grid-column: 3; } .gutter.r { grid-column: 4; } #panel { grid-column: 5; }
+.gutter { cursor: col-resize; position: relative; z-index: 5; }
+.gutter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; transition: background .15s; }
+.gutter:hover::after, body.dragging .gutter.active::after { background: var(--accent); }
+body.dragging { user-select: none; cursor: col-resize; }
+body.dragging video { pointer-events: none; }
+/* between video and Ask: drag up/down */
+.gutter.h { flex: none; height: 10px; margin: -10px 0 -10px; cursor: row-resize; }
+.gutter.h::after { top: 4px; bottom: auto; left: 0; right: 0; width: auto; height: 2px; }
+#player.hidden + .gutter.h { display: none; }
+.pane { min-height: 0; overflow: auto; }
+
+/* left: chapters */
+#chapters { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 0 40px; }
+.chap { padding: 4px 10px 6px; }
+.chap > button.head { display: grid; grid-template-columns: 61px minmax(0, 1fr); gap: 8px; align-items: start;
+  width: 100%; text-align: left; border-radius: 8px; padding: 5px; }
+.chap > button.head:hover { background: var(--accent-soft); }
+.chap.on > button.head { background: var(--accent-soft); }
+.chap img { width: 61px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line);
+  border-radius: 4px; display: block; }
+.chap .noimg { width: 61px; aspect-ratio: 16 / 9; border: 1px dashed var(--line); border-radius: 4px; }
+.chap .ct { font-weight: 600; font-size: 14px; line-height: 1.3; }
+.chap.on .ct { color: var(--accent); }
+.chap .tm { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.subs { list-style: none; margin: 2px 0 4px 8px; padding: 0 0 0 8px; border-left: 2px solid var(--line); }
+.subs button { display: flex; gap: 8px; width: 100%; text-align: left; font-size: 13px; padding: 2px 6px; border-radius: 4px; color: var(--muted); }
+.subs button:hover { background: var(--accent-soft); color: var(--fg); }
+.subs button.on { color: var(--fg); font-weight: 600; }
+.subs time { font-variant-numeric: tabular-nums; font-size: 12px; min-width: 52px; }
+
+/* middle: video + ask */
+#stage { display: flex; flex-direction: column; overflow: hidden; padding: 16px 16px 0; gap: 10px; }
+#player { flex: none; }
+#player video { width: 100%; max-height: var(--vidh, calc(100vh - 290px)); background: #000; border-radius: 10px; display: block; }
+#now { font-size: 13px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#ask { flex: 1; min-height: 150px; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 8px; }
+#askbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+#clearchat { font-size: 12px; padding: 1px 8px; color: var(--muted); }
+#clearchat:hover { color: var(--fg); }
+#clearchat.sure { color: var(--bad); border-color: var(--bad); }
+#asklog { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
+#askform { flex: none; display: flex; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
+#askq { flex: 1; min-height: 38px; max-height: 120px; resize: none; font: inherit; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+#askform .btn { height: 38px; }
+#addai-wrap { position: relative; }
+#addai { height: 38px; padding: 0 10px; font-size: 16px; color: var(--muted); }
+#settings-help { position: fixed; top: 46px; right: 12px; width: 300px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px 12px; z-index: 45; font-size: 13px; }
+#settings-help p { margin: 6px 0; }
+#settings-help .cmdrow { display: flex; gap: 6px; align-items: center; }
+#settings-help code { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
+#addai-menu { position: absolute; bottom: 44px; right: 0; width: 280px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 6px; z-index: 30; }
+#addai-menu .mt { font-size: 11px; color: var(--muted); padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: .04em; }
+#addai-menu button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; padding: 6px 8px; border-radius: 6px; font-size: 13px; }
+#addai-menu button:hover { background: var(--accent-soft); }
+#addai-menu button small { display: block; color: var(--muted); font-size: 11px; }
+#askmodel { height: 38px; max-width: 210px; font: inherit; font-size: 12px; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
+#askwho { font-size: 12px; color: var(--muted); padding-bottom: 6px; }
+#askwho .line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.askhelp { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); margin-bottom: 4px; }
+.askhelp .line + .line { margin-top: 6px; }
+.askhelp .opt { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 6px; }
+.askhelp .opt b { color: var(--fg); font-weight: 600; }
+.askhelp code { display: block; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+  font-size: 12px; white-space: nowrap; overflow-x: auto; color: var(--fg); }
+.askhelp .btn { font-size: 12px; padding: 1px 8px; }
+.qa .q { font-weight: 600; font-size: 14px; }
+.qa .a { font-size: 14px; }
+.qa .a p { margin: 4px 0; }
+.qa .main { margin-top: 2px; font-size: 13px; font-weight: 600; color: var(--accent); border: 1px solid var(--accent);
+  border-radius: 999px; padding: 1px 10px; }
+.qa details { margin-top: 4px; font-size: 12px; color: var(--faint); }
+.qa details summary { cursor: pointer; }
+.qa details div { margin: 3px 0 3px 4px; }
+.qa details button { color: var(--faint); font-variant-numeric: tabular-nums; margin-right: 6px; text-decoration: underline; }
+.qa .by { font-size: 11px; color: var(--faint); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
+.qa .more-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.qa .err { color: var(--bad); }
+.thinking { color: var(--muted); font-style: italic; }
+.btn { border: 1px solid var(--line); border-radius: 8px; padding: 3px 12px; font-size: 13px; background: var(--panel); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+/* right: transcript + overview */
+#panel { border-left: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+.tabs { flex: none; display: flex; align-items: center; border-bottom: 1px solid var(--line); padding: 0 8px; }
+.tabs button[data-tab] { padding: 9px 12px 7px; font-size: 14px; color: var(--muted); border-bottom: 2px solid transparent; }
+.tabs button[aria-selected="true"] { color: var(--fg); border-bottom-color: var(--accent); font-weight: 600; }
+.seg2 { margin-left: auto; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg2 button { padding: 0 8px; font-size: 12px; color: var(--muted); }
+.seg2 button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); }
+.tab { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 40px; }
+.tcard { padding: 10px 10px 12px; margin: 0 -6px 6px; border-radius: 8px; scroll-margin-top: 6px; }
+.tcard:nth-of-type(odd) { background: var(--raster); }
+.th { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: start; }
+.th .pic { position: relative; }
+.th img { width: 112px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; display: block; }
+.th .swap { position: absolute; right: 2px; bottom: 2px; font-size: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
+.th .meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 13px; }
+.th .info { min-width: 0; }
+.time { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+.kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.tcard[data-kind="demo"] .kind { color: var(--demo); }
+.ctitle { font-weight: 600; font-size: 15px; line-height: 1.3; margin-bottom: 2px; }
+.acts { display: flex; gap: 2px; margin-left: -4px; }
+.acts button { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 24px; border-radius: 6px; color: var(--muted); font-size: 14px; }
+.acts button:hover { background: var(--bg); }
+.acts .star.on { color: var(--star); }
+.tcard.active .time { text-decoration: underline; }
+.para { margin: 6px 0 0; }
+.ptime { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; margin-right: 6px; cursor: pointer; }
+.who { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-right: 6px; }
+/* Other speakers (questions, host) read quieter than the lecturer */
+.para.other { color: var(--muted); font-size: 14px; border-left: 2px solid var(--line); padding-left: 10px; }
+.para.other .who, .whoin.other { font-style: italic; font-weight: 500; text-transform: none; letter-spacing: 0; }
+.seg.other { color: var(--muted); }
+.whoin { font-size: 11px; font-weight: 600; text-transform: uppercase; margin: 0 4px; color: var(--muted); }
+.seg { cursor: pointer; border-radius: 3px; }
+.seg:hover { background: var(--accent-soft); }
+.seg.now { background: var(--now); }
+.term { font-weight: 600; }
+.more { font-size: 13px; color: var(--accent); margin-top: 4px; }
+.nospeech { color: var(--muted); font-style: italic; font-size: 14px; margin: 6px 0 0; }
+.slidehit { font-size: 13px; color: var(--muted); margin-top: 6px; border-left: 3px solid var(--mark); padding-left: 8px; }
+.note { width: 100%; min-height: 54px; resize: vertical; margin-top: 8px; font: inherit; font-size: 14px; color: var(--fg);
+  background: var(--note-bg); border: 1px solid var(--line); border-left: 3px solid var(--note-edge); border-radius: 8px; padding: 6px 8px; }
+.tbreak { color: var(--break); font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+#empty { color: var(--muted); padding: 30px 0; text-align: center; }
+#tab-overview h2 { font-size: 15px; color: var(--accent); margin: 18px 0 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent-soft);
+  display: flex; align-items: baseline; gap: 8px; }
+details.sec:first-child h2 { margin-top: 10px; }
+details.sec[data-sec="summary"] p { margin: 0 0 8px; line-height: 1.6; }
+#tab-overview h2 .n { font-size: 12px; color: var(--muted); font-weight: normal; }
+#tab-overview h2 .btn { margin-left: auto; font-size: 12px; padding: 1px 8px; }
+.ov-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; }
+/* one calm row per note, alternating like the transcript */
+.ov-item { padding: 8px 10px; margin: 0 -4px 2px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.ov-item.alt, details.gl:nth-of-type(odd) { background: var(--raster); }
+.ov-item:hover { background: var(--accent-soft); }
+.ov-item .oh { display: flex; gap: 6px; align-items: baseline; }
+.ov-item .oh b { flex: 1; font-weight: 600; min-width: 0; }
+.ov-item .oh .st { color: var(--star); }
+.ov-item .oh .time { font-size: 12px; font-weight: 500; }
+.ov-item .nt { white-space: pre-wrap; margin-top: 3px; }
+details.sec > summary { list-style: none; cursor: pointer; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary h2::before { content: "▾"; font-size: 12px; color: var(--muted); }
+details.sec:not([open]) > summary h2::before { content: "▸"; }
+details.gl { padding: 6px 10px; margin: 0 -4px 2px; border-radius: 8px; font-size: 14px; }
+details.gl summary { cursor: pointer; font-weight: 600; }
+details.gl p { margin: 4px 0 2px 16px; color: var(--muted); }
+details.gl .jump { font-size: 12px; color: var(--accent); }
+.slidelabel { font-size: 12px; color: var(--faint); width: 100%; }
+
+/* overlays */
+#lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 16px; }
+#lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; background: #fff; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
+  padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.show { opacity: 1; }
+
+/* collapsible lanes: more room for the video */
+body.no-left #chapters, body.no-left .gutter.l, body.no-right #panel, body.no-right .gutter.r { display: none; }
+body.no-left .layout { grid-template-columns: 0 0 minmax(0, 1fr) 6px var(--rw); }
+body.no-right .layout { grid-template-columns: var(--lw) 6px minmax(0, 1fr) 0 0; }
+body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+.tools .lane { font-size: 14px; }
+.tools .lane[aria-pressed="false"] { opacity: .45; }
+@media (max-width: 1250px) { :root { --lw: 270px; --rw: minmax(330px, 38%); } h1 { max-width: 40vw; } }
+@media (max-width: 980px) {
+  body { overflow: auto; height: auto; }
+  .layout { display: flex; flex-direction: column; }
+  .gutter { display: none; }
+  .pane { overflow: visible; }
+  #menu { display: block; }
+  #chapters { position: fixed; top: 0; left: 0; bottom: 0; width: min(300px, 86vw); z-index: 40; transform: translateX(-102%);
+    transition: transform .2s; overflow: auto; border-right: 1px solid var(--line); }
+  #chapters.open { transform: none; }
+  #stage { padding: 8px 16px 0; overflow: visible; }
+  #player { position: sticky; top: 0; z-index: 10; background: var(--bg); padding-bottom: 6px; }
+  #player video { max-height: 34vh; }
+  #asklog { max-height: 40vh; }
+  #panel { border-left: 0; overflow: visible; }
+  .tab { overflow: visible; }
+  h1 { max-width: 60vw; }
+}
+</style>
+</head>
+<body>
+<header>
+  <button id="menu" aria-label="Chapters">☰</button>
+  <h1 id="title" title="Click to rename this lesson"></h1>
+  <div class="search">
+    <span aria-hidden="true">⌕</span>
+    <input id="q" type="search" placeholder="Search transcript, slides and notes  ( / )" autocomplete="off">
+    <span class="count" id="count"></span>
+    <button id="prev" title="Previous hit (Shift+Enter)">‹</button>
+    <button id="next" title="Next hit (Enter)">›</button>
+  </div>
+  <div class="chips">
+    <button class="chip" data-kind="all" aria-pressed="true">All</button>
+    <button class="chip" data-kind="slide" aria-pressed="false">Slides</button>
+    <button class="chip" data-kind="demo" aria-pressed="false">Demos</button>
+    <button class="chip" id="starred" aria-pressed="false">★ Starred</button>
+  </div>
+  <div class="tools">
+    <label title="Keep chapters and transcript on what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
+    <span id="openwrap"><span id="sync"></span><a id="openafterclass" class="hidden" title="Save notes in the lesson folder, all Ask models, settings">Open in afterclass</a>
+      <div id="openhint" class="hidden"></div></span><div id="hintback" class="hidden"></div>
+    <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
+    <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
+    <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
+    <button id="theme" title="Theme">◐</button>
+    <button id="settings" title="Settings">⚙</button>
+  </div>
+</header>
+
+<div class="layout">
+  <nav class="pane" id="chapters"></nav>
+  <div class="gutter l" data-side="left" title="Drag to resize · double-click to reset"></div>
+  <section class="pane" id="stage">
+    <div id="player"><video id="v" controls preload="metadata"></video><div id="now"></div></div>
+    <div class="gutter h" data-side="ask" title="Drag to resize · double-click to reset"></div>
+    <section id="ask">
+      <div id="askbar" class="hidden"><button type="button" class="btn" id="clearchat" title="Remove all questions and answers of this lesson">Clear chat</button></div>
+      <div id="asklog"></div>
+      <div id="askwho"></div>
+      <form id="askform">
+        <textarea id="askq" rows="1" placeholder="Ask about this lesson, e.g. “Where do we talk about virtual machines?”  ( a )"></textarea>
+        <select id="askmodel" class="hidden" title="Which model answers (offline = on this Mac, online = Claude)"></select>
+        <span id="addai-wrap"><button type="button" class="btn" id="addai" title="Add more AI models">⋯</button>
+          <div id="addai-menu" class="hidden" role="menu"></div></span>
+        <button class="btn primary" type="submit">Ask</button>
+      </form>
+    </section>
+  </section>
+  <div class="gutter r" data-side="right" title="Drag to resize · double-click to reset"></div>
+  <section class="pane" id="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="transcript" aria-selected="true">Transcript</button>
+      <button role="tab" data-tab="overview" aria-selected="false">Overview</button>
+      <span class="seg2" title="Transcript layout"><button data-view="paragraphs">¶ Paragraphs</button><button data-view="blocks">▤ Blocks</button></span>
+    </div>
+    <div class="tab" id="tab-transcript"><div id="tx"></div><p id="empty" class="hidden">Nothing matches.</p></div>
+    <div class="tab hidden" id="tab-overview"></div>
+  </section>
+</div>
+<div id="settings-help" class="hidden"><b>Settings run through afterclass</b>
+  <p>Start them in Terminal, then click ⚙ again:</p>
+  <div class="cmdrow"><code>afterclass settings</code><button class="btn" data-copy="afterclass settings">Copy</button></div>
+  <p class="muted">Or open this lesson with <code>afterclass open</code>: then ⚙, notes in the folder and Claude online all work directly.</p></div>
+<div id="lightbox" class="hidden"><img alt=""></div>
+<div id="toast"></div>
+
+<script id="lesson-data" type="application/json">/*LESSON_DATA*/</script>
+<script id="lesson-notes" type="application/json">/*NOTES_DATA*/</script>
+<script id="lesson-ask" type="application/json">/*ASK_DATA*/</script>
+<script>
+"use strict";
+const L = JSON.parse(document.getElementById("lesson-data").textContent);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fold = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const fmt = t => { t = Math.max(0, Math.floor(t || 0)); return [t / 3600 | 0, (t % 3600) / 60 | 0, t % 60].map(n => String(n).padStart(2, "0")).join(":"); };
+const parseT = s => { if (!s) return null; const p = String(s).split(":").map(Number); return p.some(isNaN) ? null : p.reduce((a, b) => a * 60 + b, 0); };
+const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+try {  // notes and view settings this browser saved under the earlier name (lecap)
+  Object.keys(localStorage).filter(k => k.startsWith("lecap:")).forEach(k => { const n = "afterclass" + k.slice(5); if (lsGet(n) === null) lsSet(n, lsGet(k)); });
+} catch (e) {}
+const SERVER = location.protocol.startsWith("http");
+const api = async (method, path, body) => {
+  const r = await fetch(path, { method, headers: { "X-Afterclass": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || r.statusText);
+  return d;
+};
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+const tagHTML = online => online ? `<span class="tag on">online</span>` : `<span class="tag off">offline</span>`;
+
+/* ---------- notes: lesson folder (afterclass open) + this browser ---------- */
+const KEY = "afterclass:" + L.id;
+let store = { stars: {}, notes: {}, speakers: {} };
+function mergeNotes(a, b) {
+  const out = { stars: { ...(a.stars || {}), ...(b.stars || {}) }, notes: { ...(a.notes || {}) }, speakers: { ...(a.speakers || {}), ...(b.speakers || {}) } };
+  for (const [k, v] of Object.entries(b.notes || {})) if (!out.notes[k] || v.length > out.notes[k].length) out.notes[k] = v;
+  const t = b.title || a.title;
+  if (t) out.title = t;
+  return out;
+}
+try { store = mergeNotes(store, JSON.parse(document.getElementById("lesson-notes").textContent || "{}")); } catch (e) {}
+try { store = mergeNotes(store, JSON.parse(lsGet(KEY) || "{}")); } catch (e) {}
+let serverOK = false, saveTimer;
+function save() {
+  lsSet(KEY, JSON.stringify(store));
+  if (!serverOK) return;
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(() => api("PUT", "/api/notes", store).catch(() => setSync(false)), 400);
+}
+function setSync(on) {
+  serverOK = on;
+  const s = $("#sync");
+  s.className = on ? "on" : "";
+  s.textContent = on ? "● notes in folder" : "○ notes in browser";
+  s.title = on ? "Notes are saved in the lesson's notes/ folder" : "Notes are kept in this browser. Open with `afterclass open <folder>` to save them in the folder.";
+}
+setSync(false);
+if (SERVER) $("#sync").textContent = "… connecting";
+
+/* ---------- opened as a file: what that means, and "Open in afterclass" (the Mac app handles afterclass:// links) ---------- */
+if (location.protocol === "file:") {
+  const folder = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, "");
+  const cmd = `afterclass open '${folder.replace(/'/g, `'\\''`)}'`;
+  const link = "afterclass://open?folder=" + encodeURIComponent(folder);
+  const hint = $("#openhint"), sync = $("#sync");
+  sync.textContent = "○ notes in browser ⓘ";
+  sync.classList.add("info");
+  sync.title = "Opened as a file: what that means";
+  $("#openafterclass").href = link;
+  $("#openafterclass").classList.remove("hidden");
+  hint.innerHTML = `<div class="hhead"><b>Opened as a file</b><button class="x" title="Close">×</button></div>
+    <p class="lead">Notes you write here are <b>not saved in the lesson folder</b>. To study, open the lesson with afterclass.</p>
+    <table class="cmp"><tr><th></th><th>Here</th><th class="good">In afterclass</th></tr>
+      <tr><td>Notes &amp; stars</td><td><span class="no">✕</span> this browser only</td><td><span class="ok">✓</span> in the lesson folder, synced</td></tr>
+      <tr><td>Ask</td><td><span class="no">✕</span> search or a local model</td><td><span class="ok">✓</span> all models, also Claude</td></tr>
+      <tr><td>Settings</td><td><span class="no">✕</span> not here</td><td><span class="ok">✓</span> change them on the page</td></tr></table>
+    <p><a class="go" href="${esc(link)}">Open in afterclass</a><button class="stay">Continue here</button></p>
+    <div class="fallback"><span class="opening hidden"><b>Opening…</b> your browser may ask first. </span>Nothing happens? Install the Mac app once:
+      <div class="cmd"><code>afterclass install-app</code><button class="btn" data-copy="afterclass install-app">Copy</button></div>or open it from Terminal:
+      <div class="cmd"><code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></div></div>`;
+  const show = (on, first = false) => {
+    hint.classList.toggle("hidden", !on);
+    hint.classList.toggle("first", on && first);
+    $("#hintback").classList.toggle("hidden", !(on && first));
+    if (!on) lsSet("afterclass:filehint", "seen");
+  };
+  sync.addEventListener("click", () => show(hint.classList.contains("hidden")));
+  [$(".x", hint), $(".stay", hint), $("#hintback")].forEach(b => b.addEventListener("click", () => show(false)));
+  [$("#openafterclass"), $(".go", hint)].forEach(a => a.addEventListener("click", () => { show(true, hint.classList.contains("first")); $(".opening", hint).classList.remove("hidden"); }));
+  document.addEventListener("click", e => { if (!hint.classList.contains("hidden") && !hint.classList.contains("first") && !e.target.closest("#openwrap")) show(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !hint.classList.contains("hidden")) show(false); });
+  if (!lsGet("afterclass:filehint")) show(true, true);  // the first time as a dialog; ⓘ brings it back as a dropdown
+}
+
+/* ---------- theme ---------- */
+let theme = lsGet("afterclass:theme") || "auto";
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", theme);
+  $("#theme").textContent = { auto: "◐ Auto", light: "☀ Light", dark: "☾ Dark" }[theme];
+}
+$("#theme").onclick = () => { theme = ["auto", "light", "dark"][(["auto", "light", "dark"].indexOf(theme) + 1) % 3]; lsSet("afterclass:theme", theme); applyTheme(); };
+applyTheme();
+
+/* ---------- basics ---------- */
+const defaultTitle = (L.ai && L.ai.title) || L.title;
+let title = store.title || defaultTitle;
+$("#title").textContent = document.title = title;
+/* click the title to rename the lesson; empty = back to the default */
+$("#title").addEventListener("click", () => {
+  const h = $("#title");
+  if (h.isContentEditable) return;
+  h.contentEditable = "true";
+  h.focus();
+  document.getSelection().selectAllChildren(h);
+});
+$("#title").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); e.target.blur(); }
+  if (e.key === "Escape") { e.target.textContent = title; e.target.blur(); }
+});
+$("#title").addEventListener("blur", () => {
+  const h = $("#title");
+  h.contentEditable = "false";
+  const val = h.textContent.replace(/\s+/g, " ").trim().slice(0, 200);
+  title = val || defaultTitle;
+  if (val && val !== defaultTitle) store.title = val; else delete store.title;
+  h.textContent = document.title = title;
+  h.scrollLeft = 0;
+  save();
+  toast(val ? "Title saved" : "Title reset");
+});
+const v = $("#v");
+if (L.media) v.src = L.media; else $("#player").classList.add("hidden");
+const cards = L.cards;
+const chapterAt = {};
+L.chapters.forEach((ch, i) => { chapterAt[ch.card] = i; });
+const cardChapter = [];
+{ let cur = 0; cards.forEach((c, i) => { if (chapterAt[c.id] !== undefined) cur = chapterAt[c.id]; cardChapter[i] = cur; }); }
+const speakerName = id => (L.speakers.find(s => s.id === id) || {}).label || (id === "A" ? "Lecturer" : id ? "Speaker " + id : "");
+const multiSpeaker = L.speakers.length > 1;
+const glossary = L.ai ? L.ai.glossary : [];
+const terms = [...new Set(glossary.map(g => g.term.replace(/\s*\(.*\)\s*$/, "").trim()).filter(t => t.length > 2))];
+const termRe = terms.length ? new RegExp("\\b(" + terms.sort((a, b) => b.length - a.length).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi") : null;
+let view = lsGet("afterclass:view") || L.transcript_view || "paragraphs";
+
+/* ---------- search ---------- */
+let kind = "all", starredOnly = false, q = "", qterms = [];
+const cardTitle = c => c.quick_title || c.title || (c.kind === "demo" ? "Live demo" : "");
+const hay = cards.map(c => fold([c.quick_title, c.title, c.text, c.segments.map(s => s.text).join(" "), store.notes[c.id] || ""].join("\n")));
+const markRe = () => qterms.length ? new RegExp("(" + qterms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi") : null;
+function decorate(text, withTerms) {
+  let h = esc(text);
+  if (termRe && withTerms) h = h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(termRe, '<span class="term">$1</span>'));
+  const re = markRe();
+  if (re) h = h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(re, "<mark>$1</mark>"));
+  return h;
+}
+
+/* ---------- left: chapters (one picture each, text subchapters) ---------- */
+function renderChapters() {
+  $("#chapters").innerHTML = L.chapters.map((ch, k) => {
+    const subs = (ch.subs || []).map(s => `<li><button data-card="${s.card}" id="s${s.card}"><time>${fmt(cards[s.card].start)}</time><span>${esc(s.title)}</span></button></li>`).join("");
+    return `<div class="chap" id="ch${k}" data-ch="${k}">
+      <button class="head" data-card="${ch.card}">${ch.image ? `<img src="${esc(ch.image)}" loading="lazy" alt="">` : `<span class="noimg"></span>`}
+        <span><div class="ct">${esc(ch.title)}</div><div class="tm">${fmt(cards[ch.card].start)}</div></span></button>
+      ${subs ? `<ul class="subs">${subs}</ul>` : ""}</div>`;
+  }).join("");
+}
+function markChapter(k) { $$(".chap").forEach(d => d.classList.toggle("on", +d.dataset.ch === k)); }
+
+/* ---------- right: transcript ---------- */
+const expanded = new Set();
+function paragraphsOf(c) {
+  const out = [];
+  c.segments.forEach((s, j) => { if (!out.length || s.para) out.push({ start: s.start, speaker: s.speaker, segs: [] }); out[out.length - 1].segs.push(j); });
+  return out;
+}
+const segHTML = (c, j, other = false) => `<span class="seg${other ? " other" : ""}" data-c="${c.id}" data-j="${j}" data-t="${c.segments[j].start}">${decorate(c.segments[j].text, true)}</span>`;
+function transcriptBody(c) {
+  if (!c.segments.length) return `<p class="nospeech">no speech</p>`;
+  if (view === "blocks") {
+    let last = null;
+    return `<p class="para">` + c.segments.map((s, j) => {
+      let lab = "";
+      if (multiSpeaker && s.speaker !== last && (last !== null || s.speaker !== "A")) lab = `<span class="whoin ${s.speaker !== "A" ? "other" : ""}">${esc(speakerName(s.speaker))}:</span>`;
+      last = s.speaker;
+      return lab + segHTML(c, j, multiSpeaker && s.speaker && s.speaker !== "A");
+    }).join(" ") + `</p>`;
+  }
+  const paras = paragraphsOf(c);
+  const limit = expanded.has(c.id) || qterms.length || paras.length <= 3 ? paras.length : 2;
+  let prev = null;
+  return paras.slice(0, limit).map(p => {
+    const other = multiSpeaker && p.speaker && p.speaker !== "A";
+    const showWho = multiSpeaker && p.speaker !== prev && (prev !== null || other);
+    prev = p.speaker;
+    return `<p class="para ${other ? "other" : ""}"><span class="ptime" data-t="${p.start}">${fmt(p.start)}</span>${showWho ? `<span class="who">${esc(speakerName(p.speaker))}</span>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
+  }).join("") + (limit < paras.length ? `<button class="more" data-more="${c.id}">show all ${paras.length} paragraphs</button>` : "");
+}
+function tcardHTML(c) {
+  const img = c.deck_image || c.image;
+  const swap = c.deck_image && c.image ? `<button class="swap" data-alt="${esc(c.image)}" title="Slide ⇄ video frame">⇄</button>` : "";
+  const pdf = L.deck && c.deck_page ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank" class="kind">PDF p.${c.deck_page}</a>` : "";
+  const note = store.notes[c.id];
+  return `<article class="tcard" id="t${c.id}" data-id="${c.id}" data-kind="${c.kind}">
+    <div class="th"><div class="pic">${img ? `<img src="${esc(img)}" loading="lazy" alt="">${swap}` : ""}</div>
+      <div class="info"><div class="ctitle">${decorate(cardTitle(c))}</div>
+        <div class="meta"><button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
+          <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
+          <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
+            <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button></span>
+          ${c.quick_title && c.title && c.title.toLowerCase() !== c.quick_title.toLowerCase() ? `<span class="slidelabel">slide: ${decorate(c.title)}</span>` : ""}</div></div></div>
+    <div class="body">${transcriptBody(c)}</div><div class="slidehit hidden"></div>
+    <textarea class="note ${note ? "" : "hidden"}" data-id="${c.id}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
+}
+let activeSeg = null;
+function renderTranscript() {
+  const parts = [];
+  let i = 0;
+  while (i < cards.length) {
+    const c = cards[i];
+    if (c.kind === "break") {
+      let j = i;
+      while (j + 1 < cards.length && cards[j + 1].kind === "break") j++;
+      parts.push(`<div class="tbreak">⏸ silence / break · ${Math.round((cards[j].end - c.start) / 60)} min (${fmt(c.start)}–${fmt(cards[j].end)})</div>`);
+      i = j + 1;
+      continue;
+    }
+    parts.push(tcardHTML(c));
+    i++;
+  }
+  $("#tx").innerHTML = parts.join("");
+  $$(".seg2 [data-view]").forEach(b => b.setAttribute("aria-pressed", b.dataset.view === view));
+  activeSeg = null;
+  applyFilter(false);
+}
+function refreshCard(id) {
+  const el = document.getElementById("t" + id);
+  if (el) { const n = document.createElement("div"); n.innerHTML = tcardHTML(cards[id]); el.replaceWith(n.firstElementChild); }
+  if (id === current) document.getElementById("t" + id)?.classList.add("active");
+}
+
+/* ---------- filters ---------- */
+let hitIndex = -1;
+function applyFilter(rerender = true) {
+  qterms = fold(q).split(/\s+/).filter(Boolean);
+  let shown = 0;
+  cards.forEach((c, idx) => {
+    if (c.kind === "break") return;
+    let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]);
+    if (ok && qterms.length) ok = qterms.every(t => hay[idx].includes(t));
+    if (rerender && ok) refreshCard(c.id);
+    const tc = document.getElementById("t" + c.id);
+    if (!tc) return;
+    tc.classList.toggle("hidden", !ok);
+    if (ok) shown++;
+    const sh = $(".slidehit", tc), hit = ok && qterms.length && qterms.some(t => fold(c.text).includes(t));
+    sh.classList.toggle("hidden", !hit);
+    if (hit) sh.innerHTML = "Slide: " + decorate(snippet(c.text, qterms));
+  });
+  const filtering = kind !== "all" || starredOnly || qterms.length;
+  $$(".tbreak").forEach(b => b.classList.toggle("hidden", !!filtering));
+  $("#empty").classList.toggle("hidden", shown > 0);
+  const hits = $$("#tx mark").filter(m => !m.closest(".hidden")).length;
+  $("#count").textContent = qterms.length ? `${shown} cards · ${hits} hits` : (filtering ? `${shown} cards` : "");
+  hitIndex = -1;
+  setHash();
+}
+function snippet(text, ts) {
+  const f = fold(text), pos = Math.min(...ts.map(t => f.indexOf(t)).filter(p => p >= 0));
+  const a = Math.max(0, pos - 60);
+  return (a ? "…" : "") + text.slice(a, a + 180).replace(/\s+/g, " ") + (a + 180 < text.length ? "…" : "");
+}
+function gotoHit(dir) {
+  const marks = $$("#tx mark").filter(m => !m.closest(".hidden"));
+  if (!marks.length) return;
+  showTab("transcript");
+  hitIndex = (hitIndex + dir + marks.length) % marks.length;
+  marks.forEach(m => m.style.outline = "");
+  marks[hitIndex].style.outline = "2px solid var(--accent)";
+  marks[hitIndex].scrollIntoView({ block: "center", behavior: "smooth" });
+  $("#count").textContent = $("#count").textContent.replace(/^(\d+ cards · )(?:\d+\/)?/, `$1${hitIndex + 1}/`);
+}
+let qTimer;
+$("#q").addEventListener("input", e => { clearTimeout(qTimer); qTimer = setTimeout(() => { q = e.target.value; applyFilter(); }, 150); });
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); clearTimeout(qTimer); if (q !== e.target.value) { q = e.target.value; applyFilter(); } gotoHit(e.shiftKey ? -1 : 1); }
+  if (e.key === "Escape") { e.target.value = ""; q = ""; applyFilter(); e.target.blur(); }
+});
+$("#next").onclick = () => gotoHit(1);
+$("#prev").onclick = () => gotoHit(-1);
+$$(".chips [data-kind]").forEach(b => b.onclick = () => { kind = b.dataset.kind; $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x === b)); applyFilter(false); });
+$("#starred").onclick = () => { starredOnly = !starredOnly; $("#starred").setAttribute("aria-pressed", starredOnly); applyFilter(false); };
+
+/* ---------- tabs + overview ---------- */
+function showTab(name) {
+  $$(".tabs [data-tab]").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === name));
+  $("#tab-transcript").classList.toggle("hidden", name !== "transcript");
+  $("#tab-overview").classList.toggle("hidden", name !== "overview");
+  $(".seg2").classList.toggle("hidden", name !== "transcript");
+  if (name === "overview") renderOverview();
+}
+$$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
+function renderOverview() {
+  const items = cards.filter(c => store.stars[c.id] || store.notes[c.id]);
+  const open = k => lsGet("afterclass:ov:" + k) !== "closed" ? "open" : "";
+  // Summary first, open unless you folded it before
+  let h = `<details class="sec" data-sec="summary" ${open("summary")}><summary><h2>Summary</h2></summary>
+    ${L.ai && L.ai.summary ? L.ai.summary.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("")
+      : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a summary.</p>`}</details>`;
+  h += `<details class="sec" data-sec="notes" ${open("notes")}><summary><h2>My notes <span class="n">${items.length}</span>
+    ${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2></summary>`;
+  if (!items.length) h += `<p class="muted">Star a part (☆) or write a note (✎) in the transcript; they are collected here.</p>`;
+  let lastCh = -1;
+  items.forEach((c, i) => {
+    const k = cardChapter[c.id];
+    if (k !== lastCh) { h += `<div class="ov-ch">${esc(L.chapters[k]?.title || "")}</div>`; lastCh = k; }
+    h += `<div class="ov-item ${i % 2 ? "" : "alt"}" data-card="${c.id}" title="Jump to ${fmt(c.start)}">
+      <div class="oh">${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b><span class="time">${fmt(c.start)}</span></div>
+      ${store.notes[c.id] ? `<div class="nt">${esc(store.notes[c.id])}</div>` : ""}</div>`;
+  });
+  h += `</details><details class="sec" data-sec="glossary" ${open("glossary")}><summary><h2>Glossary <span class="n">${glossary.length}</span></h2></summary>`;
+  h += glossary.length ? glossary.map(g => `<details class="gl"><summary>${esc(g.term)}</summary><p>${esc(g.definition)}
+      ${cards[g.card] ? ` <button class="jump" data-card="${g.card}">→ ${fmt(cards[g.card].start)}</button>` : ""}</p></details>`).join("")
+    : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a glossary.</p>`;
+  $("#tab-overview").innerHTML = h + `</details>`;
+  $$("#tab-overview details.sec").forEach(d => d.addEventListener("toggle", () => lsSet("afterclass:ov:" + d.dataset.sec, d.open ? "open" : "closed")));
+}
+
+/* ---------- clicks ---------- */
+let current = -1;
+function seek(t, play = true) { if (!L.media) return; v.currentTime = t; if (play) v.play().catch(() => {}); }
+function revealCard(id) {
+  const tc = document.getElementById("t" + id);
+  if (tc && tc.classList.contains("hidden")) {
+    kind = "all"; starredOnly = false; q = ""; $("#q").value = "";
+    $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
+    $("#starred").setAttribute("aria-pressed", false);
+    applyFilter();
+  }
+}
+function goCard(id, play = true) { revealCard(id); showTab("transcript"); scrollToCard(id, true); seek(cards[id].start, play); }
+let userScroll = 0;
+["wheel", "touchmove"].forEach(ev => ["#chapters", "#tab-transcript"].forEach(s => $(s).addEventListener(ev, () => userScroll = Date.now(), { passive: true })));
+function scrollToCard(id, force) {
+  if (!force && (!$("#follow").checked || Date.now() - userScroll < 6000)) return;
+  const tc = document.getElementById("t" + id);
+  if (tc && !$("#tab-transcript").classList.contains("hidden")) tc.scrollIntoView({ block: "start", behavior: "smooth" });
+  const k = cardChapter[id];
+  document.getElementById("ch" + k)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.closest("#lightbox")) { $("#lightbox").classList.add("hidden"); return; }
+  const ovi = t.closest(".ov-item");
+  if (ovi) { goCard(+ovi.dataset.card); return; }
+  const head = t.closest(".chap > .head");
+  if (head) { goCard(+head.dataset.card); closeChapters(); return; }
+  const sub = t.closest(".subs button");
+  if (sub) { goCard(+sub.dataset.card); closeChapters(); return; }
+  const seg = t.closest(".seg");
+  if (seg) { seek(+seg.dataset.t); return; }
+  if (t.closest(".ptime")) { seek(+t.closest(".ptime").dataset.t); return; }
+  const tm = t.closest(".time, .jump");
+  if (tm) { if (tm.dataset.card !== undefined) goCard(+tm.dataset.card); else seek(+tm.dataset.t); return; }
+  if (t.dataset.seek !== undefined) { const s = +t.dataset.seek, ci = cardAt(s); if (ci >= 0) { revealCard(ci); showTab("transcript"); scrollToCard(ci, true); } seek(s); return; }
+  if (t.matches(".th img")) { $("#lightbox img").src = t.src; $("#lightbox").classList.remove("hidden"); return; }
+  if (t.matches(".swap")) { const img = $("img", t.parentNode), alt = t.dataset.alt; t.dataset.alt = img.getAttribute("src"); img.src = alt; return; }
+  const more = t.closest("[data-more]");
+  if (more) { expanded.add(+more.dataset.more); refreshCard(+more.dataset.more); return; }
+  const tc = t.closest(".tcard");
+  if (t.closest(".star")) { toggleStar(+tc.dataset.id); return; }
+  if (t.closest(".notebtn")) { openNote(+tc.dataset.id); return; }
+  if (t.closest(".link")) { copyLink(cards[+tc.dataset.id].start); return; }
+  if (t.id === "export2") { e.preventDefault(); exportNotes(); return; }  // inside a <summary>: don't fold
+});
+function toggleLane(side, force) {
+  const cls = side === "left" ? "no-left" : "no-right";
+  const hide = force !== undefined ? force : !document.body.classList.contains(cls);
+  document.body.classList.toggle(cls, hide);
+  $(side === "left" ? "#toggleLeft" : "#toggleRight").setAttribute("aria-pressed", String(!hide));
+  lsSet("afterclass:" + cls, hide ? "1" : "");
+}
+/* drag the gutters to resize the lanes; widths are remembered, double-click resets */
+function setLaneWidth(side, px) {
+  const v = side === "left" ? "--lw" : "--rw";
+  if (px) document.body.style.setProperty(v, px + "px"); else document.body.style.removeProperty(v);
+  lsSet("afterclass:" + v, px ? String(px) : "");
+}
+$$(".gutter").forEach(g => {
+  g.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    g.setPointerCapture(e.pointerId);
+    document.body.classList.add("dragging"); g.classList.add("active");
+    const box = $(".layout").getBoundingClientRect(), side = g.dataset.side;
+    if (side === "ask") {  // the video's height; Ask takes the rest (at least its min-height)
+      const top = v.getBoundingClientRect().top, below = $("#player").getBoundingClientRect().bottom - v.getBoundingClientRect().bottom;
+      const room = $("#stage").getBoundingClientRect().bottom - top - below - 160;
+      const move = ev => setVideoHeight(Math.round(Math.min(Math.max(ev.clientY - top - below, 120), room)));
+      const up = () => { g.removeEventListener("pointermove", move); document.body.classList.remove("dragging"); g.classList.remove("active"); };
+      g.addEventListener("pointermove", move);
+      g.addEventListener("pointerup", up, { once: true });
+      return;
+    }
+    const move = ev => {
+      const px = side === "left" ? ev.clientX - box.left : box.right - ev.clientX;
+      setLaneWidth(side, Math.round(Math.min(Math.max(px, side === "left" ? 160 : 260), box.width * 0.5)));
+    };
+    const up = () => { g.removeEventListener("pointermove", move); document.body.classList.remove("dragging"); g.classList.remove("active"); };
+    g.addEventListener("pointermove", move);
+    g.addEventListener("pointerup", up, { once: true });
+  });
+  g.addEventListener("dblclick", () => g.dataset.side === "ask" ? setVideoHeight(0) : setLaneWidth(g.dataset.side, 0));
+});
+function setVideoHeight(px) {
+  if (px) document.body.style.setProperty("--vidh", px + "px"); else document.body.style.removeProperty("--vidh");
+  lsSet("afterclass:--vidh", px ? String(px) : "");
+}
+if (+lsGet("afterclass:--vidh")) setVideoHeight(+lsGet("afterclass:--vidh"));
+["left", "right"].forEach(side => { const w = +lsGet("afterclass:" + (side === "left" ? "--lw" : "--rw")); if (w) setLaneWidth(side, w); });
+$("#toggleLeft").onclick = () => toggleLane("left");
+$("#toggleRight").onclick = () => toggleLane("right");
+toggleLane("left", lsGet("afterclass:no-left") === "1");
+toggleLane("right", lsGet("afterclass:no-right") === "1");
+$("#menu").onclick = () => $("#chapters").classList.toggle("open");
+const closeChapters = () => $("#chapters").classList.remove("open");
+$$(".seg2 [data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; lsSet("afterclass:view", view); renderTranscript(); if (current >= 0) scrollToCard(current, true); });
+/* ⚙: settings are served by afterclass. Opened as a file, look for a running `afterclass settings` / `afterclass open`. */
+async function openSettings() {
+  if (SERVER && serverOK) { window.open("/settings", "_blank"); return; }
+  const btn = $("#settings");
+  btn.textContent = "…";
+  for (let port = 8476; port < 8486; port++) {
+    try {
+      await fetch(`http://127.0.0.1:${port}/settings`, { mode: "no-cors", signal: AbortSignal.timeout(400) });
+      btn.textContent = "⚙";
+      window.open(`http://127.0.0.1:${port}/settings`, "_blank");
+      return;
+    } catch (e) {}
+  }
+  btn.textContent = "⚙";
+  $("#settings-help").classList.toggle("hidden");
+}
+$("#settings").onclick = e => { e.stopPropagation(); openSettings(); };
+document.addEventListener("click", e => { if (!e.target.closest("#settings-help")) $("#settings-help").classList.add("hidden"); });
+
+function toggleStar(id) {
+  if (store.stars[id]) delete store.stars[id]; else store.stars[id] = true;
+  save();
+  const b = $(`#t${id} .star`);
+  if (b) { b.classList.toggle("on", !!store.stars[id]); b.textContent = store.stars[id] ? "★" : "☆"; }
+  if (starredOnly) applyFilter(false);
+}
+function openNote(id) {
+  revealCard(id); showTab("transcript");
+  const ta = $(`#t${id} .note`);
+  if (!ta) return;
+  ta.classList.remove("hidden");
+  ta.focus();
+  scrollToCard(id, true);
+}
+document.addEventListener("input", e => {
+  if (!e.target.matches(".note")) return;
+  const id = +e.target.dataset.id, val = e.target.value;
+  if (val.trim()) store.notes[id] = val; else delete store.notes[id];
+  const c = cards[id];
+  hay[id] = fold([c.quick_title, c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
+  save();
+});
+document.addEventListener("focusout", e => { if (e.target.matches(".note") && !e.target.value.trim()) e.target.classList.add("hidden"); });
+function copyLink(t) {
+  const url = location.href.split("#")[0] + "#t=" + fmt(t);
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+    .then(() => toast("Link copied: " + fmt(t)), () => { history.replaceState(null, "", "#t=" + fmt(t)); toast("Link is in the address bar"); });
+}
+function exportNotes() {
+  const lines = [`# ${title}: notes`, ""];
+  let n = 0, lastCh = -1;
+  cards.filter(c => store.stars[c.id] || store.notes[c.id]).forEach(c => {
+    n++;
+    const k = cardChapter[c.id];
+    if (k !== lastCh) { lines.push(`## ${L.chapters[k]?.title || ""}`, ""); lastCh = k; }
+    lines.push(`### ${store.stars[c.id] ? "⭐ " : ""}[${fmt(c.start)}](index.html#t=${fmt(c.start)}) ${cardTitle(c)}${c.deck_page ? ` (slide p.${c.deck_page})` : ""}`.trim());
+    if (store.notes[c.id]) lines.push("", store.notes[c.id]);
+    const speech = c.segments.map(s => s.text).join(" ");
+    if (speech) lines.push("", "> " + (speech.length > 300 ? speech.slice(0, 300) + "…" : speech));
+    lines.push("");
+  });
+  if (!n) { toast("Star a part or write a note first"); return; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/markdown" }));
+  a.download = `${title.replace(/[\\/:*?"<>|]+/g, "-")} notes.md`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Exported ${n} part${n > 1 ? "s" : ""}`);
+}
+$("#export").onclick = exportNotes;
+
+/* ---------- playback sync ---------- */
+const cardStarts = cards.map(c => c.start ?? 0);
+const find = (arr, t, key) => { let lo = 0, hi = arr.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (key(arr[m]) <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; };
+const cardAt = t => find(cardStarts, t, x => x);
+const subStarts = L.chapters.flatMap(ch => (ch.subs || []).map(s => s.card)).sort((a, b) => a - b);
+v.addEventListener("timeupdate", () => {
+  const t = v.currentTime, ci = cardAt(t);
+  if (ci !== current) {
+    document.getElementById("t" + current)?.classList.remove("active");
+    current = ci;
+    if (ci >= 0) {
+      if (!expanded.has(ci)) { expanded.add(ci); refreshCard(ci); }
+      document.getElementById("t" + ci)?.classList.add("active");
+      const k = cardChapter[ci], c = cards[ci];
+      markChapter(k);
+      const sub = subStarts[find(subStarts, ci, x => x)];
+      $$(".subs button.on").forEach(b => b.classList.remove("on"));
+      if (sub !== undefined && cardChapter[sub] === k) document.getElementById("s" + sub)?.classList.add("on");
+      $("#now").textContent = [L.chapters[k]?.title, cardTitle(c)].filter(Boolean).join(" › ");
+      scrollToCard(ci, false);
+    }
+  }
+  let el = null;
+  if (ci >= 0) {
+    const segs = cards[ci].segments, j = find(segs, t, s => s.start);
+    if (j >= 0 && t <= segs[j].end + 1) el = $(`#t${ci} .seg[data-j="${j}"]`);
+  }
+  if (el !== activeSeg) { activeSeg?.classList.remove("now"); activeSeg = el; el?.classList.add("now"); }
+});
+
+/* ---------- keyboard ---------- */
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("input, textarea");
+  if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); if (typing) e.target.blur(); return; }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  const vis = cards.filter(c => c.kind !== "break" && !document.getElementById("t" + c.id)?.classList.contains("hidden")).map(c => c.id);
+  const pos = vis.indexOf(current);
+  switch (e.key) {
+    case "/": e.preventDefault(); $("#q").focus(); $("#q").select(); break;
+    case "j": if (vis.length) goCard(vis[Math.min(pos + 1, vis.length - 1)]); break;
+    case "k": if (vis.length) goCard(vis[Math.max(pos - 1, 0)]); break;
+    case " ": if (L.media) { e.preventDefault(); v.paused ? v.play() : v.pause(); } break;
+    case "s": if (current >= 0) toggleStar(current); break;
+    case "n": if (current >= 0) { e.preventDefault(); openNote(current); } break;
+    case "a": e.preventDefault(); $("#askq").focus(); break;
+    case "[": toggleLane("left"); break;
+    case "]": toggleLane("right"); break;
+  }
+});
+
+/* ---------- Ask (below the video) ---------- */
+// Prompt, answer schema and stop words come from afterclass itself (ask.py), embedded at build time
+const ASKCFG = (() => { try { return JSON.parse(document.getElementById("lesson-ask").textContent); } catch (e) { return {}; } })();
+const STOP = new Set(ASKCFG.stop || []);
+const stem = w => { for (const suf of ["ing", "ed", "es", "s", "e"]) if (w.length > 4 && w.endsWith(suf)) return w.slice(0, -suf.length); return w; };
+const words = s => (String(s || "").toLowerCase().match(/[a-zäöüß0-9][a-zäöüß0-9\-_]*/g) || []).filter(w => w.length > 1 && !STOP.has(w)).map(stem);
+const WANTS_START = /\b(start|begin|first|introduc|anfang|beginn|zuerst|erstmal)/i;
+let index = null;
+function buildIndex() {  // same passages + BM25 as ask.py
+  const items = [];
+  cards.forEach(c => {
+    if (c.kind === "break") return;
+    paragraphsOf(c).forEach(p => items.push({ kind: "speech", t: p.start, speaker: p.speaker, text: p.segs.map(j => c.segments[j].text).join(" ") }));
+    const slide = [c.quick_title, c.title, c.text].filter(Boolean).join(" ");
+    if (slide.trim()) items.push({ kind: "slide", t: c.start || 0, text: slide.slice(0, 800) });
+  });
+  glossary.forEach(g => items.push({ kind: "glossary", t: cards[g.card]?.start || 0, text: `${g.term}: ${g.definition}` }));
+  const docs = items.map(p => { const m = new Map(); words(p.text).forEach(w => m.set(w, (m.get(w) || 0) + 1)); return m; });
+  const lens = docs.map(d => [...d.values()].reduce((a, b) => a + b, 0));
+  const avg = lens.reduce((a, b) => a + b, 0) / Math.max(lens.length, 1);
+  const df = new Map(); docs.forEach(d => d.forEach((_, w) => df.set(w, (df.get(w) || 0) + 1)));
+  const idf = new Map([...df].map(([w, f]) => [w, Math.log(1 + (docs.length - f + 0.5) / (f + 0.5))]));
+  index = { items, docs, lens, avg, idf };
+}
+function searchIndex(query, k = 8) {
+  if (!index) buildIndex();
+  const qw = [...new Set(words(query))], out = [];
+  index.docs.forEach((d, i) => {
+    let s = 0, matched = 0;
+    qw.forEach(w => { const tf = d.get(w); if (tf) { matched++; s += index.idf.get(w) * tf * 2.4 / (tf + 1.4 * (0.25 + 0.75 * index.lens[i] / index.avg)); } });
+    s *= (matched / Math.max(qw.length, 1)) ** 2;
+    if (s > 0) out.push({ ...index.items[i], score: s * (index.items[i].kind === "slide" ? 1.3 : index.items[i].kind === "glossary" ? 1.2 : 1) });
+  });
+  return out.sort((a, b) => b.score - a.score).slice(0, k);
+}
+function firstMention(q, hits) {  // "where do we start …": earliest strong hit, otherwise the best one
+  if (!hits.length) return null;
+  if (!WANTS_START.test(q)) return hits[0];
+  const strong = hits.filter(h => h.score >= 0.6 * hits[0].score);
+  return strong.reduce((a, b) => (b.t < a.t ? b : a));
+}
+function sourceText(t) {
+  if (!index) buildIndex();
+  const near = index.items.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a), index.items[0]);
+  return near && Math.abs(near.t - t) <= 5 ? near.text.slice(0, 200) : "";
+}
+
+/* A local model straight from the page (when opened as a file, without `afterclass open`) */
+const DIRECT_SERVERS = [["LM Studio", "http://localhost:1234", "lms server stop && lms server start --cors"],
+  ["Ollama", "http://localhost:11434", "launchctl setenv OLLAMA_ORIGINS null && brew services restart ollama"]];
+let direct = null, directState = "unknown";  // ok | blocked | none
+async function detectDirect() {
+  for (const [name, base, allowCmd] of DIRECT_SERVERS) {
+    try {
+      const r = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(1500) });
+      const models = ((await r.json()).data || []).map(m => m.id).filter(id => !/embed|whisper|rerank/i.test(id));
+      if (models.length) {
+        const saved = lsGet("afterclass:directModel");
+        direct = { name, base, models, model: models.includes(saved) ? saved : models[0] }; directState = "ok"; return;
+      }
+    } catch (e) {
+      // Reachable without CORS (an opaque response) = running, but not allowing this page yet
+      try { await fetch(base + "/v1/models", { mode: "no-cors", signal: AbortSignal.timeout(1500) }); direct = { name, base, allowCmd }; directState = "blocked"; return; } catch (e2) {}
+    }
+  }
+  direct = null; directState = "none";
+}
+async function askDirect(q) {
+  const t = L.media ? v.currentTime : null;
+  let hits = searchIndex(q, 8);
+  const first = firstMention(q, searchIndex(q, 20));
+  if (t !== null) hits = hits.concat(index.items.filter(p => p.kind === "speech" && Math.abs(p.t - t) <= 60 && !hits.some(h => h.t === p.t && h.kind === p.kind)).slice(0, 3));
+  const label = p => p.kind === "slide" ? "SLIDE" : p.kind === "glossary" ? "GLOSSARY" : p.speaker ? (p.speaker === "A" ? "Lecturer" : "Speaker " + p.speaker) : "SPEECH";
+  const lines = hits.slice().sort((a, b) => a.t - b.t).map(p => `[${Math.round(p.t)}s = ${fmt(p.t)} | ${label(p)}] ${p.text}`);
+  let prompt = `Lecture: ${title}\nChapters:\n${L.chapters.map(c => "- " + c.title).join("\n")}\n\nPassages:\n${lines.join("\n")}\n\nQuestion: ${q}`;
+  if (first && WANTS_START.test(q)) prompt += `\n(Search hint: the topic first appears at ${Math.round(first.t)}s = ${fmt(first.t)}.)`;
+  if (t !== null) prompt += `\n(The student is watching ${fmt(t)}. Use that only if the question says 'this', 'here' or 'now'.)`;
+  const r = await fetch(direct.base + "/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    model: direct.model, temperature: 0.2, messages: [{ role: "system", content: ASKCFG.system }, { role: "user", content: prompt }],
+    response_format: { type: "json_schema", json_schema: { name: "result", strict: true, schema: ASKCFG.schema } } }) });
+  if (!r.ok) throw new Error(`${direct.name}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  const d = JSON.parse((await r.json()).choices[0].message.content);
+  const dur = L.duration || 1e9;
+  let main = d.main_time >= 0 && d.main_time <= dur ? d.main_time : (first && d.in_lesson ? first.t : null);
+  const extra = main !== null ? [main] : [];
+  if (main !== null && first && WANTS_START.test(q) && first.t < main - 30) main = first.t;
+  const times = [...new Set([...(d.sources || []), ...extra].filter(x => x >= 0 && x <= dur && (main === null || Math.abs(x - main) > 2)).map(x => Math.round(x * 10) / 10))].sort((a, b) => a - b);
+  return { answer: d.answer, main_time: main, in_lesson: d.in_lesson, sources: times.slice(0, 6).map(x => ({ t: x, text: sourceText(x) })),
+    provider: `${direct.name} (direct)`, model: direct.model, online: false, mode: "lesson" };
+}
+
+let settings = null, providers = [];
+const copyBtn = cmd => `<code>${esc(cmd)}</code> <button class="btn" data-copy="${esc(cmd)}">Copy</button>`;
+function askWho() {
+  const local = providers.find(p => p.name === "local");
+  let h;
+  if (!SERVER || !serverOK) {
+    if (directState === "ok") h = `<div class="line">${tagHTML(false)} answers by ${esc(direct.name)} · ${esc(direct.model)} (direct; notes stay in this browser)</div>`;
+    else if (directState === "blocked" || directState === "none") {
+      const openCmd = ASKCFG.open_cmd || "afterclass open <folder>";
+      const first = directState === "blocked"
+        ? `<div class="opt"><span>1</span><span><b>Allow ${esc(direct.name)} for this page</b> (once, in Terminal):<code>${esc(direct.allowCmd)}</code></span><button class="btn" data-copy="${esc(direct.allowCmd)}">Copy</button></div>`
+        : `<div class="opt"><span>1</span><span><b>Start LM Studio</b> (or Ollama) with a model loaded</span><span></span></div>`;
+      h = `<div class="askhelp"><div class="line">${tagHTML(false)} <b>${directState === "blocked" ? `${esc(direct.name)} is running but doesn't allow this page yet` : "No local model found"}</b>
+          <button class="btn" id="recheck" style="margin-left:auto">↻ Check again</button></div>
+        ${first}
+        <div class="opt"><span>${directState === "blocked" ? "2" : "·"}</span><span><b>Or open the lesson with afterclass</b> (notes saved in the folder):<code>${esc(openCmd)}</code></span><button class="btn" data-copy="${esc(openCmd)}">Copy</button></div>
+        <div class="line muted" style="margin-top:6px">Until then, questions are answered by search only.</div></div>`;
+    }
+    else h = `${tagHTML(false)} looking for a local model…`;
+  }
+  else if (settings && settings.ask_provider && settings.ask_provider !== "auto") {
+    const online = settings.ask_provider !== "local";
+    h = `<div class="line">${tagHTML(online)} answers by ${esc(settings.ask_provider === "local" ? "local model" : settings.ask_provider)}${settings.ask_model ? " · " + esc(settings.ask_model) : ""}</div>`;
+  }
+  else if (local && local.available) h = `${tagHTML(false)} answers by ${esc(local.detail)}`;
+  else if (settings && settings.allow_online !== "off") h = `${tagHTML(true)} no local model running: answers by Claude (asks first) · ⚙ to set up a local model`;
+  else h = `${tagHTML(false)} no model available, only search`;
+  $("#askwho").innerHTML = h;
+}
+function answerHTML(r, q, secs) {
+  if (r.error) return `<p class="err">${esc(r.error)}</p>`;
+  let h = r.answer ? r.answer.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("")
+    : `<p class="muted">${r.provider === null && r.mode !== "search" ? "No AI model available, so here is the best match from the transcript:" : "Best match from the transcript:"}</p>`;
+  if (r.main_time !== null && r.main_time !== undefined) h += `<button class="main" data-seek="${r.main_time}">▶ ${fmt(r.main_time)}</button>`;
+  const src = r.sources || [];
+  if (src.length) h += `<details><summary>Sources (${src.length})</summary>${src.map(s => `<div><button data-seek="${s.t}">${fmt(s.t)}</button>${esc(s.text || "")}</div>`).join("")}</details>`;
+  const offerOnline = SERVER && serverOK && settings && settings.allow_online !== "off" && r.in_lesson === false && r.mode !== "general" && r.mode !== "web";
+  if (offerOnline) h += `<div class="more-btns"><button class="btn" data-online="general" data-q="${esc(q)}">Answer with general knowledge ${tagHTML(true)}</button>
+      ${settings.allow_web !== "off" ? `<button class="btn" data-online="web" data-q="${esc(q)}">Search the web ${tagHTML(true)}</button>` : ""}</div>`;
+  if (r.provider) h += `<div class="by">${tagHTML(r.online)} ${esc(r.provider)}${r.model ? " · " + esc(r.model) : ""}${secs ? ` · ${secs} s` : ""}${r.mode === "web" ? " · web search" : r.mode === "general" ? " · general knowledge" : ""}</div>`;
+  return h;
+}
+function addQA(q) {
+  $("#askbar").classList.remove("hidden");
+  $("#asklog").insertAdjacentHTML("beforeend", `<div class="qa"><div class="q">${esc(q)}</div><div class="a"></div></div>`);
+  const a = $("#asklog").lastElementChild.querySelector(".a");
+  a.scrollIntoView({ block: "nearest" });
+  return a;
+}
+// Clear chat: a second click within 3 s confirms (no browser dialog)
+let clearTimer = 0;
+$("#clearchat").onclick = async () => {
+  const b = $("#clearchat");
+  if (!b.classList.contains("sure")) {
+    b.classList.add("sure"); b.textContent = "Click again to clear";
+    clearTimer = setTimeout(() => { b.classList.remove("sure"); b.textContent = "Clear chat"; }, 3000);
+    return;
+  }
+  clearTimeout(clearTimer);
+  b.classList.remove("sure"); b.textContent = "Clear chat";
+  if (SERVER && serverOK) {
+    try { await api("DELETE", "/api/chat"); } catch (e) { toast("Couldn't clear the saved chat"); return; }
+  }
+  $("#asklog").innerHTML = "";
+  $("#askbar").classList.add("hidden");
+  toast("Chat cleared");
+};
+async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
+  box = box || addQA(q);
+  const t0 = Date.now();
+  const thinking = () => {
+    box.innerHTML = `<p class="thinking">Thinking… <span>0</span> s</p>`;
+    return setInterval(() => { const s = box.querySelector(".thinking span"); if (s) s.textContent = Math.round((Date.now() - t0) / 1000); }, 1000);
+  };
+  if (!SERVER || !serverOK) {  // opened as a file: use a local model directly if it allows it
+    if (directState !== "ok") { await detectDirect(); askWho(); }
+    if (directState === "ok") {
+      const tick = thinking();
+      try { box.innerHTML = answerHTML(await askDirect(q), q, Math.round((Date.now() - t0) / 1000)); }
+      catch (err) { box.innerHTML = answerHTML({ error: err.message }, q); }
+      finally { clearInterval(tick); box.scrollIntoView({ block: "nearest" }); }
+      return;
+    }
+    const hits = searchIndex(q), first = firstMention(q, searchIndex(q, 20));
+    const main = first ? first.t : null;
+    box.innerHTML = answerHTML({ answer: "", provider: null, main_time: main, sources: hits.filter(h => h.t !== main).slice(0, 5).map(h => ({ t: h.t, text: h.text.slice(0, 200) })) }, q);
+    return;
+  }
+  const tick = thinking();
+  try {
+    const r = await api("POST", "/api/ask", { question: q, mode, t: L.media ? v.currentTime : null, confirm_online: confirmOnline });
+    if (r.needs_confirm) {
+      box.innerHTML = `<p>No local model is running. Send this question with lesson excerpts to <b>${esc(r.label)}</b> ${tagHTML(true)}?</p>
+        <div class="more-btns"><button class="btn primary" data-confirm="1">Send online</button><button class="btn" data-confirm="0">Search only</button></div>`;
+      box.dataset.q = q;
+      return;
+    }
+    box.innerHTML = answerHTML(r, q, Math.round((Date.now() - t0) / 1000));
+  } catch (err) {
+    box.innerHTML = answerHTML({ error: err.message }, q);
+  } finally {
+    clearInterval(tick);
+    box.scrollIntoView({ block: "nearest" });
+  }
+}
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-copy]");
+  if (c) navigator.clipboard?.writeText(c.dataset.copy).then(() => toast("Copied: paste it in Terminal"), () => toast(c.dataset.copy));
+  if (e.target.id === "recheck") { e.target.textContent = "Checking…"; detectDirect().then(() => { askWho(); loadModels(); toast(directState === "ok" ? `Connected to ${direct.name}` : "Still not reachable"); }); }
+});
+/* model picker in the Ask box: afterclass open = global setting (offline + online); file page = models of the local server */
+async function loadModels() {
+  const sel = $("#askmodel");
+  let opts = [];
+  if (SERVER && serverOK) {
+    try {
+      const m = await api("GET", "/api/models");
+      opts = m.options.map(o => ({ value: JSON.stringify({ p: o.provider, m: o.model }), label: `${o.label} · ${o.online ? "online" : "offline"}${o.available ? "" : " (not available)"}`,
+        disabled: !o.available, selected: o.provider === m.current.provider && o.model === m.current.model }));
+      if (!opts.some(o => o.selected)) opts.push({ value: JSON.stringify({ p: m.current.provider, m: m.current.model }), label: `${m.current.provider} · ${m.current.model || "default"}`, selected: true });
+    } catch (e) {}
+  } else if (directState === "ok") {
+    opts = direct.models.map(n => ({ value: JSON.stringify({ p: "direct", m: n }), label: `${n} · offline`, selected: n === direct.model }));
+  }
+  sel.innerHTML = opts.map(o => `<option value="${esc(o.value)}" ${o.disabled ? "disabled" : ""} ${o.selected ? "selected" : ""}>${esc(o.label)}</option>`).join("");
+  sel.classList.toggle("hidden", !opts.length);
+}
+/* "⋯" next to the picker: shortcuts to add more AI (settings page with afterclass open, Terminal commands otherwise) */
+function addAiMenu() {
+  const live = SERVER && serverOK;
+  const item = (icon, title, hint, act) => `<button data-addai="${esc(act)}">${icon}<span>${esc(title)}<small>${esc(hint)}</small></span></button>`;
+  $("#addai-menu").innerHTML = `<div class="mt">Add AI</div>` +
+    item("💻", "Local model", live ? "offline · guided setup in Settings" : "offline · copies: afterclass setup ai", live ? "open:/settings#localstatus" : "copy:afterclass setup ai") +
+    item("🔑", "Claude API key", live ? "online · pay per use · in Settings" : "online · copies: afterclass auth set claude", live ? "open:/settings#keys" : "copy:afterclass auth set claude") +
+    item("✳", "Claude Code", "online · your Claude subscription", "open:https://claude.com/claude-code") +
+    item("⚙", "All settings", live ? "models, online permissions" : "copies: afterclass settings", live ? "open:/settings" : "copy:afterclass settings");
+}
+$("#addai").addEventListener("click", e => { e.stopPropagation(); addAiMenu(); $("#addai-menu").classList.toggle("hidden"); });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-addai]");
+  if (!b) { if (!e.target.closest("#addai-menu")) $("#addai-menu").classList.add("hidden"); return; }
+  const [kind, ...rest] = b.dataset.addai.split(":"), value = rest.join(":");
+  if (kind === "open") window.open(value, "_blank");
+  else navigator.clipboard?.writeText(value).then(() => toast("Copied: paste it in Terminal"), () => toast(value));
+  $("#addai-menu").classList.add("hidden");
+});
+$("#askmodel").addEventListener("change", async e => {
+  const v = JSON.parse(e.target.value), label = e.target.selectedOptions[0].textContent;
+  if (v.p === "direct") { direct.model = v.m; lsSet("afterclass:directModel", v.m); askWho(); toast("Ask uses " + label); return; }
+  try {
+    await api("PUT", "/api/settings", { ask_provider: v.p, ask_model: v.m });
+    settings = { ...settings, ask_provider: v.p, ask_model: v.m };
+    askWho(); toast("Ask uses " + label);
+  } catch (err) { toast(err.message); loadModels(); }
+});
+$("#askform").addEventListener("submit", e => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return; $("#askq").value = ""; ask(q); });
+$("#askq").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#askform").requestSubmit(); } });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-online], [data-confirm]");
+  if (!b) return;
+  if (b.dataset.online) { ask(b.dataset.q, b.dataset.online); b.parentNode.remove(); return; }
+  const box = b.closest(".a");
+  ask(box.dataset.q, b.dataset.confirm === "1" ? "lesson" : "search", b.dataset.confirm === "1", box);
+});
+
+/* ---------- deep links: #t=01:23:45&q=term ---------- */
+function setHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (q) p.set("q", q); else p.delete("q");
+  const h = p.toString();
+  history.replaceState(null, "", h ? "#" + h.replace(/%3A/g, ":") : location.pathname + location.search);
+}
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("q")) { q = p.get("q"); $("#q").value = q; applyFilter(); }
+  const t = parseT(p.get("t"));
+  if (t !== null) {
+    const ci = cardAt(t);
+    if (ci >= 0) { pendingCard = ci; revealCard(ci); setTimeout(() => scrollToCard(ci, true), 50); markChapter(cardChapter[ci]); }
+    const go = () => seek(t, false);
+    if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
+  }
+}
+window.addEventListener("hashchange", readHash);
+let pendingCard = -1;  // a deep-linked card to scroll to again once the transcript is re-drawn
+
+/* ---------- start ---------- */
+renderChapters();
+markChapter(0);
+renderTranscript();
+readHash();
+askWho();
+if (!SERVER) detectDirect().then(() => { askWho(); loadModels(); });
+if (SERVER) {
+  api("GET", "/api/state").then(s => {
+    setSync(true);
+    settings = s.settings; providers = s.providers || [];
+    const merged = mergeNotes(s.notes || {}, store);
+    const changed = JSON.stringify(merged) !== JSON.stringify(s.notes || {});
+    store = merged;
+    if (changed) save();
+    // with afterclass, the current setting counts (the lesson keeps the one from when it was built); a clicked choice wins
+    if (!lsGet("afterclass:view") && ["paragraphs", "blocks"].includes(settings.transcript_view)) view = settings.transcript_view;
+    renderTranscript();
+    const target = current >= 0 ? current : pendingCard;
+    if (target >= 0) scrollToCard(target, true);
+    (s.chat || []).filter(x => x.answer || x.main_time != null).slice(-15).forEach(x => { addQA(x.q).innerHTML = answerHTML(x, x.q); });
+    askWho();
+    loadModels();
+  }).catch(() => { setSync(false); detectDirect().then(() => { askWho(); loadModels(); }); });
+}
+</script>
+</body>
+</html>

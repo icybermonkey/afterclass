@@ -6,11 +6,11 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from lecap import ask, config, server
-from lecap.ai.local import LocalProvider
-from lecap.ai.schema import json_schema
-from lecap.model import Card, Chapter, Lesson, Segment
-from lecap.steps import ai as ai_step
+from afterclass import ask, config, server
+from afterclass.ai.local import LocalProvider
+from afterclass.ai.schema import json_schema
+from afterclass.model import Card, Chapter, Lesson, Segment
+from afterclass.steps import ai as ai_step
 
 
 def lesson_dict():
@@ -47,7 +47,7 @@ def test_offline_answer_without_model():
 
 @pytest.fixture
 def lesson_folder(tmp_path, monkeypatch):
-    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "config.toml"))
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "config.toml"))
     folder = tmp_path / "lesson"
     (folder / "data").mkdir(parents=True)
     (folder / "media").mkdir()
@@ -62,7 +62,7 @@ def lesson_folder(tmp_path, monkeypatch):
 
 
 def call(url, method="GET", body=None, headers=None):
-    h = {"X-Lecap": "1", "Content-Type": "application/json", **(headers or {})}
+    h = {"X-Afterclass": "1", "Content-Type": "application/json", **(headers or {})}
     req = urllib.request.Request(url, data=json.dumps(body).encode() if body is not None else None, method=method, headers=h)
     try:
         with urllib.request.urlopen(req) as r:
@@ -73,7 +73,7 @@ def call(url, method="GET", body=None, headers=None):
 
 def test_server_guards(lesson_folder):
     _folder, base = lesson_folder
-    assert call(base + "/api/state", headers={"X-Lecap": ""})[0] == 403
+    assert call(base + "/api/state", headers={"X-Afterclass": ""})[0] == 403
     assert call(base + "/api/state", headers={"Origin": "https://evil.example"})[0] == 403
     assert call(base + "/api/state", headers={"Host": "evil.example"})[0] == 403
     assert call(base + "/notes/notes.json")[0] == 404
@@ -159,7 +159,7 @@ class FakeLMStudio(BaseHTTPRequestHandler):
 
 
 def test_local_provider_and_parts(monkeypatch, tmp_path):
-    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "c.toml"))
     httpd = HTTPServer(("127.0.0.1", 0), FakeLMStudio)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     config.set_value("local_llm_url", f"http://127.0.0.1:{httpd.server_address[1]}/v1")
@@ -184,7 +184,7 @@ def test_local_provider_and_parts(monkeypatch, tmp_path):
 
 
 def test_model_answer_has_own_words_main_time_and_sources(monkeypatch, tmp_path):
-    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "c.toml"))
     httpd = HTTPServer(("127.0.0.1", 0), FakeLMStudio)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     config.set_value("local_llm_url", f"http://127.0.0.1:{httpd.server_address[1]}/v1")
@@ -203,7 +203,7 @@ def test_start_questions_use_the_earliest_strong_match(monkeypatch, tmp_path):
         name = "fake"
 
         def run(self, system, prompt, schema, model, **kw):
-            from lecap.ai.base import Usage
+            from afterclass.ai.base import Usage
             return {"answer": "VMs come up in the demo.", "main_time": 181.0, "sources": [], "in_lesson": True}, Usage(model="m")
 
     r = ask.answer(lesson_dict(), "where do we start talking about virtual machines?", Late(), "")
@@ -214,14 +214,14 @@ def test_start_questions_use_the_earliest_strong_match(monkeypatch, tmp_path):
 
 def test_page_embeds_the_same_ask_prompt(tmp_path):
     """The file:// page asks local models directly; its prompt, schema and stop words come from ask.py."""
-    from lecap.ai.schema import AskAnswer
-    from lecap.steps import render
+    from afterclass.ai.schema import AskAnswer
+    from afterclass.steps import render
 
     cfg = render.ask_config(tmp_path)
     assert cfg["system"] == ask.ASK_SYSTEM
     assert cfg["schema"] == json_schema(AskAnswer)
     assert set(cfg["stop"]) == ask.STOP
-    assert cfg["open_cmd"] == f"lecap open '{tmp_path}'"
+    assert cfg["open_cmd"] == f"afterclass open '{tmp_path}'"
     les = Lesson(id="z", title="T", source="video", cards=[Card(id=0, kind="slide", start=0, end=1)])
     out = tmp_path / "index.html"
     render.render(les, out)
@@ -230,10 +230,10 @@ def test_page_embeds_the_same_ask_prompt(tmp_path):
 
 
 def test_model_picker_options_and_choice(monkeypatch, tmp_path):
-    from lecap import setup_ai
-    from lecap.ai.registry import PROVIDERS
+    from afterclass import setup_ai
+    from afterclass.ai.registry import PROVIDERS
 
-    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "c.toml"))
     monkeypatch.setattr(setup_ai, "status", lambda: {"apps": [
         {"name": "LM Studio", "running": True, "loaded": ["gemma"], "models": [{"name": "gemma"}, {"name": "qwen"}]},
         {"name": "Ollama", "running": False, "loaded": [], "models": []}]})
@@ -260,10 +260,11 @@ def test_a_second_open_reuses_the_running_server(lesson_folder, monkeypatch):
     assert server.serve(folder) == 0 and opened == [["open", base + "/index.html"]]
 
 
-def test_lecap_links():
+def test_afterclass_links():
     from pathlib import Path
 
-    assert server.folder_from_url("lecap://open?folder=%2FUsers%2Fx%2FSMF%20-%20Module%201") == Path("/Users/x/SMF - Module 1")
-    for bad in ("https://open?folder=/x", "lecap://run?folder=/x", "lecap://open?folder=x", "lecap://open"):
-        with pytest.raises(server.LecapError):
+    assert server.folder_from_url("afterclass://open?folder=%2FUsers%2Fx%2FSMF%20-%20Module%201") == Path("/Users/x/SMF - Module 1")
+    assert server.folder_from_url("lecap://open?folder=%2Fx") == Path("/x")  # pages built before the rename
+    for bad in ("https://open?folder=/x", "afterclass://run?folder=/x", "afterclass://open?folder=x", "afterclass://open"):
+        with pytest.raises(server.AfterclassError):
             server.folder_from_url(bad)

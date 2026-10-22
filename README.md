@@ -1,24 +1,24 @@
-<img src="src/lecap/assets/lecap-1024.png" width="96" alt="lecap icon" align="right">
+<img src="src/afterclass/assets/afterclass-1024.png" width="96" alt="afterclass icon" align="right">
 
-# lecap
+# afterclass
 
 **Lecture recording in, searchable study page out. Offline first.**
 
-**As a Mac app:** `lecap install-app` puts **lecap.app** into /Applications. Open it, drop the recording (and
-the slides), choose the output folder, press **Run**, then **Open lesson**. `lecap app` opens the same window from
-the Terminal. With the app installed, a page you double-clicked (`index.html`) has an **Open in lecap** button that
-reopens it with `lecap open` (notes in the folder, all Ask models).
+**As a Mac app:** `afterclass install-app` puts **afterclass.app** into /Applications. Open it, drop the recording (and
+the slides), choose the output folder, press **Run**, then **Open lesson**. `afterclass app` opens the same window from
+the Terminal. With the app installed, a page you double-clicked (`index.html`) has an **Open in afterclass** button that
+reopens it with `afterclass open` (notes in the folder, all Ask models).
 
 ```bash
-lecap lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
-lecap open lesson-01/                                # study: notes saved in the folder, Ask, settings
+afterclass lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
+afterclass open lesson-01/                                # study: notes saved in the folder, Ask, settings
 ```
 
 One self-contained folder per lesson, so it syncs well to a cloud drive or file share:
 
 ```
 lesson-01/
-  index.html      ← the page (also works straight from the folder, without `lecap open`)
+  index.html      ← the page (also works straight from the folder, without `afterclass open`)
   media/          the video (copied by default) and the deck PDF
   slides/         one frame per slide change
   deck/           sharp renders of the deck pages
@@ -62,23 +62,23 @@ lesson-01/
 
 Without AI you get the transcript, slides, search and notes, plus chapters *if the slides have section pages*.
 `--ai` (a local model or Claude) adds **chapter names for every lesson**, a **quick title for every part**, a **summary** and a **glossary**.
-Ask always needs a model: local (offline, `lecap setup ai`) or Claude (online, only text is sent).
+Ask always needs a model: local (offline, `afterclass setup ai`) or Claude (online, only text is sent).
 
-**Ask without `lecap open`** (when you just double-click `index.html`): the page talks to LM Studio or Ollama directly
-if they allow browser pages. Allow it once with `lecap setup ai`, or yourself:
+**Ask without `afterclass open`** (when you just double-click `index.html`): the page talks to LM Studio or Ollama directly
+if they allow browser pages. Allow it once with `afterclass setup ai`, or yourself:
 `lms server stop && lms server start --cors` (lets any website use your local model, not your files; to keep it after a
 restart: LM Studio → Developer → Server Settings → Enable CORS) or, for Ollama,
 `launchctl setenv OLLAMA_ORIGINS null && brew services restart ollama`. Notes then stay in that browser; with
-`lecap open` they are saved in the lesson folder and Claude online is available too.
+`afterclass open` they are saved in the lesson folder and Claude online is available too.
 
 ## Install (macOS, Apple Silicon)
 
 ```bash
 brew install ffmpeg tesseract uv
-git clone https://github.com/icybermonkey/lecap.git ~/Projects/lecap
-uv tool install --python 3.14 --editable "$HOME/Projects/lecap[claude]"
-lecap --help
-lecap install-app        # optional: lecap.app in /Applications (remove: lecap install-app --remove)
+git clone https://github.com/icybermonkey/afterclass.git ~/Projects/afterclass
+uv tool install --python 3.14 --editable "$HOME/Projects/afterclass[claude]"
+afterclass --help
+afterclass install-app   # optional: afterclass.app in /Applications (remove: afterclass install-app --remove)
 ```
 
 `--editable` means code changes in the repo apply immediately. After a change to the dependencies, run the same command with `--reinstall`.
@@ -87,7 +87,7 @@ For German OCR: `brew install tesseract-lang`. `.pptx` decks need LibreOffice (`
 ## Local AI in 5 minutes
 
 ```bash
-lecap setup ai
+afterclass setup ai
 ```
 
 The wizard finds LM Studio or Ollama and recommends a model for your Mac's memory (32 GB → a ~14B model). It shows each command and **asks before every download or start**, then tests the model and saves the choice. It works the same from the ⚙ settings page. By hand with LM Studio:
@@ -98,12 +98,12 @@ lms get qwen/qwen3-14b                                   # ~9 GB, once
 lms load qwen/qwen3-14b --context-length 32768 -y        # enough context for a whole lecture
 ```
 
-If a model's context is too small for a lecture, lecap works in parts and merges the result.
+If a model's context is too small for a lecture, afterclass works in parts and merges the result.
 
 ## Usage
 
 ```bash
-lecap <video> <output-folder> [options]
+afterclass <video> <output-folder> [options]
 
   --deck FILE           slide deck (.pdf/.pptx): sharp slides, exact text, chapters
   --title TEXT          page title (default: file name)
@@ -118,38 +118,38 @@ lecap <video> <output-folder> [options]
   -f                    redo everything (your notes/ are kept)
   --copy | --link | --move   how the recording gets into media/ (default: move, see settings)
   --deck-mode MODE      the same for the slides: copy, link or move (default: copy)
-  --open                open the page with `lecap open` when done
+  --open                open the page with `afterclass open` when done
 
-lecap app               a window: drop the video (+ slides), pick the output folder, Run
-lecap install-app       lecap.app in /Applications (opens `lecap app`); --remove deletes it
-lecap open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
-lecap settings          global settings in the browser
-lecap setup ai          guided local AI setup
-lecap auth set|status|remove claude    Claude API key in the macOS Keychain
-lecap config show|set|path             settings in the terminal
+afterclass app               a window: drop the video (+ slides), pick the output folder, Run
+afterclass install-app       afterclass.app in /Applications (opens `afterclass app`); --remove deletes it
+afterclass open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
+afterclass settings          global settings in the browser
+afterclass setup ai          guided local AI setup
+afterclass auth set|status|remove claude    Claude API key in the macOS Keychain
+afterclass config show|set|path             settings in the terminal
 ```
 
-Steps are cached in `data/`, so a rerun only redoes what you ask for, e.g. `lecap lesson.mp4 out/ -t 2 --redo scenes` for more cards.
+Steps are cached in `data/`, so a rerun only redoes what you ask for, e.g. `afterclass lesson.mp4 out/ -t 2 --redo scenes` for more cards.
 
 Timing for a 2.5 h lecture on an M2 Pro: transcript ~5 min, speakers ~25 s, slides ~3.5 min, OCR ~20 s.
 
 ## Settings, keys and notes
 
-- **Settings** are global for all lessons, in `~/.config/lecap/config.toml`. They are edited with `lecap settings` (browser) or `lecap config`. They are kept outside the installed tool on purpose, so upgrades and reinstalls don't wipe them. `LECAP_CONFIG=/path/config.toml` moves them.
-- **API keys** live in the macOS Keychain (`lecap auth set claude`, or the settings page). They are never written to a file, a lesson folder or a log. An `ANTHROPIC_API_KEY` environment variable or an `ant auth login` profile also works.
-- **Notes**: with `lecap open`, they are saved in `<lesson>/notes/notes.json` (atomic writes, cloud-sync friendly) and appear in every window. Opened straight from the folder (`file://`), the page keeps notes in that browser and shows the folder's notes from the last build.
+- **Settings** are global for all lessons, in `~/.config/afterclass/config.toml`. They are edited with `afterclass settings` (browser) or `afterclass config`. They are kept outside the installed tool on purpose, so upgrades and reinstalls don't wipe them. `AFTERCLASS_CONFIG=/path/config.toml` moves them.
+- **API keys** live in the macOS Keychain (`afterclass auth set claude`, or the settings page). They are never written to a file, a lesson folder or a log. An `ANTHROPIC_API_KEY` environment variable or an `ant auth login` profile also works.
+- **Notes**: with `afterclass open`, they are saved in `<lesson>/notes/notes.json` (atomic writes, cloud-sync friendly) and appear in every window. Opened straight from the folder (`file://`), the page keeps notes in that browser and shows the folder's notes from the last build.
 
-`lecap open` runs a small server on `127.0.0.1` only. It refuses other hosts and origins, and the API needs a header other websites can't send.
+`afterclass open` runs a small server on `127.0.0.1` only. It refuses other hosts and origins, and the API needs a header other websites can't send.
 
 ## AI providers
 
 | Provider | Needs | Cost |
 |---|---|---|
-| `local` | LM Studio or Ollama running with a model (`lecap setup ai`) | free, offline |
+| `local` | LM Studio or Ollama running with a model (`afterclass setup ai`) | free, offline |
 | `claude-code` | the [Claude Code](https://claude.com/claude-code) CLI, logged in | included in your Claude subscription (uses its limits) |
 | `claude` | an API key from console.anthropic.com | pay per use, ≈ $0.30–0.40 per 2.5 h lecture (Claude Opus 5.5) |
 
-Lectures on security topics can occasionally trip a model's safety filter. lecap then reports it and never shows a placeholder answer. The `claude` API provider automatically falls back to another model.
+Lectures on security topics can occasionally trip a model's safety filter. afterclass then reports it and never shows a placeholder answer. The `claude` API provider automatically falls back to another model.
 
 ## How it works
 
@@ -164,15 +164,15 @@ Lectures on security topics can occasionally trip a model's safety filter. lecap
 ## Project layout
 
 ```
-src/lecap/
+src/afterclass/
   cli.py            commands and options
   model.py          source-neutral Lesson model (the page only reads this)
   sources/          input types: video (now); audio, pdf, pptx are registered as planned
   steps/            probe, transcribe, silence, speakers, scenes, ocr, deck, analyze, ai, render
   ai/               provider interface + local, claude (API), claude_code (subscription)
   ask.py            offline search + answers for the Ask tab
-  server.py         `lecap open` / `lecap settings`
-  setup_ai.py       `lecap setup ai`
+  server.py         `afterclass open` / `afterclass settings`
+  setup_ai.py       `afterclass setup ai`
   web/              template.html (the page), settings.html
 ```
 
@@ -181,7 +181,7 @@ src/lecap/
 
 ## Rename the tool
 
-The command name is in two places: `[project.scripts]` in `pyproject.toml` and `APP_NAME` in `src/lecap/__init__.py`. To also rename the package, `git mv src/lecap src/<new>` and update the imports and `packages` in `pyproject.toml`. Then run `uv tool install --editable . --reinstall`.
+The command name is in two places: `[project.scripts]` in `pyproject.toml` and `APP_NAME` in `src/afterclass/__init__.py`. To also rename the package, `git mv src/afterclass src/<new>` and update the imports and `packages` in `pyproject.toml`. Then run `uv tool install --editable . --reinstall`.
 
 ## Development
 

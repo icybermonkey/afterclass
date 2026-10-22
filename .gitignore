@@ -23,13 +23,13 @@ build/
 *.pdf
 *.pptx
 out/
-lecap-out/
+afterclass-out/
 **/media/
 **/slides/
 **/deck/
 **/data/
 index.html
-!src/lecap/web/*.html
+!src/afterclass/web/*.html
 
 .DS_Store
 .work/
