@@ -223,3 +223,22 @@ def test_page_embeds_the_same_ask_prompt(tmp_path):
     render.render(les, out)
     page = out.read_text()
     assert "/*ASK_DATA*/" not in page and '"main_time"' in page
+
+
+def test_model_picker_options_and_choice(monkeypatch, tmp_path):
+    from lecap import setup_ai
+    from lecap.ai.registry import PROVIDERS
+
+    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    monkeypatch.setattr(setup_ai, "status", lambda: {"apps": [
+        {"name": "LM Studio", "running": True, "loaded": ["gemma"], "models": [{"name": "gemma"}, {"name": "qwen"}]},
+        {"name": "Ollama", "running": False, "loaded": [], "models": []}]})
+    for name in ("claude", "claude-code"):
+        monkeypatch.setattr(PROVIDERS[name], "available", lambda: (False, "no"))
+    config.set_value("ask_provider", "local")
+    config.set_value("ask_model", "qwen")
+    m = server.model_options()
+    local = [(o["model"], o["online"]) for o in m["options"] if o["provider"] == "local"]
+    assert local == [("gemma", False), ("qwen", False)]
+    assert all(o["online"] and not o["available"] for o in m["options"] if o["provider"].startswith("claude"))
+    assert m["current"] == {"provider": "local", "model": "qwen"}

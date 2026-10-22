@@ -21,6 +21,7 @@ DEFAULTS = {
     "ai_provider": "auto",  # auto = local LLM if running, else claude with a key, else claude-code
     "ai_model": "",  # empty = the provider's default
     "ask_provider": "auto",
+    "ask_model": "",  # empty = the provider's default (or the first loaded local model)
     "local_llm_url": "auto",  # auto = LM Studio, then Ollama; or an OpenAI-compatible base URL
     "local_llm_model": "",  # empty = the first loaded chat model
     "allow_online": "ask",  # off | ask | on: may Ask use an online model for questions beyond the lesson
@@ -61,6 +62,7 @@ HELP = {
     "ai_provider": "Model for the --ai study extras",
     "ai_model": "Model name for --ai (empty = provider default)",
     "ask_provider": "Model for the Ask box under the video",
+    "ask_model": "Model name for Ask (empty = default; also set from the picker in the Ask box)",
     "local_llm_url": "Local AI server (auto = LM Studio, then Ollama)",
     "local_llm_model": "Local model (empty = the first loaded one)",
     "allow_online": "Ask may use online Claude for questions beyond the lesson",

@@ -10,6 +10,7 @@
   --accent: #2f6fdb; --accent-soft: #e4edfc; --mark: #ffe58a; --now: #fff3c4; --star: #e0a100;
   --demo: #7a4cc2; --break: #8a8a8f; --other: #0f8b6b; --other-soft: #e1f4ee; --bad: #c0392b;
   --off: #1f8a4c; --off-soft: #e3f4ea; --on: #c25e00; --on-soft: #fdeedd;
+  --note-bg: #eef2f8; --note-edge: #8fa8cf; --raster: #f4f4f1;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -17,6 +18,7 @@
     --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
     --demo: #b996f0; --break: #77777e; --other: #4fd1a8; --other-soft: #173a31; --bad: #ff7b6b;
     --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
+    --note-bg: #222a36; --note-edge: #5d7aa6; --raster: #26262b;
   }
 }
 :root[data-theme="dark"] {
@@ -24,6 +26,7 @@
   --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
   --demo: #b996f0; --break: #77777e; --other: #4fd1a8; --other-soft: #173a31; --bad: #ff7b6b;
   --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
+  --note-bg: #222a36; --note-edge: #5d7aa6; --raster: #26262b;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -65,13 +68,13 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 /* left: chapters */
 #chapters { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 0 40px; }
 .chap { padding: 4px 10px 6px; }
-.chap > button.head { display: grid; grid-template-columns: 122px minmax(0, 1fr); gap: 8px; align-items: start;
+.chap > button.head { display: grid; grid-template-columns: 61px minmax(0, 1fr); gap: 8px; align-items: start;
   width: 100%; text-align: left; border-radius: 8px; padding: 5px; }
 .chap > button.head:hover { background: var(--accent-soft); }
 .chap.on > button.head { background: var(--accent-soft); }
-.chap img { width: 122px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line);
+.chap img { width: 61px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line);
   border-radius: 4px; display: block; }
-.chap .noimg { width: 122px; aspect-ratio: 16 / 9; border: 1px dashed var(--line); border-radius: 4px; }
+.chap .noimg { width: 61px; aspect-ratio: 16 / 9; border: 1px dashed var(--line); border-radius: 4px; }
 .chap .ct { font-weight: 600; font-size: 14px; line-height: 1.3; }
 .chap.on .ct { color: var(--accent); }
 .chap .tm { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -92,7 +95,17 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 #askq { flex: 1; min-height: 38px; max-height: 120px; resize: none; font: inherit; color: var(--fg); background: var(--panel);
   border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 #askform .btn { height: 38px; }
-#askwho { font-size: 11px; color: var(--muted); display: flex; gap: 6px; align-items: center; padding-bottom: 4px; }
+#askmodel { height: 38px; max-width: 210px; font: inherit; font-size: 12px; color: var(--fg); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
+#askwho { font-size: 12px; color: var(--muted); padding-bottom: 6px; }
+#askwho .line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.askhelp { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); margin-bottom: 4px; }
+.askhelp .line + .line { margin-top: 6px; }
+.askhelp .opt { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 6px; }
+.askhelp .opt b { color: var(--fg); font-weight: 600; }
+.askhelp code { display: block; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px;
+  font-size: 12px; white-space: nowrap; overflow-x: auto; color: var(--fg); }
+.askhelp .btn { font-size: 12px; padding: 1px 8px; }
 .qa .q { font-weight: 600; font-size: 14px; }
 .qa .a { font-size: 14px; }
 .qa .a p { margin: 4px 0; }
@@ -118,16 +131,18 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 .seg2 button { padding: 0 8px; font-size: 12px; color: var(--muted); }
 .seg2 button[aria-pressed="true"] { background: var(--accent-soft); color: var(--fg); }
 .tab { flex: 1; min-height: 0; overflow: auto; padding: 4px 14px 40px; }
-.tcard { padding: 10px 0 12px; border-bottom: 1px solid var(--line); scroll-margin-top: 6px; }
+.tcard { padding: 10px 10px 12px; margin: 0 -6px 6px; border-radius: 8px; scroll-margin-top: 6px; }
+.tcard:nth-of-type(odd) { background: var(--raster); }
 .th { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 10px; align-items: start; }
 .th .pic { position: relative; }
 .th img { width: 112px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line); border-radius: 4px; cursor: zoom-in; display: block; }
 .th .swap { position: absolute; right: 2px; bottom: 2px; font-size: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 4px; padding: 0 4px; }
 .th .meta { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; font-size: 13px; }
+.th .info { min-width: 0; }
 .time { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
 .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
 .tcard[data-kind="demo"] .kind { color: var(--demo); }
-.ctitle { font-weight: 600; width: 100%; }
+.ctitle { font-weight: 600; font-size: 15px; line-height: 1.3; margin-bottom: 2px; }
 .acts { display: flex; gap: 2px; margin-left: -4px; }
 .acts button { width: 26px; height: 24px; border-radius: 6px; color: var(--muted); font-size: 14px; }
 .acts button:hover { background: var(--bg); }
@@ -147,14 +162,12 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 .nospeech { color: var(--muted); font-style: italic; font-size: 14px; margin: 6px 0 0; }
 .slidehit { font-size: 13px; color: var(--muted); margin-top: 6px; border-left: 3px solid var(--mark); padding-left: 8px; }
 .note { width: 100%; min-height: 54px; resize: vertical; margin-top: 8px; font: inherit; font-size: 14px; color: var(--fg);
-  background: #fffbe6; border: 1px solid #f0dc8c; border-radius: 8px; padding: 6px 8px; }
-:root[data-theme="dark"] .note { background: #2c2816; border-color: #5a4e1f; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .note { background: #2c2816; border-color: #5a4e1f; } }
+  background: var(--note-bg); border: 1px solid var(--line); border-left: 3px solid var(--note-edge); border-radius: 8px; padding: 6px 8px; }
 .tbreak { color: var(--break); font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 #empty { color: var(--muted); padding: 30px 0; text-align: center; }
 #tab-overview h2 { font-size: 15px; color: var(--accent); margin: 18px 0 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent-soft);
   display: flex; align-items: baseline; gap: 8px; }
-#tab-overview h2:first-child { margin-top: 10px; }
+details.sec:first-child h2 { margin-top: 10px; }
 #tab-overview h2 .n { font-size: 12px; color: var(--muted); font-weight: normal; }
 #tab-overview h2 .btn { margin-left: auto; font-size: 12px; padding: 1px 8px; }
 .ov-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; }
@@ -162,9 +175,11 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 .ov-item .oh { display: flex; gap: 8px; align-items: baseline; }
 .ov-item .oh b { font-weight: 600; }
 .ov-item .oh .st { color: var(--star); }
-.ov-item .nt { white-space: pre-wrap; margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: #fffbe6; border-left: 3px solid #f0dc8c; }
-:root[data-theme="dark"] .ov-item .nt { background: #2c2816; border-left-color: #5a4e1f; }
-@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ov-item .nt { background: #2c2816; border-left-color: #5a4e1f; } }
+.ov-item .nt { white-space: pre-wrap; margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: var(--note-bg); border-left: 3px solid var(--note-edge); }
+details.sec > summary { list-style: none; cursor: pointer; }
+details.sec > summary::-webkit-details-marker { display: none; }
+details.sec > summary h2::before { content: "▾"; font-size: 12px; color: var(--muted); }
+details.sec:not([open]) > summary h2::before { content: "▸"; }
 details.gl { border-bottom: 1px solid var(--line); padding: 6px 0; font-size: 14px; }
 details.gl summary { cursor: pointer; font-weight: 600; }
 details.gl p { margin: 4px 0 2px 16px; color: var(--muted); }
@@ -232,6 +247,7 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
       <div id="askwho"></div>
       <form id="askform">
         <textarea id="askq" rows="1" placeholder="Ask about this lesson, e.g. “Where do we talk about virtual machines?”  ( a )"></textarea>
+        <select id="askmodel" class="hidden" title="Which model answers (offline = on this Mac, online = Claude)"></select>
         <button class="btn primary" type="submit">Ask</button>
       </form>
     </section>
@@ -387,12 +403,12 @@ function tcardHTML(c) {
   const note = store.notes[c.id];
   return `<article class="tcard" id="t${c.id}" data-id="${c.id}" data-kind="${c.kind}">
     <div class="th"><div class="pic">${img ? `<img src="${esc(img)}" loading="lazy" alt="">${swap}` : ""}</div>
-      <div class="meta"><button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
-        <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
-        <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
-          <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment">🔗</button></span>
-        <span class="ctitle">${decorate(cardTitle(c))}</span>
-        ${c.quick_title && c.title && c.title.toLowerCase() !== c.quick_title.toLowerCase() ? `<span class="slidelabel">slide: ${decorate(c.title)}</span>` : ""}</div></div>
+      <div class="info"><div class="ctitle">${decorate(cardTitle(c))}</div>
+        <div class="meta"><button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
+          <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
+          <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
+            <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment">🔗</button></span>
+          ${c.quick_title && c.title && c.title.toLowerCase() !== c.quick_title.toLowerCase() ? `<span class="slidelabel">slide: ${decorate(c.title)}</span>` : ""}</div></div></div>
     <div class="body">${transcriptBody(c)}</div><div class="slidehit hidden"></div>
     <textarea class="note ${note ? "" : "hidden"}" data-id="${c.id}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
 }
@@ -486,7 +502,9 @@ function showTab(name) {
 $$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function renderOverview() {
   const items = cards.filter(c => store.stars[c.id] || store.notes[c.id]);
-  let h = `<h2>My notes <span class="n">${items.length}</span>${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2>`;
+  const open = k => lsGet("lecap:ov:" + k) !== "closed" ? "open" : "";
+  let h = `<details class="sec" data-sec="notes" ${open("notes")}><summary><h2>My notes <span class="n">${items.length}</span>
+    ${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2></summary>`;
   if (!items.length) h += `<p class="muted">Star a part (☆) or write a note (✎) in the transcript; they are collected here.</p>`;
   let lastCh = -1;
   items.forEach(c => {
@@ -496,11 +514,12 @@ function renderOverview() {
       ${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b></div>
       ${store.notes[c.id] ? `<div class="nt">${esc(store.notes[c.id])}</div>` : ""}</div>`;
   });
-  h += `<h2>Glossary <span class="n">${glossary.length}</span></h2>`;
+  h += `</details><details class="sec" data-sec="glossary" ${open("glossary")}><summary><h2>Glossary <span class="n">${glossary.length}</span></h2></summary>`;
   h += glossary.length ? glossary.map(g => `<details class="gl"><summary>${esc(g.term)}</summary><p>${esc(g.definition)}
       ${cards[g.card] ? ` <button class="jump" data-card="${g.card}">→ ${fmt(cards[g.card].start)}</button>` : ""}</p></details>`).join("")
     : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a glossary.</p>`;
-  $("#tab-overview").innerHTML = h;
+  $("#tab-overview").innerHTML = h + `</details>`;
+  $$("#tab-overview details.sec").forEach(d => d.addEventListener("toggle", () => lsSet("lecap:ov:" + d.dataset.sec, d.open ? "open" : "closed")));
 }
 
 /* ---------- clicks ---------- */
@@ -546,7 +565,7 @@ document.addEventListener("click", e => {
   if (t.closest(".star")) { toggleStar(+tc.dataset.id); return; }
   if (t.closest(".notebtn")) { openNote(+tc.dataset.id); return; }
   if (t.closest(".link")) { copyLink(cards[+tc.dataset.id].start); return; }
-  if (t.id === "export2") { exportNotes(); return; }
+  if (t.id === "export2") { e.preventDefault(); exportNotes(); return; }  // inside a <summary>: don't fold
 });
 $("#menu").onclick = () => $("#chapters").classList.toggle("open");
 const closeChapters = () => $("#chapters").classList.remove("open");
@@ -709,7 +728,10 @@ async function detectDirect() {
     try {
       const r = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(1500) });
       const models = ((await r.json()).data || []).map(m => m.id).filter(id => !/embed|whisper|rerank/i.test(id));
-      if (models.length) { direct = { name, base, model: models[0] }; directState = "ok"; return; }
+      if (models.length) {
+        const saved = lsGet("lecap:directModel");
+        direct = { name, base, models, model: models.includes(saved) ? saved : models[0] }; directState = "ok"; return;
+      }
     } catch (e) {
       // Reachable without CORS (an opaque response) = running, but not allowing this page yet
       try { await fetch(base + "/v1/models", { mode: "no-cors", signal: AbortSignal.timeout(1500) }); direct = { name, base, allowCmd }; directState = "blocked"; return; } catch (e2) {}
@@ -747,10 +769,23 @@ function askWho() {
   const local = providers.find(p => p.name === "local");
   let h;
   if (!SERVER || !serverOK) {
-    if (directState === "ok") h = `${tagHTML(false)} answers by ${esc(direct.name)} · ${esc(direct.model)} (direct; notes stay in this browser)`;
-    else if (directState === "blocked") h = `${tagHTML(false)} ${esc(direct.name)} is running but doesn't allow this page yet. Allow it once: ${copyBtn(direct.allowCmd)} · or open with ${copyBtn(ASKCFG.open_cmd || "lecap open <folder>")}`;
-    else if (directState === "none") h = `${tagHTML(false)} no local model running: start LM Studio, or open with ${copyBtn(ASKCFG.open_cmd || "lecap open <folder>")} · until then: search only`;
+    if (directState === "ok") h = `<div class="line">${tagHTML(false)} answers by ${esc(direct.name)} · ${esc(direct.model)} (direct; notes stay in this browser)</div>`;
+    else if (directState === "blocked" || directState === "none") {
+      const openCmd = ASKCFG.open_cmd || "lecap open <folder>";
+      const first = directState === "blocked"
+        ? `<div class="opt"><span>1</span><span><b>Allow ${esc(direct.name)} for this page</b> (once, in Terminal):<code>${esc(direct.allowCmd)}</code></span><button class="btn" data-copy="${esc(direct.allowCmd)}">Copy</button></div>`
+        : `<div class="opt"><span>1</span><span><b>Start LM Studio</b> (or Ollama) with a model loaded</span><span></span></div>`;
+      h = `<div class="askhelp"><div class="line">${tagHTML(false)} <b>${directState === "blocked" ? `${esc(direct.name)} is running but doesn't allow this page yet` : "No local model found"}</b>
+          <button class="btn" id="recheck" style="margin-left:auto">↻ Check again</button></div>
+        ${first}
+        <div class="opt"><span>${directState === "blocked" ? "2" : "·"}</span><span><b>Or open the lesson with lecap</b> (notes saved in the folder):<code>${esc(openCmd)}</code></span><button class="btn" data-copy="${esc(openCmd)}">Copy</button></div>
+        <div class="line muted" style="margin-top:6px">Until then, questions are answered by search only.</div></div>`;
+    }
     else h = `${tagHTML(false)} looking for a local model…`;
+  }
+  else if (settings && settings.ask_provider && settings.ask_provider !== "auto") {
+    const online = settings.ask_provider !== "local";
+    h = `<div class="line">${tagHTML(online)} answers by ${esc(settings.ask_provider === "local" ? "local model" : settings.ask_provider)}${settings.ask_model ? " · " + esc(settings.ask_model) : ""}</div>`;
   }
   else if (local && local.available) h = `${tagHTML(false)} answers by ${esc(local.detail)}`;
   else if (settings && settings.allow_online !== "off") h = `${tagHTML(true)} no local model running: answers by Claude (asks first) · ⚙ to set up a local model`;
@@ -817,6 +852,33 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
 document.addEventListener("click", e => {
   const c = e.target.closest("[data-copy]");
   if (c) navigator.clipboard?.writeText(c.dataset.copy).then(() => toast("Copied: paste it in Terminal"), () => toast(c.dataset.copy));
+  if (e.target.id === "recheck") { e.target.textContent = "Checking…"; detectDirect().then(() => { askWho(); loadModels(); toast(directState === "ok" ? `Connected to ${direct.name}` : "Still not reachable"); }); }
+});
+/* model picker in the Ask box: lecap open = global setting (offline + online); file page = models of the local server */
+async function loadModels() {
+  const sel = $("#askmodel");
+  let opts = [];
+  if (SERVER && serverOK) {
+    try {
+      const m = await api("GET", "/api/models");
+      opts = m.options.map(o => ({ value: JSON.stringify({ p: o.provider, m: o.model }), label: `${o.label} · ${o.online ? "online" : "offline"}${o.available ? "" : " (not available)"}`,
+        disabled: !o.available, selected: o.provider === m.current.provider && o.model === m.current.model }));
+      if (!opts.some(o => o.selected)) opts.push({ value: JSON.stringify({ p: m.current.provider, m: m.current.model }), label: `${m.current.provider} · ${m.current.model || "default"}`, selected: true });
+    } catch (e) {}
+  } else if (directState === "ok") {
+    opts = direct.models.map(n => ({ value: JSON.stringify({ p: "direct", m: n }), label: `${n} · offline`, selected: n === direct.model }));
+  }
+  sel.innerHTML = opts.map(o => `<option value="${esc(o.value)}" ${o.disabled ? "disabled" : ""} ${o.selected ? "selected" : ""}>${esc(o.label)}</option>`).join("");
+  sel.classList.toggle("hidden", !opts.length);
+}
+$("#askmodel").addEventListener("change", async e => {
+  const v = JSON.parse(e.target.value), label = e.target.selectedOptions[0].textContent;
+  if (v.p === "direct") { direct.model = v.m; lsSet("lecap:directModel", v.m); askWho(); toast("Ask uses " + label); return; }
+  try {
+    await api("PUT", "/api/settings", { ask_provider: v.p, ask_model: v.m });
+    settings = { ...settings, ask_provider: v.p, ask_model: v.m };
+    askWho(); toast("Ask uses " + label);
+  } catch (err) { toast(err.message); loadModels(); }
 });
 $("#askform").addEventListener("submit", e => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return; $("#askq").value = ""; ask(q); });
 $("#askq").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#askform").requestSubmit(); } });
@@ -855,7 +917,7 @@ markChapter(0);
 renderTranscript();
 readHash();
 askWho();
-if (!SERVER) detectDirect().then(askWho);
+if (!SERVER) detectDirect().then(() => { askWho(); loadModels(); });
 if (SERVER) {
   api("GET", "/api/state").then(s => {
     setSync(true);
@@ -869,7 +931,8 @@ if (SERVER) {
     if (target >= 0) scrollToCard(target, true);
     (s.chat || []).filter(x => x.answer || x.main_time != null).slice(-15).forEach(x => { addQA(x.q).innerHTML = answerHTML(x, x.q); });
     askWho();
-  }).catch(() => { setSync(false); detectDirect().then(askWho); });
+    loadModels();
+  }).catch(() => { setSync(false); detectDirect().then(() => { askWho(); loadModels(); }); });
 }
 </script>
 </body>

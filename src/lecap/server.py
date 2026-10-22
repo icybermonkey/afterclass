@@ -104,6 +104,31 @@ def settings_payload():
             "local": status(), "providers": providers_status(), "config_path": str(config.config_path())}
 
 
+ONLINE_MODELS = {  # what the Ask box offers for Claude; local models come from LM Studio / Ollama
+    "claude-code": [("opus", "Claude Code · Opus"), ("sonnet", "Claude Code · Sonnet")],
+    "claude": [("claude-opus-5-5", "Claude API · Opus 5.5"), ("claude-sonnet-5-5", "Claude API · Sonnet 5.5")],
+}
+
+
+def model_options():
+    """Everything the Ask box's model picker can offer, with what is available right now."""
+    from .ai.registry import PROVIDERS
+    from .setup_ai import status
+
+    cfg = config.load()
+    opts = [{"provider": "auto", "model": "", "label": "Automatic (local first)", "online": False, "available": True}]
+    for a in status()["apps"]:
+        if not a["running"]:
+            continue
+        names = list(dict.fromkeys(a["loaded"] + [m["name"] for m in a["models"]]))
+        opts += [{"provider": "local", "model": n, "label": f"{n} · {a['name']}", "online": False, "available": True}
+                 for n in names]
+    for name, models in ONLINE_MODELS.items():
+        ok = PROVIDERS[name].available()[0]
+        opts += [{"provider": name, "model": m, "label": label, "online": True, "available": ok} for m, label in models]
+    return {"options": opts, "current": {"provider": cfg["ask_provider"], "model": cfg["ask_model"]}}
+
+
 def ask_payload(app, body):
     from . import ask
     from .ai.registry import PROVIDERS, is_online, pick
@@ -144,7 +169,8 @@ def ask_payload(app, body):
                 provider = None
             else:
                 raise LecapError(why)
-    model = (cfg["ai_model"] if provider and provider.name == cfg["ai_provider"] else "") or (
+    # The model picked in the Ask box (ask_model) belongs to the provider picked there (ask_provider)
+    model = (cfg["ask_model"] if provider and provider.name == cfg["ask_provider"] else "") or (
         provider.default_model if provider else "")
     result = ask.answer(lesson, question, provider, model, t, "lesson" if mode == "search" else mode)
     result["mode"] = mode
@@ -313,6 +339,8 @@ class Handler(BaseHTTPRequestHandler):
                 with app.lock:
                     atomic_write(app.chat_path, "[]")
                 return self._json({"ok": True})
+            if path == "/api/models" and method == "GET":
+                return self._json(model_options())
             if path == "/api/settings" and method == "GET":
                 return self._json(settings_payload())
             if path == "/api/settings" and method == "PUT":
