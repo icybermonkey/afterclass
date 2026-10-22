@@ -533,8 +533,8 @@ $$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function renderOverview() {
   const items = cards.filter(c => store.stars[c.id] || store.notes[c.id]);
   const open = k => lsGet("lecap:ov:" + k) !== "closed" ? "open" : "";
-  // Summary first and folded unless you opened it before
-  let h = `<details class="sec" data-sec="summary" ${lsGet("lecap:ov:summary") === "open" ? "open" : ""}><summary><h2>Summary</h2></summary>
+  // Summary first, open unless you folded it before
+  let h = `<details class="sec" data-sec="summary" ${open("summary")}><summary><h2>Summary</h2></summary>
     ${L.ai && L.ai.summary ? L.ai.summary.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("")
       : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a summary.</p>`}</details>`;
   h += `<details class="sec" data-sec="notes" ${open("notes")}><summary><h2>My notes <span class="n">${items.length}</span>
