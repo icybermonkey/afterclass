@@ -102,6 +102,9 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
       <option value="claude-code">Claude Code (subscription)</option><option value="claude">Claude API (pay per use)</option>
       <option value="off">Off</option></select> <span id="aitag"></span></label>
     <label id="costwrap" class="hidden"><input type="checkbox" id="cost"> I accept the API cost (≈ $0.35)</label>
+    <label>Files <select id="media" title="What happens to the video and slides">
+      <option value="copy">copy into the lesson folder</option><option value="move">move into the lesson folder</option>
+      <option value="link">link (originals stay)</option></select></label>
     <label><input type="checkbox" id="speakers" checked> Tell speakers apart</label>
   </div>
 </div>
@@ -126,7 +129,7 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const form = { video: "", deck: "", out_dir: "", name: "", language: "en", ai: "auto", accept_cost: false, speakers: true };
+const form = { video: "", deck: "", out_dir: "", name: "", language: "en", ai: "auto", accept_cost: false, speakers: true, media: "copy" };
 let api = null, next = 0, timer = null;
 const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -154,6 +157,7 @@ async function refresh() {
   form.ai = $("#ai").value;
   form.accept_cost = $("#cost").checked;
   form.speakers = $("#speakers").checked;
+  form.media = $("#media").value;
   $("#aitag").innerHTML = form.ai === "off" ? "" : ["auto", "local"].includes(form.ai) ? `<span class="tag off">offline</span>` : `<span class="tag on">online</span>`;
   $("#costwrap").classList.toggle("hidden", form.ai !== "claude");
   if (api) {
@@ -164,7 +168,7 @@ async function refresh() {
   $("#run").disabled = !ready;
   $("#msg").textContent = !form.video ? "" : !form.out_dir ? "Choose an output folder" : form.ai === "claude" && !form.accept_cost ? "Confirm the API cost, or pick another AI option" : "";
 }
-["#name", "#language", "#ai", "#cost", "#speakers"].forEach(s => $(s).addEventListener(s === "#name" ? "input" : "change", refresh));
+["#name", "#language", "#ai", "#cost", "#speakers", "#media"].forEach(s => $(s).addEventListener(s === "#name" ? "input" : "change", refresh));
 
 document.addEventListener("click", async e => {
   const c = e.target.closest("[data-choose]"), x = e.target.closest("[data-clear]");
@@ -231,7 +235,7 @@ $("#again").onclick = async () => { await api.reset(); $("#progress").classList.
 window.addEventListener("pywebviewready", async () => {
   api = window.pywebview.api;
   const d = await api.defaults();
-  $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").checked = d.speakers;
+  $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").checked = d.speakers; $("#media").value = d.media;
   form.out_dir = d.out_dir; $("#outdir").textContent = d.out_dir;
   refresh();
 });

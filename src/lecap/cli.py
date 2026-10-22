@@ -95,9 +95,21 @@ def preflight(args):
         raise LecapError(f"deck not found: {args.deck}")
 
 
+def reuse_moved(path, out):
+    """With media=move the originals end up in <out>/media/: a rerun with the old path finds them there."""
+    if path and not path.exists():
+        moved = out.expanduser() / "media" / path.name
+        if moved.exists():
+            ui.info(f"using {moved} ({path.name} was moved into the lesson folder)")
+            return moved
+    return path
+
+
 def run(args):
     from .sources.registry import pick
 
+    args.input = reuse_moved(args.input, args.out)
+    args.deck = reuse_moved(args.deck, args.out)
     preflight(args)
     args.input = args.input.expanduser().resolve()
     args.out = args.out.expanduser().resolve()

@@ -29,3 +29,21 @@ def test_app_bundle(tmp_path):
     text = exe.read_text()
     assert exe.stat().st_mode & 0o111 and '/opt/homebrew/bin' in text and text.rstrip().endswith('exec "/usr/local/bin/lecap" app')
     assert (app / "Contents/Resources/lecap.icns").stat().st_size > 1000
+
+
+def test_media_choice_is_passed_on():
+    assert gui.build_args(form(media="move"))[0][-1] == "--move"
+    assert gui.build_args(form(media="link"))[0][-1] == "--link"
+
+
+def test_rerun_finds_files_that_were_moved_into_the_lesson(tmp_path):
+    from pathlib import Path
+
+    from lecap import cli
+
+    out = tmp_path / "lesson"
+    (out / "media").mkdir(parents=True)
+    (out / "media" / "talk.mp4").write_bytes(b"x")
+    assert cli.reuse_moved(Path("/gone/talk.mp4"), out) == out / "media" / "talk.mp4"
+    assert cli.reuse_moved(Path("/gone/other.mp4"), out) == Path("/gone/other.mp4")  # unknown: left for the error
+    assert cli.reuse_moved(None, out) is None

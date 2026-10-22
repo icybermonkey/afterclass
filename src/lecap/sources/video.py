@@ -39,10 +39,10 @@ class VideoSource(Source):
         steps.end()
 
         # 2. Media
-        mode = "copy" if a.copy else "link" if a.link else "move" if a.move else cfg["media"]
-        steps.begin("Place the video", f"The page plays media/{ctx.input.name}. Mode: {mode} "
-                    "(--copy keeps the folder self-contained, --link saves space, --move moves the file; "
-                    "default via `lecap config set media …`).")
+        mode = ctx.media_mode = "copy" if a.copy else "link" if a.link else "move" if a.move else cfg["media"]
+        steps.begin("Place the video", f"The page plays media/{ctx.input.name}. Mode: {mode} for the video and "
+                    "the slides (copy keeps the folder self-contained, link saves space, move moves the files; "
+                    "default in ⚙ Settings or `lecap config set media …`).")
         dest, what = media.place(ctx.input, ctx.media, mode)
         steps.end(f"{what} → media/{dest.name}")
 
@@ -240,13 +240,16 @@ class VideoSource(Source):
                 return d["pages"], [tuple(o) for o in d["outline"]], d["rel"]
         steps.begin("Read the slide deck", "Exact slide text, titles and section pages from the deck; each video "
                     "frame is matched to its page so cards show the sharp slide.")
-        pdf = deck.to_pdf(src, ctx.data)
-        if pdf != src:
-            ui.info(f"converted {src.name} → PDF with LibreOffice")
-        ctx.media.mkdir(parents=True, exist_ok=True)
-        dest = ctx.media / pdf.name
-        if dest.resolve() != pdf.resolve():
-            shutil.copy2(pdf, dest)
+        # The deck follows the same copy/link/move setting as the video
+        placed, what = media.place(src, ctx.media, getattr(ctx, "media_mode", "copy"))
+        ui.info(f"{what} → media/{placed.name}")
+        pdf = deck.to_pdf(placed, ctx.data)
+        if pdf != placed:  # a PPTX converted to PDF: the PDF (ours) goes next to it
+            dest = ctx.media / pdf.name
+            shutil.move(pdf, dest)
+            ui.info(f"converted {src.name} → media/{dest.name} with LibreOffice")
+        else:
+            dest = placed
         pages, outline = deck.read(dest)
         n = deck.render(dest, ctx.deck)
         rel = f"media/{dest.name}"

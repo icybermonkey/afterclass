@@ -56,7 +56,7 @@ HELP = {
     "language": "Spoken language of the lectures (en, de, …)",
     "threshold": "Slide change sensitivity; higher = fewer cards",
     "whisper_model": "Speech-to-text model (mlx-whisper)",
-    "media": "What happens to the video: copy into the lesson folder, symlink, or move",
+    "media": "Video and slides (mp4, pdf, pptx): copy them into the lesson folder, link to the originals, or move them",
     "speakers": "Tell the lecturer and other speakers apart (offline)",
     "transcript_view": "Default transcript view on the page",
     "ai_provider": "Model for the --ai study extras",

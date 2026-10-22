@@ -119,13 +119,13 @@ function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classNa
 
 const LABELS = {
   language: "Spoken language", threshold: "Slide change sensitivity", whisper_model: "Speech-to-text model",
-  media: "Video in the lesson folder", speakers: "Tell speakers apart", transcript_view: "Transcript view",
+  media: "Video and slides → lesson folder", speakers: "Tell speakers apart", transcript_view: "Transcript view",
   ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for Ask", ask_model: "Model name for Ask",
   allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
   local_llm_url: "Local AI server", local_llm_model: "Local model",
 };
 const OPTION_TEXT = {
-  copy: "copy (self-contained, recommended)", link: "symlink (saves space)", move: "move into the folder",
+  copy: "copy (originals stay, folder is self-contained)", link: "link (saves space, originals must stay)", move: "move (originals go into the folder)",
   paragraphs: "paragraphs", blocks: "blocks (one per card)", auto: "auto",
   local: "local (offline)", claude: "Claude API (key)", "claude-code": "Claude Code (subscription)",
   off: "off", ask: "ask me each time", on: "allowed",

@@ -115,7 +115,7 @@ lecap <video> <output-folder> [options]
   -y                    don't ask before paid API calls
   --redo STEP           redo one step: transcribe, speakers, scenes, ocr, deck, ai (repeatable)
   -f                    redo everything (your notes/ are kept)
-  --copy | --link | --move   how the video gets into media/ (default: copy, see settings)
+  --copy | --link | --move   how the video and slides get into media/ (default: copy, see settings)
   --open                open the page with `lecap open` when done
 
 lecap app               a window: drop the video (+ slides), pick the output folder, Run

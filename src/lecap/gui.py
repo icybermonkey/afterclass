@@ -53,6 +53,8 @@ def build_args(form):
             args += ["-y"]  # the paid API only runs after this explicit checkbox
     if form.get("speakers") is False:
         args += ["--no-speakers"]
+    if form.get("media") in ("copy", "link", "move"):
+        args += ["--" + form["media"]]
     return args, out
 
 
@@ -103,7 +105,7 @@ class Api:
     def defaults(self):
         cfg = config.load()
         last = _load_state().get("out_dir")
-        return {"language": cfg["language"], "ai": "auto", "speakers": bool(cfg["speakers"]),
+        return {"language": cfg["language"], "ai": "auto", "speakers": bool(cfg["speakers"]), "media": cfg["media"],
                 "out_dir": last if last and Path(last).is_dir() else str(Path.home() / "Documents"),
                 "app": APP_NAME}
 
