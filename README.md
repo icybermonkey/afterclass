@@ -1,6 +1,12 @@
+<img src="src/lecap/assets/lecap-1024.png" width="96" alt="lecap icon" align="right">
+
 # lecap
 
 **Lecture recording in, searchable study page out. Offline first.**
+
+**As a Mac app:** `lecap install-app` puts **lecap.app** into /Applications. Open it, drop the recording (and
+the slides), choose the output folder, press **Run**, then **Open lesson**. `lecap app` opens the same window from
+the Terminal.
 
 ```bash
 lecap lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
@@ -71,6 +77,7 @@ brew install ffmpeg tesseract uv
 git clone https://github.com/icybermonkey/lecap.git ~/Projects/lecap
 uv tool install --python 3.14 --editable "$HOME/Projects/lecap[claude]"
 lecap --help
+lecap install-app        # optional: lecap.app in /Applications (remove: lecap install-app --remove)
 ```
 
 `--editable` means code changes in the repo apply immediately. After a change to the dependencies, run the same command with `--reinstall`.
@@ -111,6 +118,8 @@ lecap <video> <output-folder> [options]
   --copy | --link | --move   how the video gets into media/ (default: copy, see settings)
   --open                open the page with `lecap open` when done
 
+lecap app               a window: drop the video (+ slides), pick the output folder, Run
+lecap install-app       lecap.app in /Applications (opens `lecap app`); --remove deletes it
 lecap open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
 lecap settings          global settings in the browser
 lecap setup ai          guided local AI setup

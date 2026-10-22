@@ -11,6 +11,7 @@ dependencies = [
     "pydantic>=2.6",
     "keyring>=25",
     "speechbrain>=1.1.2",
+    "pywebview>=6.2.1",
 ]
 
 [project.optional-dependencies]

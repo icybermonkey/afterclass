@@ -16,7 +16,8 @@ def build_parser():
     p = argparse.ArgumentParser(
         prog=APP_NAME,
         description="Turn a lecture recording into a searchable study page: index.html + subfolders.",
-        epilog=f"More: `{APP_NAME} auth --help` (AI keys), `{APP_NAME} config --help` (defaults).",
+        epilog=(f"Also: `{APP_NAME} app` (window to start a lesson), `{APP_NAME} install-app` (lecap.app in /Applications), "
+                f"`{APP_NAME} open <folder>`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("input", type=Path, help="lecture video (.mp4, .mov, …)")
@@ -59,6 +60,12 @@ def main(argv=None):
             return auth_main(argv[1:])
         if argv and argv[0] == "config":
             return config_main(argv[1:])
+        if argv and argv[0] == "app":
+            from .gui import main as app_main
+            return app_main(argv[1:])
+        if argv and argv[0] == "install-app":
+            from .macapp import main as install_main
+            return install_main(argv[1:])
         if argv[:2] == ["setup", "ai"]:
             from .setup_ai import wizard
             return wizard()

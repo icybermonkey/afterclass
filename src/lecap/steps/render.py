@@ -1,5 +1,6 @@
 """Write index.html: the template with the lesson JSON embedded (works from file://, no server)."""
 
+import base64
 import html
 import json
 from importlib.resources import files
@@ -26,9 +27,14 @@ def render(lesson, out_path):
             .replace("__TITLE__", html.escape((lesson.ai or {}).get("title") or lesson.title))
             .replace("/*LESSON_DATA*/", _safe(lesson.to_json()))
             .replace("/*NOTES_DATA*/", _safe(notes))
-            .replace("/*ASK_DATA*/", _safe(json.dumps(ask_config(out_path.parent), ensure_ascii=False))))
+            .replace("/*ASK_DATA*/", _safe(json.dumps(ask_config(out_path.parent), ensure_ascii=False)))
+            .replace("__ICON__", icon_uri()))
     out_path.write_text(page, encoding="utf-8")
     return len(page.encode())
+
+
+def icon_uri():
+    return "data:image/svg+xml;base64," + base64.b64encode(files(APP_NAME).joinpath("assets/lecap.svg").read_bytes()).decode()
 
 
 def _safe(json_text):

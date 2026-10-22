@@ -272,7 +272,9 @@ class Handler(BaseHTTPRequestHandler):
 
     def _static(self, urlpath):
         if urlpath in ("/", "/settings") and (self.app.folder is None or urlpath == "/settings"):
-            page = files("lecap").joinpath("web/settings.html").read_bytes()
+            from .steps.render import icon_uri
+
+            page = files("lecap").joinpath("web/settings.html").read_text(encoding="utf-8").replace("__ICON__", icon_uri()).encode()
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(page)))
