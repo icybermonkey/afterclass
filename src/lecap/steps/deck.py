@@ -41,7 +41,7 @@ def read(pdf):
     try:
         doc = pymupdf.open(pdf)
     except Exception as e:
-        raise LecapError(f"can't read the slides {Path(pdf).name} ({str(e).rstrip(".")}). Is it a valid PDF/PPTX?")
+        raise LecapError(f"can't read the slides {Path(pdf).name} ({str(e).rstrip('.')}). Is it a valid PDF/PPTX?")
     raw = []
     sizes = []
     for i, page in enumerate(doc, 1):
