@@ -1,6 +1,6 @@
 [project]
 name = "lecap"
-version = "0.1.0"
+version = "0.4.0"
 description = "Turn a lecture recording (and optionally its slide deck) into a searchable study page"
 readme = "README.md"
 requires-python = ">=3.11,<3.15"
