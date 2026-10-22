@@ -43,9 +43,10 @@ def build_parser():
                    help=f"redo one step, repeatable: {', '.join(REDO_STEPS)}")
     g = p.add_argument_group("media")
     m = g.add_mutually_exclusive_group()
-    m.add_argument("--copy", action="store_true", help="copy the video into media/ (default, see `lecap config set media`)")
+    m.add_argument("--copy", action="store_true", help="copy the recording into media/ (default, see `lecap config set media`)")
     m.add_argument("--link", action="store_true", help="symlink the video into media/ instead of copying")
     m.add_argument("--move", action="store_true", help="move the video into media/ instead of copying")
+    g.add_argument("--deck-mode", choices=("copy", "link", "move"), help="what happens to the slides (default from settings: copy)")
     g.add_argument("--open", action="store_true", help="open the page with notes, Ask and settings (lecap open) when done")
     p.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     return p

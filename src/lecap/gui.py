@@ -55,6 +55,8 @@ def build_args(form):
         args += ["--no-speakers"]
     if form.get("media") in ("copy", "link", "move"):
         args += ["--" + form["media"]]
+    if form.get("deck") and form.get("deck_media") in ("copy", "link", "move"):
+        args += ["--deck-mode", form["deck_media"]]
     return args, out
 
 
@@ -105,7 +107,7 @@ class Api:
     def defaults(self):
         cfg = config.load()
         last = _load_state().get("out_dir")
-        return {"language": cfg["language"], "ai": "auto", "speakers": bool(cfg["speakers"]), "media": cfg["media"],
+        return {"language": cfg["language"], "ai": "auto", "speakers": bool(cfg["speakers"]), "media": cfg["media"], "deck_media": cfg["deck_media"],
                 "out_dir": last if last and Path(last).is_dir() else str(Path.home() / "Documents"),
                 "app": APP_NAME}
 

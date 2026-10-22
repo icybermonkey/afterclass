@@ -47,3 +47,9 @@ def test_rerun_finds_files_that_were_moved_into_the_lesson(tmp_path):
     assert cli.reuse_moved(Path("/gone/talk.mp4"), out) == out / "media" / "talk.mp4"
     assert cli.reuse_moved(Path("/gone/other.mp4"), out) == Path("/gone/other.mp4")  # unknown: left for the error
     assert cli.reuse_moved(None, out) is None
+
+
+def test_recording_and_slides_have_their_own_mode():
+    args = gui.build_args(form(media="move", deck="/x/s.pdf", deck_media="copy"))[0]
+    assert "--move" in args and args[-2:] == ["--deck-mode", "copy"]
+    assert "--deck-mode" not in gui.build_args(form(deck_media="move"))[0]  # no slides: nothing to place

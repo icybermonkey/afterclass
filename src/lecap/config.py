@@ -15,7 +15,8 @@ DEFAULTS = {
     "language": "en",
     "threshold": 4.0,
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
-    "media": "copy",  # copy | link | move
+    "media": "move",  # recording: copy | link | move (default move: no second copy of a big video)
+    "deck_media": "copy",  # slides: copy | link | move
     "speakers": True,  # tell lecturer and other speakers apart
     "transcript_view": "paragraphs",  # paragraphs | blocks
     "ai_provider": "auto",  # auto = local LLM if running, else claude with a key, else claude-code
@@ -30,6 +31,7 @@ DEFAULTS = {
 
 CHOICES = {
     "media": ("copy", "link", "move"),
+    "deck_media": ("copy", "link", "move"),
     "transcript_view": ("paragraphs", "blocks"),
     "ai_provider": ("auto", "local", "claude", "claude-code"),
     "ask_provider": ("auto", "local", "claude", "claude-code"),
@@ -56,7 +58,8 @@ HELP = {
     "language": "Spoken language of the lectures (en, de, …)",
     "threshold": "Slide change sensitivity; higher = fewer cards",
     "whisper_model": "Speech-to-text model (mlx-whisper)",
-    "media": "Video and slides (mp4, pdf, pptx): copy them into the lesson folder, link to the originals, or move them",
+    "media": "The recording (mp4, mov…): copy it into the lesson folder, link to the original, or move it",
+    "deck_media": "The slides (pdf, pptx): copy them into the lesson folder, link to the original, or move them",
     "speakers": "Tell the lecturer and other speakers apart (offline)",
     "transcript_view": "Default transcript view on the page",
     "ai_provider": "Model for the --ai study extras",
