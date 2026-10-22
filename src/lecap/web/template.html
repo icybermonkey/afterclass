@@ -64,15 +64,33 @@ h1[contenteditable="true"] { outline: 2px solid var(--accent); background: var(-
 .tools button { border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
 #sync { font-size: 12px; }
 #sync.on { color: var(--off); }
-#openwrap { position: relative; }
+#openwrap { position: relative; display: flex; gap: 10px; align-items: center; }
+#sync.info { cursor: pointer; }
+#sync.info:hover { color: var(--fg); }
 #openlecap { border: 1px solid var(--accent); border-radius: 6px; padding: 1px 8px; color: var(--accent); text-decoration: none; cursor: pointer; }
 #openlecap:hover { background: var(--accent-soft); }
-#openhint { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 360px; padding: 10px 12px; border: 1px solid var(--line);
-  border-radius: 8px; background: var(--panel); color: var(--fg); box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: 12px; line-height: 1.5; }
-#openhint p { margin: 0 0 6px; }
-#openhint p:last-child { margin: 0; }
-#openhint code { display: block; margin: 3px 0; padding: 3px 6px; border-radius: 4px; background: var(--bg); font-size: 11px; word-break: break-all; }
-#openhint .btn { font-size: 11px; padding: 0 6px; }
+#openhint { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 380px; padding: 12px 14px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--fg); box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: 13px; line-height: 1.5; }
+#openhint .hhead { display: flex; align-items: center; margin-bottom: 6px; font-size: 14px; }
+#openhint .hhead button { margin-left: auto; border: 0; font-size: 16px; line-height: 1; padding: 0 4px; color: var(--muted); }
+#openhint ul { margin: 0 0 8px; padding-left: 18px; }
+#openhint li { margin-bottom: 3px; }
+#openhint p { margin: 0 0 8px; }
+#openhint .go { display: inline-block; border: 1px solid var(--accent); border-radius: 6px; padding: 3px 12px; background: var(--accent); color: #fff; text-decoration: none; font-weight: 600; }
+#openhint .go:hover { filter: brightness(1.1); background: var(--accent); }
+#openhint .stay { margin-left: 8px; border: 1px solid var(--line); border-radius: 6px; padding: 3px 12px; color: var(--muted); }
+#openhint:not(.first) .stay { display: none; }
+#openhint .lead { margin: 0 0 10px; font-size: 14px; }
+/* the first time: a centered dialog over the dimmed page, so it isn't missed */
+#openhint.first { position: fixed; top: 18vh; left: 50%; right: auto; transform: translateX(-50%); width: min(480px, calc(100vw - 32px));
+  z-index: 60; padding: 20px 22px; font-size: 14px; }
+#openhint.first .hhead { font-size: 18px; margin-bottom: 10px; }
+#openhint.first .go, #openhint.first .stay { padding: 6px 16px; font-size: 14px; }
+#hintback { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); }
+#openhint .fallback { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
+#openhint .cmd { display: flex; gap: 6px; align-items: center; margin: 3px 0 6px; }
+#openhint code { flex: 1; min-width: 0; padding: 3px 6px; border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; word-break: break-all; }
+#openhint .btn { flex: none; font-size: 11px; padding: 0 6px; }
 
 /* three columns */
 :root { --lw: 300px; --rw: minmax(360px, 34%); }
@@ -279,9 +297,8 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   </div>
   <div class="tools">
     <label title="Keep chapters and transcript on what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
-    <span id="sync"></span>
-    <span id="openwrap" class="hidden"><a id="openlecap" title="Opened as a file: notes stay in this browser and Ask has only the local model. Open it with lecap to save notes in the lesson folder and use all Ask models and settings.">Open in lecap</a>
-      <div id="openhint" class="hidden"></div></span>
+    <span id="openwrap"><span id="sync"></span><a id="openlecap" class="hidden" title="Save notes in the lesson folder, all Ask models, settings">Open in lecap</a>
+      <div id="openhint" class="hidden"></div></span><div id="hintback" class="hidden"></div>
     <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
     <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
     <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
@@ -378,17 +395,37 @@ function setSync(on) {
 setSync(false);
 if (SERVER) $("#sync").textContent = "… connecting";
 
-/* ---------- opened as a file: "Open in lecap" (the Mac app handles lecap:// links) ---------- */
+/* ---------- opened as a file: what that means, and "Open in lecap" (the Mac app handles lecap:// links) ---------- */
 if (location.protocol === "file:") {
   const folder = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, "");
   const cmd = `lecap open '${folder.replace(/'/g, `'\\''`)}'`;
-  $("#openlecap").href = "lecap://open?folder=" + encodeURIComponent(folder);
-  $("#openwrap").classList.remove("hidden");
-  $("#openhint").innerHTML = `<p><b>Opening the lesson in lecap…</b> Your browser may ask first.</p>
-    <p>Nothing happened? Install the Mac app once (it handles these links):<code>lecap install-app</code><button class="btn" data-copy="lecap install-app">Copy</button></p>
-    <p>Or open it from Terminal:<code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></p>`;
-  $("#openlecap").addEventListener("click", () => $("#openhint").classList.remove("hidden"));
-  document.addEventListener("click", e => { if (!e.target.closest("#openwrap")) $("#openhint").classList.add("hidden"); });
+  const link = "lecap://open?folder=" + encodeURIComponent(folder);
+  const hint = $("#openhint"), sync = $("#sync");
+  sync.textContent = "○ notes in browser ⓘ";
+  sync.classList.add("info");
+  sync.title = "Opened as a file: what that means";
+  $("#openlecap").href = link;
+  $("#openlecap").classList.remove("hidden");
+  hint.innerHTML = `<div class="hhead"><b>Opened as a file</b><button class="x" title="Close">×</button></div>
+    <p class="lead">Notes you write here are <b>not saved in the lesson folder</b>. To study, open the lesson with lecap.</p>
+    <ul><li><b>Here:</b> notes and stars stay in this browser only (not synced). Ask uses search or a local model; no Claude, no settings.</li>
+      <li><b>In lecap:</b> notes saved in the folder, all Ask models, settings.</li></ul>
+    <p><a class="go" href="${esc(link)}">Open in lecap</a><button class="stay">Continue here</button></p>
+    <div class="fallback"><span class="opening hidden"><b>Opening…</b> your browser may ask first. </span>Nothing happens? Install the Mac app once:
+      <div class="cmd"><code>lecap install-app</code><button class="btn" data-copy="lecap install-app">Copy</button></div>or open it from Terminal:
+      <div class="cmd"><code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></div></div>`;
+  const show = (on, first = false) => {
+    hint.classList.toggle("hidden", !on);
+    hint.classList.toggle("first", on && first);
+    $("#hintback").classList.toggle("hidden", !(on && first));
+    if (!on) lsSet("lecap:filehint", "seen");
+  };
+  sync.addEventListener("click", () => show(hint.classList.contains("hidden")));
+  [$(".x", hint), $(".stay", hint), $("#hintback")].forEach(b => b.addEventListener("click", () => show(false)));
+  [$("#openlecap"), $(".go", hint)].forEach(a => a.addEventListener("click", () => { show(true, hint.classList.contains("first")); $(".opening", hint).classList.remove("hidden"); }));
+  document.addEventListener("click", e => { if (!hint.classList.contains("hidden") && !hint.classList.contains("first") && !e.target.closest("#openwrap")) show(false); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !hint.classList.contains("hidden")) show(false); });
+  if (!lsGet("lecap:filehint")) show(true, true);  // the first time as a dialog; ⓘ brings it back as a dropdown
 }
 
 /* ---------- theme ---------- */
