@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+
+# Secrets never belong in the repo
+.env
+.env.*
+*.key
+*.pem
+
+# Lesson material and generated pages
+*.mp4
+*.mov
+*.mkv
+*.m4a
+*.mp3
+*.wav
+*.pdf
+*.pptx
+out/
+lecap-out/
+**/media/
+**/slides/
+**/deck/
+**/data/
+index.html
+!src/lecap/web/*.html
+
+.DS_Store
+.work/

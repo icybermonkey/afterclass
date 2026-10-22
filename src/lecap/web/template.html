@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>__TITLE__</title>
+<style>
+:root {
+  --bg: #f7f7f5; --panel: #ffffff; --card: #ffffff; --fg: #1d1d1f; --muted: #6b6b70; --line: #e3e3e0;
+  --accent: #2f6fdb; --accent-soft: #e4edfc; --mark: #ffe58a; --now: #fff3c4; --star: #e0a100;
+  --demo: #7a4cc2; --demo-soft: #efe7fb; --break: #8a8a8f; --shadow: 0 1px 2px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #151517; --panel: #1c1c1f; --card: #1f1f23; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
+    --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
+    --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --shadow: none;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #151517; --panel: #1c1c1f; --card: #1f1f23; --fg: #ececee; --muted: #9a9aa2; --line: #2e2e33;
+  --accent: #79a6ff; --accent-soft: #1f2d48; --mark: #6b5a12; --now: #3a3416; --star: #f2c14e;
+  --demo: #b996f0; --demo-soft: #2c2440; --break: #77777e; --shadow: none;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+a { color: var(--accent); }
+mark { background: var(--mark); color: inherit; border-radius: 2px; }
+
+/* Header */
+header { position: sticky; top: 0; z-index: 20; background: var(--panel); border-bottom: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; }
+#menu { display: none; font-size: 20px; width: 32px; }
+h1 { font-size: 16px; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34ch; }
+.search { display: flex; align-items: center; gap: 6px; flex: 1 1 280px; min-width: 220px;
+  background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 8px; }
+.search input { flex: 1; border: 0; background: none; color: var(--fg); font: inherit; outline: none; min-width: 0; }
+.search .count { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.search button { color: var(--muted); padding: 0 4px; font-size: 16px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 10px; font-size: 13px; color: var(--muted); }
+.chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+.tools { display: flex; gap: 10px; align-items: center; margin-left: auto; font-size: 13px; color: var(--muted); }
+.tools label { display: flex; gap: 4px; align-items: center; cursor: pointer; }
+.tools button { border: 1px solid var(--line); border-radius: 6px; padding: 2px 8px; }
+
+/* Layout */
+.layout { display: grid; grid-template-columns: 270px minmax(0, 1fr) minmax(320px, 38%); gap: 16px; padding: 16px; align-items: start; }
+aside { position: sticky; top: 72px; max-height: calc(100vh - 88px); overflow: auto; font-size: 14px; padding-right: 4px; }
+#player { position: sticky; top: 72px; }
+#player video { width: 100%; border-radius: 8px; background: #000; display: block; }
+#nowinfo { color: var(--muted); font-size: 13px; margin-top: 6px; min-height: 1.5em; }
+#keys { color: var(--muted); font-size: 12px; margin-top: 10px; }
+kbd { border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 0 4px; font-size: 11px; }
+
+/* Sidebar */
+aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 18px 0 6px; }
+aside h3:first-child { margin-top: 0; }
+#toc { list-style: none; margin: 0; padding: 0; }
+#toc li button { display: flex; gap: 8px; width: 100%; text-align: left; padding: 4px 6px; border-radius: 6px; }
+#toc li button:hover { background: var(--accent-soft); }
+#toc li.on button { background: var(--accent-soft); font-weight: 600; }
+#toc time { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; padding-top: 2px; }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.tag { font-size: 12px; border-radius: 999px; padding: 1px 8px; background: var(--accent-soft); color: var(--fg); }
+.tag[aria-pressed="true"] { outline: 2px solid var(--accent); }
+details { border-bottom: 1px solid var(--line); padding: 4px 0; }
+details summary { cursor: pointer; }
+details p { margin: 4px 0 6px; color: var(--muted); }
+.jump { font-size: 12px; }
+.muted { color: var(--muted); }
+#summary { color: var(--muted); margin: 0; }
+
+/* Chapters + cards */
+.chap { margin: 22px 0 8px; }
+.chap:first-child { margin-top: 0; }
+.chap h2 { font-size: 18px; margin: 0; display: flex; gap: 10px; align-items: baseline; }
+.chap h2 time { font-size: 13px; color: var(--muted); font-weight: normal; font-variant-numeric: tabular-nums; }
+.chap p { margin: 4px 0; color: var(--muted); }
+.chap .tags { margin-top: 4px; }
+.card { display: grid; grid-template-columns: minmax(150px, 34%) 1fr; gap: 12px; background: var(--card);
+  border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; box-shadow: var(--shadow); scroll-margin-top: 90px; }
+.card.active { border-color: var(--accent); }
+.card.focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+.card[data-kind="demo"] { background: linear-gradient(90deg, var(--demo-soft), var(--card) 40%); }
+.thumb { position: relative; }
+.thumb img { width: 100%; border-radius: 6px; display: block; cursor: zoom-in; border: 1px solid var(--line); background: var(--bg); }
+.thumb .swap { position: absolute; right: 4px; bottom: 4px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; font-size: 11px; padding: 1px 6px; opacity: .9; }
+.meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; font-size: 13px; }
+.time { font-variant-numeric: tabular-nums; color: var(--accent); font-weight: 600; }
+.kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.card[data-kind="demo"] .kind { color: var(--demo); }
+.ctitle { font-weight: 600; }
+.actions { margin-left: auto; display: flex; gap: 2px; }
+.actions button { width: 28px; height: 26px; border-radius: 6px; color: var(--muted); font-size: 15px; }
+.actions button:hover { background: var(--bg); }
+.actions .star.on { color: var(--star); }
+.tx { margin: 6px 0 0; }
+.seg { cursor: pointer; border-radius: 3px; }
+.seg:hover { background: var(--accent-soft); }
+.seg.now { background: var(--now); }
+.nospeech { color: var(--muted); font-style: italic; }
+.slidehit { font-size: 13px; color: var(--muted); margin-top: 6px; border-left: 3px solid var(--mark); padding-left: 8px; }
+.note { width: 100%; margin-top: 8px; min-height: 60px; resize: vertical; font: inherit; font-size: 14px;
+  color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; }
+.break { display: flex; gap: 10px; align-items: center; color: var(--break); border: 1px dashed var(--line);
+  border-radius: 10px; padding: 8px 12px; margin-bottom: 10px; font-size: 14px; }
+.break button { margin-left: auto; font-size: 13px; color: var(--accent); }
+.hidden { display: none !important; }
+#empty { color: var(--muted); padding: 30px 0; text-align: center; }
+
+/* Lightbox + toast */
+#lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 16px; }
+#lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; }
+#toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
+  padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
+#toast.show { opacity: 1; }
+
+/* Narrow screens: player on top, sidebar as a drawer */
+@media (max-width: 1100px) {
+  .layout { grid-template-columns: minmax(0, 1fr); padding: 12px 16px; }
+  #player { order: -1; top: 56px; z-index: 10; background: var(--bg); padding-bottom: 6px; }
+  #player video { max-height: 32vh; }
+  #keys { display: none; }
+  #menu { display: block; }
+  aside { position: fixed; top: 0; left: 0; bottom: 0; width: min(320px, 86vw); max-height: none; z-index: 40;
+    background: var(--panel); padding: 16px; border-right: 1px solid var(--line); transform: translateX(-102%); transition: transform .2s; }
+  aside.open { transform: none; }
+  h1 { max-width: 60vw; }
+}
+@media (max-width: 640px) {
+  .card { grid-template-columns: 1fr; }
+  .tools { margin-left: 0; }
+}
+</style>
+</head>
+<body>
+<header>
+  <button id="menu" aria-label="Chapters">☰</button>
+  <h1 id="title"></h1>
+  <div class="search">
+    <span aria-hidden="true">⌕</span>
+    <input id="q" type="search" placeholder="Search transcript, slides and notes  ( / )" autocomplete="off">
+    <span class="count" id="count"></span>
+    <button id="prev" title="Previous hit (Shift+Enter)">‹</button>
+    <button id="next" title="Next hit (Enter)">›</button>
+  </div>
+  <div class="chips" id="chips">
+    <button class="chip" data-kind="all" aria-pressed="true">All</button>
+    <button class="chip" data-kind="slide" aria-pressed="false">Slides</button>
+    <button class="chip" data-kind="demo" aria-pressed="false">Demos</button>
+    <button class="chip" id="starred" aria-pressed="false">★ Starred</button>
+    <button class="chip hidden" id="tagchip" aria-pressed="true"></button>
+  </div>
+  <div class="tools">
+    <label title="Scroll along with the video"><input type="checkbox" id="follow"> Follow</label>
+    <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
+    <button id="theme" title="Theme">◐</button>
+  </div>
+</header>
+
+<div class="layout">
+  <aside id="side">
+    <h3>Chapters</h3>
+    <ol id="toc"></ol>
+    <div id="aibox"></div>
+    <div id="deckbox"></div>
+    <p class="muted" style="font-size:12px;margin-top:18px" id="footer"></p>
+  </aside>
+  <main id="list"></main>
+  <section id="player">
+    <video id="v" controls preload="metadata"></video>
+    <div id="nowinfo"></div>
+    <div id="keys"><kbd>/</kbd> search · <kbd>j</kbd>/<kbd>k</kbd> next/prev card · <kbd>Enter</kbd> play card ·
+      <kbd>Space</kbd> play/pause · <kbd>s</kbd> star · <kbd>n</kbd> note</div>
+  </section>
+</div>
+<div id="lightbox" class="hidden"><img alt=""></div>
+<div id="toast"></div>
+
+<script id="lesson-data" type="application/json">/*LESSON_DATA*/</script>
+<script>
+"use strict";
+const L = JSON.parse(document.getElementById("lesson-data").textContent);
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fold = s => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const fmt = t => { t = Math.max(0, Math.floor(t || 0)); return [t / 3600 | 0, (t % 3600) / 60 | 0, t % 60].map(n => String(n).padStart(2, "0")).join(":"); };
+const parseT = s => { if (!s) return null; const p = String(s).split(":").map(Number); return p.some(isNaN) ? null : p.reduce((a, b) => a * 60 + b, 0); };
+
+/* ---------- storage (per lesson, per browser) ---------- */
+const KEY = "lecap:" + L.id;
+let store = { stars: {}, notes: {} };
+try { store = Object.assign(store, JSON.parse(localStorage.getItem(KEY) || "{}")); } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+
+/* ---------- theme ---------- */
+const themes = ["auto", "light", "dark"];
+let theme = "auto";
+try { theme = localStorage.getItem("lecap:theme") || "auto"; } catch (e) {}
+function applyTheme() {
+  if (theme === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", theme);
+  $("#theme").textContent = { auto: "◐ Auto", light: "☀ Light", dark: "☾ Dark" }[theme];
+}
+$("#theme").onclick = () => { theme = themes[(themes.indexOf(theme) + 1) % 3]; try { localStorage.setItem("lecap:theme", theme); } catch (e) {} applyTheme(); };
+applyTheme();
+
+/* ---------- header + player ---------- */
+const title = (L.ai && L.ai.title) || L.title;
+$("#title").textContent = title;
+document.title = title;
+const v = $("#v");
+if (L.media) v.src = L.media; else $("#player").classList.add("hidden");
+
+/* ---------- build the list ---------- */
+const cards = L.cards;
+const chapterAt = {};
+L.chapters.forEach((ch, i) => { chapterAt[ch.card] = i; });
+const cardChapter = [];
+{ let cur = 0; cards.forEach((c, i) => { if (chapterAt[c.id] !== undefined) cur = chapterAt[c.id]; cardChapter[i] = cur; }); }
+
+function tagsHtml(tags) {
+  return tags && tags.length ? `<div class="tags">${tags.map(t => `<button class="tag" data-tag="${esc(t)}">${esc(t)}</button>`).join("")}</div>` : "";
+}
+
+function cardHtml(c) {
+  const img = c.deck_image || c.image;
+  const swap = c.deck_image && c.image ? `<button class="swap" data-alt="${esc(c.image)}" title="Switch between slide deck and video frame">video</button>` : "";
+  const pdf = L.deck && c.deck_page ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank" class="kind">PDF p.${c.deck_page}</a>` : "";
+  const segs = c.segments.length
+    ? c.segments.map((s, j) => `<span class="seg" data-t="${s.start}" data-j="${j}">${esc(s.text)}</span>`).join(" ")
+    : `<span class="nospeech">no speech</span>`;
+  const note = store.notes[c.id] || "";
+  return `<article class="card" id="c${c.id}" data-id="${c.id}" data-kind="${c.kind}">
+    <div class="thumb">${img ? `<img src="${esc(img)}" loading="lazy" alt="">` : ""}${swap}</div>
+    <div class="body">
+      <div class="meta">
+        <button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
+        <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
+        <span class="ctitle">${esc(c.title)}</span>
+        <span class="actions">
+          <button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
+          <button class="notebtn" title="Note (n)">✎</button>
+          <button class="link" title="Copy link to this moment">🔗</button>
+        </span>
+      </div>
+      <p class="tx">${segs}</p>
+      <div class="slidehit hidden"></div>
+      <textarea class="note${note ? "" : " hidden"}" placeholder="Your note…">${esc(note)}</textarea>
+    </div></article>`;
+}
+
+const parts = [];
+let i = 0;
+while (i < cards.length) {
+  const c = cards[i];
+  if (chapterAt[c.id] !== undefined) {
+    const k = chapterAt[c.id], ch = L.chapters[k];
+    parts.push(`<section class="chap" id="ch${k}" data-ch="${k}"><h2><span>${esc(ch.title)}</span><time>${fmt(c.start)}</time></h2>
+      ${ch.summary ? `<p>${esc(ch.summary)}</p>` : ""}${tagsHtml(ch.tags)}</section>`);
+  }
+  if (c.kind === "break") {  // fold consecutive breaks into one row
+    let j = i;
+    while (j + 1 < cards.length && cards[j + 1].kind === "break" && chapterAt[cards[j + 1].id] === undefined) j++;
+    const a = cards[i].start, b = cards[j].end;
+    parts.push(`<div class="break" data-from="${i}" data-to="${j}">⏸ <span>Silence / break · ${Math.round((b - a) / 60)} min · ${fmt(a)}–${fmt(b)}</span><button>show</button></div>`);
+    for (let k = i; k <= j; k++) parts.push(cardHtml(cards[k]).replace('class="card"', 'class="card folded hidden"'));
+    i = j + 1;
+    continue;
+  }
+  parts.push(cardHtml(c));
+  i++;
+}
+$("#list").innerHTML = parts.join("") + `<p id="empty" class="hidden">Nothing matches.</p>`;
+const cardEls = cards.map(c => document.getElementById("c" + c.id));
+
+/* search haystacks (kept up to date with notes) */
+const hay = cards.map(c => fold([c.title, c.text, c.segments.map(s => s.text).join(" "), store.notes[c.id] || ""].join("\n")));
+
+/* ---------- sidebar ---------- */
+$("#toc").innerHTML = L.chapters.map((ch, k) => {
+  const c = cards.find(x => x.id === ch.card);
+  return `<li data-ch="${k}"><button data-ch="${k}"><time>${fmt(c && c.start)}</time><span>${esc(ch.title)}</span></button></li>`;
+}).join("");
+if (L.ai) {
+  const allTags = [...new Set(L.chapters.flatMap(ch => ch.tags || []))];
+  const jump = id => { const c = cards.find(x => x.id === id); return c ? ` <button class="jump" data-card="${id}">→ ${fmt(c.start)}</button>` : ""; };
+  $("#aibox").innerHTML = `
+    <h3>Summary</h3><p id="summary">${esc(L.ai.summary)}</p>
+    ${allTags.length ? `<h3>Tags</h3>${tagsHtml(allTags)}` : ""}
+    <h3>Glossary</h3>${L.ai.glossary.map(t => `<details><summary>${esc(t.term)}</summary><p>${esc(t.definition)}${jump(t.card)}</p></details>`).join("")}
+    <h3>Exam questions</h3>${L.ai.questions.map(q => `<details><summary>${esc(q.question)}</summary><p>${esc(q.answer)}${jump(q.card)}</p></details>`).join("")}`;
+}
+if (L.deck) {
+  const shown = new Set(cards.filter(c => c.deck_page).map(c => c.deck_page));
+  $("#deckbox").innerHTML = `<h3>Slide deck</h3><p class="muted" style="margin:0"><a href="${esc(L.deck)}" target="_blank">Open PDF</a> ·
+    ${shown.size} of ${L.deck_pages} pages shown in the recording</p>`;
+}
+$("#footer").textContent = `Made with lecap · ${cards.length} cards` + (L.ai ? ` · AI: ${L.ai.provider} (${L.ai.model})` : "");
+
+/* ---------- filters + search ---------- */
+let kind = "all", starredOnly = false, tag = null, q = "", terms = [];
+const tagCards = t => new Set(cards.filter((c, idx) => (L.chapters[cardChapter[idx]]?.tags || []).includes(t)).map(c => c.id));
+
+function highlight(text) {
+  let h = esc(text);
+  if (!terms.length) return h;
+  const re = new RegExp("(" + terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi");
+  return h.replace(/(^|>)([^<]+)(?=<|$)/g, (m, a, b) => a + b.replace(re, "<mark>$1</mark>"));
+}
+
+function apply() {
+  terms = fold(q).split(/\s+/).filter(Boolean);
+  const tset = tag ? tagCards(tag) : null;
+  const filtering = kind !== "all" || starredOnly || tag || terms.length;
+  let shownCards = 0;
+  cards.forEach((c, idx) => {
+    const el = cardEls[idx];
+    let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]) && (!tset || tset.has(c.id));
+    if (ok && terms.length) ok = terms.every(t => hay[idx].includes(t));
+    if (el.classList.contains("folded")) ok = ok && filtering && c.segments.length > 0 || (!filtering && el.dataset.open === "1");
+    el.classList.toggle("hidden", !ok);
+    if (ok) shownCards++;
+    // highlight transcript + title, show slide-text hits
+    $$(".seg", el).forEach(s => { s.innerHTML = highlight(c.segments[+s.dataset.j].text); });
+    $(".ctitle", el).innerHTML = highlight(c.title);
+    const sh = $(".slidehit", el);
+    const slideMatch = terms.length && ok && terms.some(t => fold(c.text).includes(t));
+    sh.classList.toggle("hidden", !slideMatch);
+    if (slideMatch) sh.innerHTML = "Slide: " + highlight(snippet(c.text, terms));
+  });
+  $$(".break").forEach(b => b.classList.toggle("hidden", !!filtering));
+  $$(".chap").forEach(ch => {
+    const k = +ch.dataset.ch;
+    const any = cards.some((c, idx) => cardChapter[idx] === k && !cardEls[idx].classList.contains("hidden"));
+    ch.classList.toggle("hidden", filtering && !any);
+  });
+  $("#empty").classList.toggle("hidden", shownCards > 0);
+  const hits = $$("#list mark").filter(m => !m.closest(".hidden")).length;
+  $("#count").textContent = terms.length ? `${shownCards} cards · ${hits} hits` : (filtering ? `${shownCards} cards` : "");
+  hitIndex = -1;
+  setHash();
+}
+
+function snippet(text, ts) {
+  const f = fold(text), pos = Math.min(...ts.map(t => f.indexOf(t)).filter(p => p >= 0));
+  const a = Math.max(0, pos - 60);
+  return (a ? "…" : "") + text.slice(a, a + 180).replace(/\s+/g, " ") + (a + 180 < text.length ? "…" : "");
+}
+
+let hitIndex = -1;
+function gotoHit(dir) {
+  const marks = $$("#list mark").filter(m => !m.closest(".hidden"));
+  if (!marks.length) return;
+  hitIndex = (hitIndex + dir + marks.length) % marks.length;
+  marks.forEach(m => m.style.outline = "");
+  const m = marks[hitIndex];
+  m.style.outline = "2px solid var(--accent)";
+  m.scrollIntoView({ block: "center", behavior: "smooth" });
+  $("#count").textContent = $("#count").textContent.replace(/^(\d+ cards · )(?:\d+\/)?/, `$1${hitIndex + 1}/`);
+}
+
+let timer;
+$("#q").addEventListener("input", e => { clearTimeout(timer); timer = setTimeout(() => { q = e.target.value; apply(); }, 120); });
+$("#q").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); clearTimeout(timer); if (q !== e.target.value) { q = e.target.value; apply(); } gotoHit(e.shiftKey ? -1 : 1); }
+  if (e.key === "Escape") { e.target.value = ""; q = ""; apply(); e.target.blur(); }
+});
+$("#next").onclick = () => gotoHit(1);
+$("#prev").onclick = () => gotoHit(-1);
+$$("#chips [data-kind]").forEach(b => b.onclick = () => {
+  kind = b.dataset.kind;
+  $$("#chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  apply();
+});
+$("#starred").onclick = () => { starredOnly = !starredOnly; $("#starred").setAttribute("aria-pressed", starredOnly); apply(); };
+function setTag(t) {
+  tag = tag === t ? null : t;
+  $("#tagchip").classList.toggle("hidden", !tag);
+  $("#tagchip").textContent = tag ? `#${tag} ✕` : "";
+  $$(".tag").forEach(x => x.setAttribute("aria-pressed", x.dataset.tag === tag));
+  apply();
+}
+$("#tagchip").onclick = () => setTag(tag);
+
+/* ---------- clicks ---------- */
+function seek(t, play = true) {
+  if (!L.media) return;
+  v.currentTime = t;
+  if (play) v.play().catch(() => {});
+}
+function scrollToCard(id) {
+  const el = document.getElementById("c" + id);
+  if (!el) return;
+  if (el.classList.contains("hidden")) { // reveal it: clear filters
+    kind = "all"; starredOnly = false; tag = null; q = ""; $("#q").value = "";
+    $$("#chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
+    $("#starred").setAttribute("aria-pressed", false); $("#tagchip").classList.add("hidden");
+    if (el.classList.contains("folded")) el.dataset.open = "1";
+    apply();
+  }
+  el.scrollIntoView({ block: "start", behavior: "smooth" });
+  setFocus(cardEls.indexOf(el));
+}
+
+document.addEventListener("click", e => {
+  const t = e.target;
+  if (t.closest("#lightbox")) { $("#lightbox").classList.add("hidden"); return; }
+  const seg = t.closest(".seg");
+  if (seg) { seek(+seg.dataset.t); return; }
+  if (t.closest(".time")) { seek(+t.closest(".time").dataset.t); return; }
+  if (t.matches(".thumb img")) { $("#lightbox img").src = t.src; $("#lightbox").classList.remove("hidden"); return; }
+  if (t.matches(".swap")) {
+    const img = $("img", t.parentNode), alt = t.dataset.alt;
+    t.dataset.alt = img.getAttribute("src"); img.src = alt;
+    t.textContent = t.textContent === "video" ? "slide" : "video";
+    return;
+  }
+  const card = t.closest(".card");
+  if (t.closest(".star")) { toggleStar(+card.dataset.id); return; }
+  if (t.closest(".notebtn")) { openNote(+card.dataset.id); return; }
+  if (t.closest(".link")) { copyLink(cards[+card.dataset.id].start); return; }
+  if (t.closest(".tag")) { setTag(t.closest(".tag").dataset.tag); return; }
+  if (t.closest(".jump")) { const id = +t.closest(".jump").dataset.card; scrollToCard(id); seek(cards[id].start); closeSide(); return; }
+  const toc = t.closest("#toc button");
+  if (toc) { const ch = L.chapters[+toc.dataset.ch]; scrollToCard(ch.card); seek(cards[ch.card].start, false); closeSide(); return; }
+  const br = t.closest(".break button");
+  if (br) {
+    const box = br.parentNode, open = br.textContent === "show";
+    for (let k = +box.dataset.from; k <= +box.dataset.to; k++) { cardEls[k].dataset.open = open ? "1" : ""; cardEls[k].classList.toggle("hidden", !open); }
+    br.textContent = open ? "hide" : "show";
+    return;
+  }
+});
+$("#menu").onclick = () => $("#side").classList.toggle("open");
+const closeSide = () => $("#side").classList.remove("open");
+
+function toggleStar(id) {
+  if (store.stars[id]) delete store.stars[id]; else store.stars[id] = true;
+  save();
+  const b = $(".star", cardEls[id]);
+  b.classList.toggle("on", !!store.stars[id]);
+  b.textContent = store.stars[id] ? "★" : "☆";
+  if (starredOnly) apply();
+}
+function openNote(id) {
+  const ta = $(".note", cardEls[id]);
+  ta.classList.remove("hidden");
+  ta.focus();
+}
+document.addEventListener("input", e => {
+  if (!e.target.matches(".note")) return;
+  const id = +e.target.closest(".card").dataset.id;
+  const val = e.target.value;
+  if (val.trim()) store.notes[id] = val; else delete store.notes[id];
+  const c = cards[id];
+  hay[id] = fold([c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
+  save();
+});
+
+function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1600); }
+function copyLink(t) {
+  const url = location.href.split("#")[0] + "#t=" + fmt(t);
+  (navigator.clipboard ? navigator.clipboard.writeText(url) : Promise.reject())
+    .then(() => toast("Link copied: " + fmt(t)), () => { history.replaceState(null, "", "#t=" + fmt(t)); toast("Link is in the address bar"); });
+}
+
+/* ---------- export notes ---------- */
+$("#export").onclick = () => {
+  const lines = [`# ${title} — notes`, ""];
+  let n = 0;
+  L.chapters.forEach((ch, k) => {
+    const items = cards.filter((c, idx) => cardChapter[idx] === k && (store.stars[c.id] || store.notes[c.id]));
+    if (!items.length) return;
+    lines.push(`## ${ch.title}`, "");
+    items.forEach(c => {
+      n++;
+      const page = c.deck_page ? ` (slide p.${c.deck_page})` : "";
+      lines.push(`### ${store.stars[c.id] ? "⭐ " : ""}[${fmt(c.start)}](index.html#t=${fmt(c.start)}) ${c.title || ""}${page}`.trim());
+      if (store.notes[c.id]) lines.push("", store.notes[c.id]);
+      const speech = c.segments.map(s => s.text).join(" ");
+      if (speech) lines.push("", "> " + (speech.length > 300 ? speech.slice(0, 300) + "…" : speech));
+      lines.push("");
+    });
+  });
+  if (!n) { toast("Star a card or write a note first"); return; }
+  const blob = new Blob([lines.join("\n")], { type: "text/markdown" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${title.replace(/[\\/:*?"<>|]+/g, "-")} notes.md`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast(`Exported ${n} card${n > 1 ? "s" : ""}`);
+};
+
+/* ---------- playback sync ---------- */
+const segIndex = [];
+cards.forEach((c, idx) => c.segments.forEach((s, j) => segIndex.push({ t: s.start, end: s.end, idx, j })));
+segIndex.sort((a, b) => a.t - b.t);
+const cardStarts = cards.map(c => c.start ?? 0);
+const find = (arr, t, key) => { let lo = 0, hi = arr.length - 1, r = -1; while (lo <= hi) { const m = (lo + hi) >> 1; if (key(arr[m]) <= t) { r = m; lo = m + 1; } else hi = m - 1; } return r; };
+let activeCard = -1, activeSeg = null, activeCh = -1;
+v.addEventListener("timeupdate", () => {
+  const t = v.currentTime;
+  const ci = find(cardStarts, t, x => x);
+  if (ci !== activeCard) {
+    if (activeCard >= 0) cardEls[activeCard].classList.remove("active");
+    activeCard = ci;
+    if (ci >= 0) {
+      cardEls[ci].classList.add("active");
+      if ($("#follow").checked && !cardEls[ci].classList.contains("hidden")) cardEls[ci].scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+    const ch = ci >= 0 ? cardChapter[ci] : -1;
+    if (ch !== activeCh) {
+      activeCh = ch;
+      $$("#toc li").forEach(li => li.classList.toggle("on", +li.dataset.ch === ch));
+    }
+    $("#nowinfo").textContent = ci >= 0 ? [L.chapters[cardChapter[ci]]?.title, cards[ci].title].filter(Boolean).join(" › ") : "";
+  }
+  const si = find(segIndex, t, s => s.t);
+  const s = si >= 0 && t <= segIndex[si].end + 1 ? segIndex[si] : null;
+  const el = s ? $(`.seg[data-j="${s.j}"]`, cardEls[s.idx]) : null;
+  if (el !== activeSeg) { activeSeg?.classList.remove("now"); activeSeg = el; el?.classList.add("now"); }
+});
+
+/* ---------- keyboard ---------- */
+let focusIdx = -1;
+function setFocus(idx) {
+  if (focusIdx >= 0) cardEls[focusIdx]?.classList.remove("focus");
+  focusIdx = idx;
+  if (idx >= 0) cardEls[idx].classList.add("focus");
+}
+function moveFocus(dir) {
+  const visible = cardEls.map((el, idx) => el.classList.contains("hidden") ? -1 : idx).filter(x => x >= 0);
+  if (!visible.length) return;
+  let pos = visible.indexOf(focusIdx);
+  pos = pos < 0 ? (dir > 0 ? 0 : visible.length - 1) : Math.min(Math.max(pos + dir, 0), visible.length - 1);
+  setFocus(visible[pos]);
+  cardEls[visible[pos]].scrollIntoView({ block: "start", behavior: "smooth" });
+}
+document.addEventListener("keydown", e => {
+  const typing = e.target.matches("input, textarea");
+  if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); if (typing) e.target.blur(); return; }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
+  const target = focusIdx >= 0 ? focusIdx : activeCard;
+  switch (e.key) {
+    case "/": e.preventDefault(); $("#q").focus(); $("#q").select(); break;
+    case "j": moveFocus(1); break;
+    case "k": moveFocus(-1); break;
+    case "Enter": if (focusIdx >= 0) seek(cards[focusIdx].start); break;
+    case " ": if (L.media) { e.preventDefault(); v.paused ? v.play() : v.pause(); } break;
+    case "s": if (target >= 0) toggleStar(cards[target].id); break;
+    case "n": if (target >= 0) { e.preventDefault(); openNote(cards[target].id); } break;
+  }
+});
+
+/* ---------- deep links: #t=01:23:45&q=term ---------- */
+function setHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (q) p.set("q", q); else p.delete("q");
+  const h = p.toString();
+  history.replaceState(null, "", h ? "#" + h.replace(/%3A/g, ":") : location.pathname + location.search);
+}
+function readHash() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  if (p.get("q")) { q = p.get("q"); $("#q").value = q; }
+  apply();
+  const t = parseT(p.get("t"));
+  if (t !== null) {
+    const ci = find(cardStarts, t, x => x);
+    if (ci >= 0) scrollToCard(cards[ci].id);
+    const go = () => seek(t, false);
+    if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
+  }
+}
+window.addEventListener("hashchange", readHash);
+readHash();
+</script>
+</body>
+</html>

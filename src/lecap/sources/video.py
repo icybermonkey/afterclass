@@ -1,0 +1,281 @@
+"""Video lesson: transcript + slide frames (+ optional deck) → study page."""
+
+import hashlib
+import json
+import shutil
+import sys
+
+from .. import ui
+from ..model import Lesson
+from ..steps import analyze, deck, media, ocr, probe, render, scenes, silence, transcribe
+from ..ui import LecapError, fmt_time, human_size
+from .base import Source
+
+
+class VideoSource(Source):
+    name = "video"
+    extensions = (".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi")
+
+    def run(self, ctx):
+        a, cfg = ctx.args, ctx.cfg
+        language = a.language or cfg["language"]
+        threshold = a.threshold or cfg["threshold"]
+        model = a.model or cfg["whisper_model"]
+        total = 8 + bool(a.deck) + bool(a.ai)
+        steps = ui.Steps(total)
+        title = a.title or ctx.input.stem.replace("_", " ").replace("-", " ").strip()
+
+        # 1. Probe
+        steps.begin("Check the input", "Read duration and streams with ffprobe; lecap needs a video track for slides.")
+        info = probe.probe(ctx.input)
+        if not info["has_video"]:
+            raise LecapError("this file has no video track. Audio-only input is planned but not supported yet.")
+        if not info["has_audio"]:
+            ctx.warnings.append("the video has no audio track: the transcript will be empty")
+        ui.kv("file", f"{ctx.input.name} ({human_size(ctx.input.stat().st_size)})")
+        ui.kv("length", fmt_time(info["duration"]))
+        ui.kv("video", f"{info['width']}×{info['height']}")
+        steps.end()
+
+        # 2. Media
+        mode = "link" if a.link else "move" if a.move else cfg["media"]
+        steps.begin("Place the video", f"The page plays media/{ctx.input.name}. Mode: {mode} "
+                    "(--link saves space, --move moves the file).")
+        dest, what = media.place(ctx.input, ctx.media, mode)
+        steps.end(f"{what} → media/{dest.name}")
+
+        # 3. Transcript
+        raw_json = ctx.data / "transcript.raw.json"
+        if ctx.cached("transcribe", raw_json):
+            steps.skip("Transcribe speech", "transcript exists (use --redo transcribe to run Whisper again)")
+            raw = json.loads(raw_json.read_text(encoding="utf-8"))
+        else:
+            steps.begin("Transcribe speech", f"Whisper ({model.split('/')[-1]}) on the GPU, language '{language}'. "
+                        "This is the slow part: roughly 2 min per lecture hour.")
+            if a.word_timestamps:
+                ui.explain("Word timestamps + hallucination filter on (slower).")
+            raw = transcribe.transcribe(dest, model, language, a.word_timestamps)
+            transcribe.save(raw, raw_json, ctx.data / "transcript.srt")
+            steps.end(f"{len(raw)} segments → data/transcript.srt")
+
+        # 4. Silences
+        sil_json = ctx.data / "silences.json"
+        if ctx.cached("transcribe", sil_json):
+            silences = json.loads(sil_json.read_text())
+            steps.skip("Find silent parts", f"{len(silences)} silent stretches (cached)")
+        else:
+            steps.begin("Find silent parts", "ffmpeg silencedetect: breaks and silence before class get folded "
+                        "on the page, and Whisper text inside them is dropped.")
+            silences = silence.detect(dest, info["duration"])
+            sil_json.write_text(json.dumps(silences))
+            long = [s for s in silences if s[1] - s[0] >= 180]
+            for s0, s1 in long:
+                ui.info(f"{fmt_time(s0)}–{fmt_time(s1)}  ({(s1 - s0) / 60:.0f} min)")
+            steps.end(f"{len(silences)} silent stretches, {len(long)} longer than 3 min")
+
+        segments, report = transcribe.clean(raw, silences)
+        if report["loops"] or report["dropped_share"] > 0.2:
+            ctx.warnings.append(
+                f"{report['dropped_share']:.0%} of the transcript was filtered as Whisper hallucination "
+                f"({report['loops']} repetition loops). If text is missing, try: --redo transcribe -w")
+
+        # 5. Scenes
+        csv_path = ctx.data / "scenes.csv"
+        scenes_redone = False
+        if ctx.cached("scenes", csv_path, ctx.slides):
+            scene_list = scenes.parse_csv(csv_path)
+            steps.skip("Detect slide changes", f"{len(scene_list)} scenes (cached, use --redo scenes or -t to change)")
+        else:
+            steps.begin("Detect slide changes", f"PySceneDetect (adaptive, threshold {threshold}): a new card starts "
+                        "whenever the picture changes. Higher -t = fewer cards.")
+            scenes.detect(dest, ctx.data, ctx.slides, threshold)
+            scene_list = scenes.parse_csv(csv_path)
+            scenes_redone = True
+            steps.end(f"{len(scene_list)} scenes → slides/")
+
+        # 6. OCR
+        ocr_json = ctx.data / "ocr.json"
+        if not scenes_redone and ctx.cached("ocr", ocr_json):
+            ocr_data = json.loads(ocr_json.read_text(encoding="utf-8"))
+            steps.skip("Read slide text", f"{len(ocr_data)} frames (cached)")
+        else:
+            steps.begin("Read slide text", f"tesseract OCR ({ocr.tess_lang(language)}) on every frame: makes slide "
+                        "text searchable and finds titles, page numbers, section dividers and live demos.")
+            images = sorted(ctx.slides.glob("*.jpg"))
+            ocr_data = ocr.ocr_images(images, language, progress=_progress)
+            ocr_json.write_text(json.dumps(ocr_data, ensure_ascii=False), encoding="utf-8")
+            n_demo = sum(o["demo"] for o in ocr_data.values())
+            n_div = sum(bool(o["divider"]) for o in ocr_data.values())
+            steps.end(f"{len(ocr_data)} frames: {n_demo} live demos, {n_div} section slides")
+
+        # 7. Deck
+        pages, outline, deck_rel = None, [], None
+        if a.deck:
+            pages, outline, deck_rel = self._deck(ctx, steps)
+
+        # 8. Cards + chapters
+        steps.begin("Build cards and chapters", "Merge repeated frames, attach speech to the slide it was said on, "
+                    "fold breaks, and find chapters.")
+        cards = analyze.build_cards(scene_list, ocr_data, ctx.slides)
+        matched = {}
+        if pages:
+            matched = analyze.apply_deck(cards, pages)
+            by_how = {}
+            for _p, _s, how in matched.values():
+                by_how[how] = by_how.get(how, 0) + 1
+            ui.info(f"deck: {len(matched)} of {len(cards)} frames matched to a page "
+                    f"({', '.join(f'{n} by {h}' for h, n in by_how.items())})")
+        n_before = len(cards)
+        cards = analyze.merge_repeats(cards)
+        analyze.assign_segments(cards, segments)
+        analyze.mark_breaks(cards, silences)
+        if pages:
+            chapters, source = analyze.chapters_from_deck(cards, pages, outline)
+            if not chapters:
+                chapters, source = analyze.chapters_from_video(cards)
+        else:
+            chapters, source = analyze.chapters_from_video(cards)
+        chapters = analyze.with_start(chapters, cards)
+
+        kinds = {}
+        for c in cards:
+            kinds[c.kind] = kinds.get(c.kind, 0) + 1
+        lesson = Lesson(
+            id=analyze.lesson_id(ctx.input.name, info["duration"]),
+            title=title, source="video", duration=info["duration"],
+            media=f"media/{dest.name}", deck=deck_rel, deck_pages=len(pages) if pages else None,
+            language=language, cards=cards, chapters=chapters, silences=silences,
+            stats={"transcript": report, "kinds": kinds, "chapter_source": source,
+                   "frames": n_before, "deck_matched": len(matched)},
+        )
+        ui.info(f"{n_before} frames → {len(cards)} cards (" + ", ".join(f"{n} {k}" for k, n in sorted(kinds.items())) + ")")
+        ui.info(f"transcript: {report['kept']} of {report['raw']} segments kept "
+                f"(dropped: {', '.join(f'{n} {k}' for k, n in report['dropped'].items() if n) or 'none'})")
+        ui.info(f"{len(chapters)} chapters from {source}:")
+        for ch in chapters:
+            ui.info(f"  {fmt_time(cards[ch.card].start)}  {ch.title}")
+        if pages:
+            shown = {c.deck_page for c in cards if c.deck_page}
+            unseen = [p["page"] for p in pages if p["page"] not in shown and p["text"].strip()]
+            if unseen:
+                ui.info(f"deck pages never shown in the recording: {_ranges(unseen)}")
+        steps.end()
+
+        # 9. AI
+        if a.ai:
+            self._ai(ctx, steps, lesson)
+
+        # 10. Render
+        steps.begin("Write the page", "index.html with everything embedded; open it straight from the folder.")
+        lesson.save(ctx.data / "lesson.json")
+        out = ctx.out / "index.html"
+        size = render.render(lesson, out)
+        steps.end(f"index.html ({human_size(size)})")
+        return out, steps
+
+    # --- deck ----------------------------------------------------------------
+
+    def _deck(self, ctx, steps):
+        src = ctx.args.deck
+        deck_json = ctx.data / "deck.json"
+        if ctx.cached("deck", deck_json, ctx.deck):
+            d = json.loads(deck_json.read_text(encoding="utf-8"))
+            if d.get("source") == src.name:
+                steps.skip("Read the slide deck", f"{len(d['pages'])} pages (cached)")
+                return d["pages"], [tuple(o) for o in d["outline"]], d["rel"]
+        steps.begin("Read the slide deck", "Exact slide text, titles and section pages from the deck; each video "
+                    "frame is matched to its page so cards show the sharp slide.")
+        pdf = deck.to_pdf(src, ctx.data)
+        if pdf != src:
+            ui.info(f"converted {src.name} → PDF with LibreOffice")
+        ctx.media.mkdir(parents=True, exist_ok=True)
+        dest = ctx.media / pdf.name
+        if dest.resolve() != pdf.resolve():
+            shutil.copy2(pdf, dest)
+        pages, outline = deck.read(dest)
+        n = deck.render(dest, ctx.deck)
+        rel = f"media/{dest.name}"
+        deck_json.write_text(json.dumps({"source": src.name, "pages": pages, "outline": outline, "rel": rel},
+                                        ensure_ascii=False),
+                             encoding="utf-8")
+        divs = [p for p in pages if p["divider"]]
+        ui.info(f"{n} pages, {len(divs)} section pages, outline entries: {len(outline)}")
+        steps.end(f"pages rendered → deck/, PDF → {rel}")
+        return pages, outline, rel
+
+    # --- ai ------------------------------------------------------------------
+
+    def _ai(self, ctx, steps, lesson):
+        from ..ai import registry
+        from ..steps import ai as ai_step
+
+        a, cfg = ctx.args, ctx.cfg
+        provider = registry.pick(a.ai if a.ai != "default" else cfg["ai_provider"])
+        model = a.ai_model or cfg["ai_model"] or provider.default_model
+        steps.begin("AI study extras", f"{provider.label} ({model}): chapters with summaries, tags, glossary and "
+                    "exam questions. Only text is sent (transcript + slide text), no video or images.")
+        system, prompt = ai_step.build_prompt(lesson)
+        digest = hashlib.sha256((system + prompt).encode()).hexdigest()[:16]
+        ai_json = ctx.data / "ai.json"
+        if ctx.cached("ai", ai_json):
+            cached = json.loads(ai_json.read_text(encoding="utf-8"))
+            if cached.get("input") != digest:
+                ctx.warnings.append("the lesson changed since the AI step ran; use --redo ai to refresh it")
+            ai_step.apply(lesson, ai_step.parse(cached["result"]), cached["meta"])
+            steps.end(f"reused data/ai.json ({cached['meta']['provider']}, {cached['meta']['model']})")
+            return
+        ok, why = provider.available()
+        if not ok:
+            ctx.warnings.append(f"AI step skipped: {why}")
+            ui.warn(f"skipped: {why}")
+            steps.end()
+            return
+        ui.kv("input", f"~{len(prompt) // 4:,} tokens of text")
+        est = provider.estimate(system, prompt, model)
+        if est and est.cost_usd is not None:
+            ui.kv("estimate", f"{est.input_tokens:,} input tokens → about ${est.cost_usd:.2f} (API, pay per use)")
+            if not a.yes:
+                if not sys.stdin.isatty():
+                    ctx.warnings.append("AI step skipped: costs money; pass --yes to allow it without a prompt")
+                    steps.end()
+                    return
+                if input(f"{ui.INDENT}Continue? [y/N] ").strip().lower() not in ("y", "yes"):
+                    ui.info("skipped by you")
+                    steps.end()
+                    return
+        elif provider.name == "claude-code":
+            ui.explain("Runs through your Claude subscription (no extra cost, counts against its usage limits).")
+        ui.info("waiting for the model (usually 1–4 minutes)…")
+        data, usage = provider.run(system, prompt, ai_step.SCHEMA, model)
+        result = ai_step.parse(data)
+        meta = {"provider": provider.name, "model": usage.model or model,
+                "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens, "cost_usd": usage.cost_usd}
+        ai_json.write_text(json.dumps({"input": digest, "meta": meta, "result": result.model_dump()},
+                                      ensure_ascii=False, indent=1), encoding="utf-8")
+        ai_step.apply(lesson, result, meta)
+        cost = f", ${usage.cost_usd:.2f}" if usage.cost_usd is not None else ""
+        steps.end(f"{len(result.chapters)} chapters, {len(result.glossary)} glossary terms, "
+                  f"{len(result.exam_questions)} questions ({usage.input_tokens:,} in / {usage.output_tokens:,} out{cost})")
+
+
+def _progress(i, n):
+    if sys.stdout.isatty():
+        sys.stdout.write(f"\r{ui.INDENT}{ui.DIM}{i}/{n} frames{ui.RESET}\033[K")
+        if i == n:
+            sys.stdout.write("\n")
+        sys.stdout.flush()
+
+
+def _ranges(nums):
+    out, start, prev = [], None, None
+    for n in nums:
+        if start is None:
+            start = prev = n
+        elif n == prev + 1:
+            prev = n
+        else:
+            out.append(f"{start}" if start == prev else f"{start}–{prev}")
+            start = prev = n
+    if start is not None:
+        out.append(f"{start}" if start == prev else f"{start}–{prev}")
+    return ", ".join(out)
