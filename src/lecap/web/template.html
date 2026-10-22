@@ -192,16 +192,20 @@ details.sec[data-sec="summary"] p { margin: 0 0 8px; line-height: 1.6; }
 #tab-overview h2 .n { font-size: 12px; color: var(--muted); font-weight: normal; }
 #tab-overview h2 .btn { margin-left: auto; font-size: 12px; padding: 1px 8px; }
 .ov-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; }
-.ov-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; background: var(--panel); font-size: 14px; }
-.ov-item .oh { display: flex; gap: 8px; align-items: baseline; }
-.ov-item .oh b { font-weight: 600; }
+/* one calm row per note, alternating like the transcript */
+.ov-item { padding: 8px 10px; margin: 0 -4px 2px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+.ov-item.alt, details.gl:nth-of-type(odd) { background: var(--raster); }
+.ov-item:hover { background: var(--accent-soft); }
+.ov-item .oh { display: flex; gap: 6px; align-items: baseline; }
+.ov-item .oh b { flex: 1; font-weight: 600; min-width: 0; }
 .ov-item .oh .st { color: var(--star); }
-.ov-item .nt { white-space: pre-wrap; margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: var(--note-bg); border-left: 3px solid var(--note-edge); }
+.ov-item .oh .time { font-size: 12px; font-weight: 500; }
+.ov-item .nt { white-space: pre-wrap; margin-top: 3px; }
 details.sec > summary { list-style: none; cursor: pointer; }
 details.sec > summary::-webkit-details-marker { display: none; }
 details.sec > summary h2::before { content: "▾"; font-size: 12px; color: var(--muted); }
 details.sec:not([open]) > summary h2::before { content: "▸"; }
-details.gl { border-bottom: 1px solid var(--line); padding: 6px 0; font-size: 14px; }
+details.gl { padding: 6px 10px; margin: 0 -4px 2px; border-radius: 8px; font-size: 14px; }
 details.gl summary { cursor: pointer; font-weight: 600; }
 details.gl p { margin: 4px 0 2px 16px; color: var(--muted); }
 details.gl .jump { font-size: 12px; color: var(--accent); }
@@ -550,11 +554,11 @@ function renderOverview() {
     ${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2></summary>`;
   if (!items.length) h += `<p class="muted">Star a part (☆) or write a note (✎) in the transcript; they are collected here.</p>`;
   let lastCh = -1;
-  items.forEach(c => {
+  items.forEach((c, i) => {
     const k = cardChapter[c.id];
     if (k !== lastCh) { h += `<div class="ov-ch">${esc(L.chapters[k]?.title || "")}</div>`; lastCh = k; }
-    h += `<div class="ov-item"><div class="oh"><button class="time" data-card="${c.id}">${fmt(c.start)}</button>
-      ${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b></div>
+    h += `<div class="ov-item ${i % 2 ? "" : "alt"}" data-card="${c.id}" title="Jump to ${fmt(c.start)}">
+      <div class="oh">${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b><span class="time">${fmt(c.start)}</span></div>
       ${store.notes[c.id] ? `<div class="nt">${esc(store.notes[c.id])}</div>` : ""}</div>`;
   });
   h += `</details><details class="sec" data-sec="glossary" ${open("glossary")}><summary><h2>Glossary <span class="n">${glossary.length}</span></h2></summary>`;
@@ -590,6 +594,8 @@ function scrollToCard(id, force) {
 document.addEventListener("click", e => {
   const t = e.target;
   if (t.closest("#lightbox")) { $("#lightbox").classList.add("hidden"); return; }
+  const ovi = t.closest(".ov-item");
+  if (ovi) { goCard(+ovi.dataset.card); return; }
   const head = t.closest(".chap > .head");
   if (head) { goCard(+head.dataset.card); closeChapters(); return; }
   const sub = t.closest(".subs button");
