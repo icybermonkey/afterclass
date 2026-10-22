@@ -166,3 +166,17 @@ def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):
     monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
     with pytest.raises(LecapError, match="safety classifier"):
         ClaudeCodeProvider().run("sys", "prompt", json_schema(), "opus")
+
+
+def test_glossary_duplicates_and_short_chapters_are_merged():
+    les = lesson()
+    les.duration = 1000
+    data = {**RESULT,
+            "chapters": [{"start_card": 0, "title": "A", "summary": "s", "tags": []},
+                         {"start_card": 1, "title": "B", "summary": "s", "tags": []}],
+            "glossary": [{"term": "Opaque Predicates", "definition": "1", "card": 1},
+                         {"term": "opaque predicate", "definition": "2", "card": 1},
+                         {"term": "Control Flow Flattening (CFF)", "definition": "3", "card": 1}]}
+    ai_step.apply(les, AiResult.model_validate(data), {"provider": "t", "model": "m"})
+    assert [g["term"] for g in les.ai["glossary"]] == ["Opaque Predicates", "Control Flow Flattening (CFF)"]
+    assert [c.title for c in les.chapters] == ["B"]  # "A" lasted 10 s and merged into the next chapter

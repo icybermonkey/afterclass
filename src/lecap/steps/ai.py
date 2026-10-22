@@ -1,6 +1,8 @@
 """--ai: chapters, summaries, tags, glossary, exam questions and key points from any provider."""
 
 import bisect
+import math
+import re
 
 from pydantic import ValidationError
 
@@ -98,10 +100,12 @@ def run(provider, lesson, model):
 
 def _run_parts(provider, lesson, model, limit):
     budget = max(limit - 6000, 2000) * 3  # characters of cards per part
+    sizes = [sum(len(x) for x in card_lines(lesson, [c])) for c in lesson.cards]
+    # Equal-sized parts (not "fill one, leave a scrap"): a tiny last part makes tiny chapters
+    target = sum(sizes) / max(math.ceil(sum(sizes) / budget), 1)
     parts, current, size = [], [], 0
-    for c in lesson.cards:
-        n = sum(len(x) for x in card_lines(lesson, [c]))
-        if current and size + n > budget:
+    for c, n in zip(lesson.cards, sizes):
+        if current and (size + n > budget or size >= target):
             parts.append(current)
             current, size = [], 0
         current.append(c)
@@ -127,7 +131,7 @@ def _run_parts(provider, lesson, model, limit):
             continue
         chapters += [ch for ch in part.chapters if ch.start_card in ids] or part.chapters[:1]
         for t in part.glossary:
-            glossary.setdefault(t.term.lower(), t)
+            glossary.setdefault(term_key(t.term), t)
         questions += part.exam_questions
         points += part.key_points
     overview = "\n".join(f"- {ch.title}: {ch.summary}" for ch in chapters)
@@ -141,6 +145,12 @@ def _run_parts(provider, lesson, model, limit):
                       glossary=list(glossary.values())[:20], exam_questions=questions[::step][:10], key_points=points)
     usage.input_tokens, usage.output_tokens = total_in, total_out
     return parse(merged.model_dump()), usage
+
+
+def term_key(term):
+    """'Opaque Predicates', 'opaque predicate' and 'Control Flow Flattening (CFF)' -> one key each."""
+    t = re.sub(r"\(.*?\)", "", term).strip().lower()
+    return t[:-1] if t.endswith("s") and len(t) > 4 else t
 
 
 def parse(data):
@@ -187,6 +197,9 @@ def apply(lesson, result, meta, times=None):
         seen.add(card)
         chapters.append(Chapter(title=ch.title, card=card, source="ai", summary=ch.summary,
                                 tags=[t.lower() for t in ch.tags]))
+    # Chapters shorter than 3 minutes merge into the next one (small models like to over-split)
+    starts = [lesson.cards[ch.card].start or 0 for ch in chapters] + [lesson.duration or float("inf")]
+    chapters = [ch for k, ch in enumerate(chapters) if k == len(chapters) - 1 or starts[k + 1] - starts[k] >= 180]
     if chapters:
         if chapters[0].card != lesson.cards[0].id:
             chapters[0].card = lesson.cards[0].id
@@ -197,7 +210,8 @@ def apply(lesson, result, meta, times=None):
     lesson.ai = {
         "title": result.lesson_title,
         "summary": result.lesson_summary,
-        "glossary": [{**t.model_dump(), "card": to_current(t.card)} for t in result.glossary],
+        "glossary": [{**t.model_dump(), "card": to_current(t.card)}
+                     for t in {term_key(t.term): t for t in reversed(result.glossary)}.values()][::-1],
         "questions": [{**q.model_dump(), "card": to_current(q.card)} for q in result.exam_questions],
         **meta,
     }
