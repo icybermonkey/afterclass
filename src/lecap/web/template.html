@@ -59,21 +59,23 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 #sync.on { color: var(--off); }
 
 /* three columns */
-.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 270px minmax(0, 1fr) minmax(360px, 34%); }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(360px, 34%); }
 .pane { min-height: 0; overflow: auto; }
 
 /* left: chapters */
 #chapters { border-right: 1px solid var(--line); background: var(--panel); padding: 10px 0 40px; }
-.chap { padding: 6px 12px; }
-.chap > button.head { display: block; width: 100%; text-align: left; border-radius: 8px; padding: 6px; }
+.chap { padding: 4px 10px 6px; }
+.chap > button.head { display: grid; grid-template-columns: 122px minmax(0, 1fr); gap: 8px; align-items: start;
+  width: 100%; text-align: left; border-radius: 8px; padding: 5px; }
 .chap > button.head:hover { background: var(--accent-soft); }
 .chap.on > button.head { background: var(--accent-soft); }
-.chap img { width: 100%; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line);
-  border-radius: 5px; display: block; margin-bottom: 5px; }
+.chap img { width: 122px; aspect-ratio: 16 / 9; object-fit: contain; background: #fff; border: 1px solid var(--line);
+  border-radius: 4px; display: block; }
+.chap .noimg { width: 122px; aspect-ratio: 16 / 9; border: 1px dashed var(--line); border-radius: 4px; }
 .chap .ct { font-weight: 600; font-size: 14px; line-height: 1.3; }
 .chap.on .ct { color: var(--accent); }
 .chap .tm { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
-.subs { list-style: none; margin: 2px 0 4px; padding: 0 0 0 10px; border-left: 2px solid var(--line); }
+.subs { list-style: none; margin: 2px 0 4px 8px; padding: 0 0 0 8px; border-left: 2px solid var(--line); }
 .subs button { display: flex; gap: 8px; width: 100%; text-align: left; font-size: 13px; padding: 2px 6px; border-radius: 4px; color: var(--muted); }
 .subs button:hover { background: var(--accent-soft); color: var(--fg); }
 .subs button.on { color: var(--fg); font-weight: 600; }
@@ -150,13 +152,24 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .note { background: #2c2816; border-color: #5a4e1f; } }
 .tbreak { color: var(--break); font-size: 13px; padding: 8px 0; border-bottom: 1px solid var(--line); }
 #empty { color: var(--muted); padding: 30px 0; text-align: center; }
-#tab-overview h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin: 16px 0 6px; }
-.ov-ch { font-weight: 600; font-size: 13px; margin: 10px 0 2px; }
-.ov-item { padding: 4px 0 6px; border-bottom: 1px solid var(--line); font-size: 14px; }
-.ov-item .nt { white-space: pre-wrap; }
-.gl { padding: 5px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.gl b { display: block; }
-.gl .jump { font-size: 12px; color: var(--accent); }
+#tab-overview h2 { font-size: 15px; color: var(--accent); margin: 18px 0 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent-soft);
+  display: flex; align-items: baseline; gap: 8px; }
+#tab-overview h2:first-child { margin-top: 10px; }
+#tab-overview h2 .n { font-size: 12px; color: var(--muted); font-weight: normal; }
+#tab-overview h2 .btn { margin-left: auto; font-size: 12px; padding: 1px 8px; }
+.ov-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; }
+.ov-item { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; background: var(--panel); font-size: 14px; }
+.ov-item .oh { display: flex; gap: 8px; align-items: baseline; }
+.ov-item .oh b { font-weight: 600; }
+.ov-item .oh .st { color: var(--star); }
+.ov-item .nt { white-space: pre-wrap; margin-top: 6px; padding: 6px 8px; border-radius: 6px; background: #fffbe6; border-left: 3px solid #f0dc8c; }
+:root[data-theme="dark"] .ov-item .nt { background: #2c2816; border-left-color: #5a4e1f; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ov-item .nt { background: #2c2816; border-left-color: #5a4e1f; } }
+details.gl { border-bottom: 1px solid var(--line); padding: 6px 0; font-size: 14px; }
+details.gl summary { cursor: pointer; font-weight: 600; }
+details.gl p { margin: 4px 0 2px 16px; color: var(--muted); }
+details.gl .jump { font-size: 12px; color: var(--accent); }
+.slidelabel { font-size: 12px; color: var(--faint); width: 100%; }
 
 /* overlays */
 #lightbox { position: fixed; inset: 0; background: rgba(0,0,0,.85); display: flex; align-items: center; justify-content: center; z-index: 50; cursor: zoom-out; padding: 16px; }
@@ -165,7 +178,7 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
   padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
 
-@media (max-width: 1250px) { .layout { grid-template-columns: 230px minmax(0, 1fr) minmax(330px, 38%); } h1 { max-width: 18ch; } }
+@media (max-width: 1250px) { .layout { grid-template-columns: 270px minmax(0, 1fr) minmax(330px, 38%); } h1 { max-width: 18ch; } }
 @media (max-width: 980px) {
   body { overflow: auto; height: auto; }
   .layout { display: flex; flex-direction: column; }
@@ -238,6 +251,7 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 
 <script id="lesson-data" type="application/json">/*LESSON_DATA*/</script>
 <script id="lesson-notes" type="application/json">/*NOTES_DATA*/</script>
+<script id="lesson-ask" type="application/json">/*ASK_DATA*/</script>
 <script>
 "use strict";
 const L = JSON.parse(document.getElementById("lesson-data").textContent);
@@ -314,7 +328,8 @@ let view = lsGet("lecap:view") || L.transcript_view || "paragraphs";
 
 /* ---------- search ---------- */
 let kind = "all", starredOnly = false, q = "", qterms = [];
-const hay = cards.map(c => fold([c.title, c.text, c.segments.map(s => s.text).join(" "), store.notes[c.id] || ""].join("\n")));
+const cardTitle = c => c.quick_title || c.title || (c.kind === "demo" ? "Live demo" : "");
+const hay = cards.map(c => fold([c.quick_title, c.title, c.text, c.segments.map(s => s.text).join(" "), store.notes[c.id] || ""].join("\n")));
 const markRe = () => qterms.length ? new RegExp("(" + qterms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")", "gi") : null;
 function decorate(text, withTerms) {
   let h = esc(text);
@@ -325,20 +340,16 @@ function decorate(text, withTerms) {
 }
 
 /* ---------- left: chapters (one picture each, text subchapters) ---------- */
-let openChapter = 0;
 function renderChapters() {
   $("#chapters").innerHTML = L.chapters.map((ch, k) => {
     const subs = (ch.subs || []).map(s => `<li><button data-card="${s.card}" id="s${s.card}"><time>${fmt(cards[s.card].start)}</time><span>${esc(s.title)}</span></button></li>`).join("");
     return `<div class="chap" id="ch${k}" data-ch="${k}">
-      <button class="head" data-card="${ch.card}">${ch.image ? `<img src="${esc(ch.image)}" loading="lazy" alt="">` : ""}
-        <div class="ct">${esc(ch.title)}</div><div class="tm">${fmt(cards[ch.card].start)}</div></button>
-      ${subs ? `<ul class="subs ${k === openChapter ? "" : "hidden"}">${subs}</ul>` : ""}</div>`;
+      <button class="head" data-card="${ch.card}">${ch.image ? `<img src="${esc(ch.image)}" loading="lazy" alt="">` : `<span class="noimg"></span>`}
+        <span><div class="ct">${esc(ch.title)}</div><div class="tm">${fmt(cards[ch.card].start)}</div></span></button>
+      ${subs ? `<ul class="subs">${subs}</ul>` : ""}</div>`;
   }).join("");
 }
-function openChap(k) {
-  openChapter = k;
-  $$(".chap").forEach(d => { d.classList.toggle("on", +d.dataset.ch === k); $(".subs", d)?.classList.toggle("hidden", +d.dataset.ch !== k); });
-}
+function markChapter(k) { $$(".chap").forEach(d => d.classList.toggle("on", +d.dataset.ch === k)); }
 
 /* ---------- right: transcript ---------- */
 const expanded = new Set();
@@ -380,7 +391,8 @@ function tcardHTML(c) {
         <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
         <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
           <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment">🔗</button></span>
-        <span class="ctitle">${decorate(c.title || (c.kind === "demo" ? "Live demo" : ""))}</span></div></div>
+        <span class="ctitle">${decorate(cardTitle(c))}</span>
+        ${c.quick_title && c.title && c.title.toLowerCase() !== c.quick_title.toLowerCase() ? `<span class="slidelabel">slide: ${decorate(c.title)}</span>` : ""}</div></div>
     <div class="body">${transcriptBody(c)}</div><div class="slidehit hidden"></div>
     <textarea class="note ${note ? "" : "hidden"}" data-id="${c.id}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
 }
@@ -473,20 +485,20 @@ function showTab(name) {
 }
 $$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function renderOverview() {
-  let h = `<h3>My notes</h3>`;
   const items = cards.filter(c => store.stars[c.id] || store.notes[c.id]);
+  let h = `<h2>My notes <span class="n">${items.length}</span>${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2>`;
   if (!items.length) h += `<p class="muted">Star a part (☆) or write a note (✎) in the transcript; they are collected here.</p>`;
   let lastCh = -1;
   items.forEach(c => {
     const k = cardChapter[c.id];
     if (k !== lastCh) { h += `<div class="ov-ch">${esc(L.chapters[k]?.title || "")}</div>`; lastCh = k; }
-    h += `<div class="ov-item"><button class="time" data-card="${c.id}">${fmt(c.start)}</button> ${store.stars[c.id] ? "★ " : ""}<b>${esc(c.title || "")}</b>
+    h += `<div class="ov-item"><div class="oh"><button class="time" data-card="${c.id}">${fmt(c.start)}</button>
+      ${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b></div>
       ${store.notes[c.id] ? `<div class="nt">${esc(store.notes[c.id])}</div>` : ""}</div>`;
   });
-  if (items.length) h += `<p><button class="btn" id="export2">Export notes as Markdown</button></p>`;
-  h += `<h3>Glossary</h3>`;
-  h += glossary.length ? glossary.map(g => `<div class="gl"><b>${esc(g.term)}</b>${esc(g.definition)}
-      ${cards[g.card] ? ` <button class="jump" data-card="${g.card}">→ ${fmt(cards[g.card].start)}</button>` : ""}</div>`).join("")
+  h += `<h2>Glossary <span class="n">${glossary.length}</span></h2>`;
+  h += glossary.length ? glossary.map(g => `<details class="gl"><summary>${esc(g.term)}</summary><p>${esc(g.definition)}
+      ${cards[g.card] ? ` <button class="jump" data-card="${g.card}">→ ${fmt(cards[g.card].start)}</button>` : ""}</p></details>`).join("")
     : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a glossary.</p>`;
   $("#tab-overview").innerHTML = h;
 }
@@ -517,7 +529,7 @@ document.addEventListener("click", e => {
   const t = e.target;
   if (t.closest("#lightbox")) { $("#lightbox").classList.add("hidden"); return; }
   const head = t.closest(".chap > .head");
-  if (head) { openChap(+head.parentNode.dataset.ch); goCard(+head.dataset.card); closeChapters(); return; }
+  if (head) { goCard(+head.dataset.card); closeChapters(); return; }
   const sub = t.closest(".subs button");
   if (sub) { goCard(+sub.dataset.card); closeChapters(); return; }
   const seg = t.closest(".seg");
@@ -561,7 +573,7 @@ document.addEventListener("input", e => {
   const id = +e.target.dataset.id, val = e.target.value;
   if (val.trim()) store.notes[id] = val; else delete store.notes[id];
   const c = cards[id];
-  hay[id] = fold([c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
+  hay[id] = fold([c.quick_title, c.title, c.text, c.segments.map(s => s.text).join(" "), val].join("\n"));
   save();
 });
 document.addEventListener("focusout", e => { if (e.target.matches(".note") && !e.target.value.trim()) e.target.classList.add("hidden"); });
@@ -577,7 +589,7 @@ function exportNotes() {
     n++;
     const k = cardChapter[c.id];
     if (k !== lastCh) { lines.push(`## ${L.chapters[k]?.title || ""}`, ""); lastCh = k; }
-    lines.push(`### ${store.stars[c.id] ? "⭐ " : ""}[${fmt(c.start)}](index.html#t=${fmt(c.start)}) ${c.title || ""}${c.deck_page ? ` (slide p.${c.deck_page})` : ""}`.trim());
+    lines.push(`### ${store.stars[c.id] ? "⭐ " : ""}[${fmt(c.start)}](index.html#t=${fmt(c.start)}) ${cardTitle(c)}${c.deck_page ? ` (slide p.${c.deck_page})` : ""}`.trim());
     if (store.notes[c.id]) lines.push("", store.notes[c.id]);
     const speech = c.segments.map(s => s.text).join(" ");
     if (speech) lines.push("", "> " + (speech.length > 300 ? speech.slice(0, 300) + "…" : speech));
@@ -607,11 +619,11 @@ v.addEventListener("timeupdate", () => {
       if (!expanded.has(ci)) { expanded.add(ci); refreshCard(ci); }
       document.getElementById("t" + ci)?.classList.add("active");
       const k = cardChapter[ci], c = cards[ci];
-      if (k !== openChapter || !$(`#ch${k}`)?.classList.contains("on")) openChap(k);
+      markChapter(k);
       const sub = subStarts[find(subStarts, ci, x => x)];
       $$(".subs button.on").forEach(b => b.classList.remove("on"));
       if (sub !== undefined && cardChapter[sub] === k) document.getElementById("s" + sub)?.classList.add("on");
-      $("#now").textContent = [L.chapters[k]?.title, c.title || (c.kind === "demo" ? "Live demo" : "")].filter(Boolean).join(" › ");
+      $("#now").textContent = [L.chapters[k]?.title, cardTitle(c)].filter(Boolean).join(" › ");
       scrollToCard(ci, false);
     }
   }
@@ -642,18 +654,19 @@ document.addEventListener("keydown", e => {
 });
 
 /* ---------- Ask (below the video) ---------- */
-const STOP = new Set(("a an and are as at be but by can do does for from how i in is it its me my of on or so that the their them then there these they this to up us was we what when where which who why will with you your der die das und ist ein eine einer zu den dem des im in mit von für auf nicht sich wir ich es wie was wo wann warum " +
-  "start started starting begin begins talk talks talking talked discuss discussed discussing explain explained mention mentioned speak speaking lecture lesson part about please tell show find " +
-  "anfangen beginnen sprechen reden erklären erklärt erkläre zeig zeige thema").split(" "));  // same list as ask.py
+// Prompt, answer schema and stop words come from lecap itself (ask.py), embedded at build time
+const ASKCFG = (() => { try { return JSON.parse(document.getElementById("lesson-ask").textContent); } catch (e) { return {}; } })();
+const STOP = new Set(ASKCFG.stop || []);
 const stem = w => { for (const suf of ["ing", "ed", "es", "s", "e"]) if (w.length > 4 && w.endsWith(suf)) return w.slice(0, -suf.length); return w; };
 const words = s => (String(s || "").toLowerCase().match(/[a-zäöüß0-9][a-zäöüß0-9\-_]*/g) || []).filter(w => w.length > 1 && !STOP.has(w)).map(stem);
+const WANTS_START = /\b(start|begin|first|introduc|anfang|beginn|zuerst|erstmal)/i;
 let index = null;
-function buildIndex() {  // same passages + BM25 as ask.py, for the offline fallback in file:// mode
+function buildIndex() {  // same passages + BM25 as ask.py
   const items = [];
   cards.forEach(c => {
     if (c.kind === "break") return;
-    paragraphsOf(c).forEach(p => items.push({ kind: "speech", t: p.start, text: p.segs.map(j => c.segments[j].text).join(" ") }));
-    const slide = [c.title, c.text].filter(Boolean).join(" ");
+    paragraphsOf(c).forEach(p => items.push({ kind: "speech", t: p.start, speaker: p.speaker, text: p.segs.map(j => c.segments[j].text).join(" ") }));
+    const slide = [c.quick_title, c.title, c.text].filter(Boolean).join(" ");
     if (slide.trim()) items.push({ kind: "slide", t: c.start || 0, text: slide.slice(0, 800) });
   });
   glossary.forEach(g => items.push({ kind: "glossary", t: cards[g.card]?.start || 0, text: `${g.term}: ${g.definition}` }));
@@ -675,14 +688,73 @@ function searchIndex(query, k = 8) {
   });
   return out.sort((a, b) => b.score - a.score).slice(0, k);
 }
+function firstMention(q, hits) {  // "where do we start …": earliest strong hit, otherwise the best one
+  if (!hits.length) return null;
+  if (!WANTS_START.test(q)) return hits[0];
+  const strong = hits.filter(h => h.score >= 0.6 * hits[0].score);
+  return strong.reduce((a, b) => (b.t < a.t ? b : a));
+}
+function sourceText(t) {
+  if (!index) buildIndex();
+  const near = index.items.reduce((a, b) => (Math.abs(b.t - t) < Math.abs(a.t - t) ? b : a), index.items[0]);
+  return near && Math.abs(near.t - t) <= 5 ? near.text.slice(0, 200) : "";
+}
+
+/* A local model straight from the page (when opened as a file, without `lecap open`) */
+const DIRECT_SERVERS = [["LM Studio", "http://localhost:1234", "lms server stop && lms server start --cors"],
+  ["Ollama", "http://localhost:11434", "launchctl setenv OLLAMA_ORIGINS null && brew services restart ollama"]];
+let direct = null, directState = "unknown";  // ok | blocked | none
+async function detectDirect() {
+  for (const [name, base, allowCmd] of DIRECT_SERVERS) {
+    try {
+      const r = await fetch(base + "/v1/models", { signal: AbortSignal.timeout(1500) });
+      const models = ((await r.json()).data || []).map(m => m.id).filter(id => !/embed|whisper|rerank/i.test(id));
+      if (models.length) { direct = { name, base, model: models[0] }; directState = "ok"; return; }
+    } catch (e) {
+      // Reachable without CORS (an opaque response) = running, but not allowing this page yet
+      try { await fetch(base + "/v1/models", { mode: "no-cors", signal: AbortSignal.timeout(1500) }); direct = { name, base, allowCmd }; directState = "blocked"; return; } catch (e2) {}
+    }
+  }
+  direct = null; directState = "none";
+}
+async function askDirect(q) {
+  const t = L.media ? v.currentTime : null;
+  let hits = searchIndex(q, 8);
+  const first = firstMention(q, searchIndex(q, 20));
+  if (t !== null) hits = hits.concat(index.items.filter(p => p.kind === "speech" && Math.abs(p.t - t) <= 60 && !hits.some(h => h.t === p.t && h.kind === p.kind)).slice(0, 3));
+  const label = p => p.kind === "slide" ? "SLIDE" : p.kind === "glossary" ? "GLOSSARY" : p.speaker ? (p.speaker === "A" ? "Lecturer" : "Speaker " + p.speaker) : "SPEECH";
+  const lines = hits.slice().sort((a, b) => a.t - b.t).map(p => `[${Math.round(p.t)}s = ${fmt(p.t)} | ${label(p)}] ${p.text}`);
+  let prompt = `Lecture: ${title}\nChapters:\n${L.chapters.map(c => "- " + c.title).join("\n")}\n\nPassages:\n${lines.join("\n")}\n\nQuestion: ${q}`;
+  if (first && WANTS_START.test(q)) prompt += `\n(Search hint: the topic first appears at ${Math.round(first.t)}s = ${fmt(first.t)}.)`;
+  if (t !== null) prompt += `\n(The student is watching ${fmt(t)}. Use that only if the question says 'this', 'here' or 'now'.)`;
+  const r = await fetch(direct.base + "/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+    model: direct.model, temperature: 0.2, messages: [{ role: "system", content: ASKCFG.system }, { role: "user", content: prompt }],
+    response_format: { type: "json_schema", json_schema: { name: "result", strict: true, schema: ASKCFG.schema } } }) });
+  if (!r.ok) throw new Error(`${direct.name}: ${r.status} ${(await r.text()).slice(0, 200)}`);
+  const d = JSON.parse((await r.json()).choices[0].message.content);
+  const dur = L.duration || 1e9;
+  let main = d.main_time >= 0 && d.main_time <= dur ? d.main_time : (first && d.in_lesson ? first.t : null);
+  const extra = main !== null ? [main] : [];
+  if (main !== null && first && WANTS_START.test(q) && first.t < main - 30) main = first.t;
+  const times = [...new Set([...(d.sources || []), ...extra].filter(x => x >= 0 && x <= dur && (main === null || Math.abs(x - main) > 2)).map(x => Math.round(x * 10) / 10))].sort((a, b) => a - b);
+  return { answer: d.answer, main_time: main, in_lesson: d.in_lesson, sources: times.slice(0, 6).map(x => ({ t: x, text: sourceText(x) })),
+    provider: `${direct.name} (direct)`, model: direct.model, online: false, mode: "lesson" };
+}
+
 let settings = null, providers = [];
+const copyBtn = cmd => `<code>${esc(cmd)}</code> <button class="btn" data-copy="${esc(cmd)}">Copy</button>`;
 function askWho() {
   const local = providers.find(p => p.name === "local");
   let h;
-  if (!SERVER || !serverOK) h = `<span class="tag off">offline</span> no AI model here, only search · open with <code>lecap open &lt;folder&gt;</code> for answers`;
+  if (!SERVER || !serverOK) {
+    if (directState === "ok") h = `${tagHTML(false)} answers by ${esc(direct.name)} · ${esc(direct.model)} (direct; notes stay in this browser)`;
+    else if (directState === "blocked") h = `${tagHTML(false)} ${esc(direct.name)} is running but doesn't allow this page yet. Allow it once: ${copyBtn(direct.allowCmd)} · or open with ${copyBtn(ASKCFG.open_cmd || "lecap open <folder>")}`;
+    else if (directState === "none") h = `${tagHTML(false)} no local model running: start LM Studio, or open with ${copyBtn(ASKCFG.open_cmd || "lecap open <folder>")} · until then: search only`;
+    else h = `${tagHTML(false)} looking for a local model…`;
+  }
   else if (local && local.available) h = `${tagHTML(false)} answers by ${esc(local.detail)}`;
   else if (settings && settings.allow_online !== "off") h = `${tagHTML(true)} no local model running: answers by Claude (asks first) · ⚙ to set up a local model`;
-  else h = `<span class="tag off">offline</span> no model available, only search`;
+  else h = `${tagHTML(false)} no model available, only search`;
   $("#askwho").innerHTML = h;
 }
 function answerHTML(r, q, secs) {
@@ -706,17 +778,26 @@ function addQA(q) {
 }
 async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
   box = box || addQA(q);
-  if (!SERVER || !serverOK) {  // page opened as a file: no model, offline search only
-    const hits = searchIndex(q);
-    const strong = hits.filter(h => h.score >= 0.6 * (hits[0]?.score || 0));
-    const wantsStart = /\b(start|begin|first|introduc|anfang|beginn|zuerst|erstmal)/i.test(q);
-    const main = !hits.length ? null : wantsStart ? Math.min(...strong.map(h => h.t)) : hits[0].t;
+  const t0 = Date.now();
+  const thinking = () => {
+    box.innerHTML = `<p class="thinking">Thinking… <span>0</span> s</p>`;
+    return setInterval(() => { const s = box.querySelector(".thinking span"); if (s) s.textContent = Math.round((Date.now() - t0) / 1000); }, 1000);
+  };
+  if (!SERVER || !serverOK) {  // opened as a file: use a local model directly if it allows it
+    if (directState !== "ok") { await detectDirect(); askWho(); }
+    if (directState === "ok") {
+      const tick = thinking();
+      try { box.innerHTML = answerHTML(await askDirect(q), q, Math.round((Date.now() - t0) / 1000)); }
+      catch (err) { box.innerHTML = answerHTML({ error: err.message }, q); }
+      finally { clearInterval(tick); box.scrollIntoView({ block: "nearest" }); }
+      return;
+    }
+    const hits = searchIndex(q), first = firstMention(q, searchIndex(q, 20));
+    const main = first ? first.t : null;
     box.innerHTML = answerHTML({ answer: "", provider: null, main_time: main, sources: hits.filter(h => h.t !== main).slice(0, 5).map(h => ({ t: h.t, text: h.text.slice(0, 200) })) }, q);
     return;
   }
-  const t0 = Date.now();
-  box.innerHTML = `<p class="thinking">Thinking… <span>0</span> s</p>`;
-  const tick = setInterval(() => { const s = box.querySelector(".thinking span"); if (s) s.textContent = Math.round((Date.now() - t0) / 1000); }, 1000);
+  const tick = thinking();
   try {
     const r = await api("POST", "/api/ask", { question: q, mode, t: L.media ? v.currentTime : null, confirm_online: confirmOnline });
     if (r.needs_confirm) {
@@ -733,6 +814,10 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
     box.scrollIntoView({ block: "nearest" });
   }
 }
+document.addEventListener("click", e => {
+  const c = e.target.closest("[data-copy]");
+  if (c) navigator.clipboard?.writeText(c.dataset.copy).then(() => toast("Copied: paste it in Terminal"), () => toast(c.dataset.copy));
+});
 $("#askform").addEventListener("submit", e => { e.preventDefault(); const q = $("#askq").value.trim(); if (!q) return; $("#askq").value = ""; ask(q); });
 $("#askq").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("#askform").requestSubmit(); } });
 document.addEventListener("click", e => {
@@ -756,7 +841,7 @@ function readHash() {
   const t = parseT(p.get("t"));
   if (t !== null) {
     const ci = cardAt(t);
-    if (ci >= 0) { pendingCard = ci; revealCard(ci); setTimeout(() => scrollToCard(ci, true), 50); openChap(cardChapter[ci]); }
+    if (ci >= 0) { pendingCard = ci; revealCard(ci); setTimeout(() => scrollToCard(ci, true), 50); markChapter(cardChapter[ci]); }
     const go = () => seek(t, false);
     if (v.readyState >= 1) go(); else v.addEventListener("loadedmetadata", go, { once: true });
   }
@@ -766,10 +851,11 @@ let pendingCard = -1;  // a deep-linked card to scroll to again once the transcr
 
 /* ---------- start ---------- */
 renderChapters();
-openChap(0);
+markChapter(0);
 renderTranscript();
 readHash();
 askWho();
+if (!SERVER) detectDirect().then(askWho);
 if (SERVER) {
   api("GET", "/api/state").then(s => {
     setSync(true);
@@ -783,7 +869,7 @@ if (SERVER) {
     if (target >= 0) scrollToCard(target, true);
     (s.chat || []).filter(x => x.answer || x.main_time != null).slice(-15).forEach(x => { addQA(x.q).innerHTML = answerHTML(x, x.q); });
     askWho();
-  }).catch(() => { setSync(false); askWho(); });
+  }).catch(() => { setSync(false); detectDirect().then(askWho); });
 }
 </script>
 </body>

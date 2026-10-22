@@ -27,7 +27,8 @@ class Card:
     image: str | None = None  # video frame, relative to the output folder
     deck_image: str | None = None  # matched deck page render
     deck_page: int | None = None
-    title: str = ""
+    title: str = ""  # slide title
+    quick_title: str = ""  # AI: what is said or shown here (3-8 words)
     text: str = ""  # slide text (deck text if matched, else OCR)
     segments: list[Segment] = field(default_factory=list)
 

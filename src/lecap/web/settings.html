@@ -88,6 +88,7 @@ h2 .tag { margin-left: 8px; }
     <p class="hint">Runs on this Mac with LM Studio or Ollama. Needed once: an app, a model, and its server running.</p>
     <div class="status" id="localstatus"></div>
     <div id="localguide"></div>
+    <div id="pageask"></div>
     <div id="local"></div>
   </section>
 
@@ -180,6 +181,13 @@ function render() {
   const L = S.local, apps = L.apps;
   $("#localstatus").innerHTML = apps.map(a => pill(a.running, `${a.name}: ${!a.installed ? "not installed" : a.running ? "running" + (a.loaded.length ? " · " + a.loaded.join(", ") : "") : "installed, server off"}`, a.installed && !a.running)).join("")
     + `<span class="pill no">${L.ram_gb} GB RAM</span>`;
+  const run = apps.filter(a => a.running);
+  $("#pageask").innerHTML = !run.length ? "" : run.map(a => a.page_allowed
+    ? `<p>${pill(true, `${a.name} allows Ask from lesson pages opened as files`)}</p>`
+    : `<p><b>Ask without <code>lecap open</code></b> (when you just double-click index.html): ${esc(a.name)} must allow browser pages.
+       ${a.app === "lmstudio" ? "This lets any website you visit use your local model (not your files)." : "This allows only pages opened as files."}</p>
+       <div class="cmd"><code>${esc(a.allow_cmd)}</code><button data-copy="${esc(a.allow_cmd)}">Copy</button></div>
+       ${a.app === "lmstudio" ? `<p class="muted">To keep it after a restart: LM Studio → Developer → Server Settings → Enable CORS.</p>` : ""}`).join("");
   const lm = apps.find(a => a.app === "lmstudio"), ol = apps.find(a => a.app === "ollama");
   const running = apps.some(a => a.running && a.loaded.length);
   const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button data-copy="${esc(c)}">Copy</button></div>`;

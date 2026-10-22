@@ -33,7 +33,9 @@ lesson-01/
 
 - **Left: chapters.** One slide picture per chapter. Below it are the subchapters (slide titles, long live demos) as plain text. Click to jump.
 - **Middle: the video**, with an **Ask box** below it. A model (local first) reads the relevant parts of the lesson and answers in its own words, with a ▶ button to the main moment. The other moments are listed as small "sources". Questions beyond the lesson can go to Claude online, but only after a click.
-- **Right: the transcript**, one part per slide or screen with its picture. Click any sentence to jump there. Choose paragraphs or blocks. Other speakers (questions from the audience) are marked. ☆ stars and ✎ notes go straight into the transcript.
+- **Right: the transcript**, one part per slide or screen with its picture and an AI quick title (with `--ai`). Click any sentence to jump there. Other speakers (questions from the audience) are marked. ☆ stars and ✎ notes go straight into the transcript.
+  - **Paragraphs**: each part is split at speaker changes, pauses and every ~4 sentences, with a small time and speaker label per paragraph; long parts show 2 paragraphs and "show all".
+  - **Blocks**: each part is one continuous text block (like v0.1), with speaker names inline.
 - **Overview**: all your stars and notes by chapter (export to Markdown), plus the glossary.
 - **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
 - Deep links like `index.html#t=01:23:45` or `#q=opaque`. Keyboard: `/` search · `j`/`k` parts · `Space` pause · `s` star · `n` note · `a` ask.
@@ -52,8 +54,15 @@ lesson-01/
 ## What `--ai` adds
 
 Without AI you get the transcript, slides, search and notes, plus chapters *if the slides have section pages*.
-`--ai` (a local model or Claude) adds **chapter names for every lesson** and a **glossary**.
+`--ai` (a local model or Claude) adds **chapter names for every lesson**, a **quick title for every part** and a **glossary**.
 Ask always needs a model: local (offline, `lecap setup ai`) or Claude (online, only text is sent).
+
+**Ask without `lecap open`** (when you just double-click `index.html`): the page talks to LM Studio or Ollama directly
+if they allow browser pages. Allow it once with `lecap setup ai`, or yourself:
+`lms server stop && lms server start --cors` (lets any website use your local model, not your files; to keep it after a
+restart: LM Studio → Developer → Server Settings → Enable CORS) or, for Ollama,
+`launchctl setenv OLLAMA_ORIGINS null && brew services restart ollama`. Notes then stay in that browser; with
+`lecap open` they are saved in the lesson folder and Claude online is available too.
 
 ## Install (macOS, Apple Silicon)
 

@@ -5,6 +5,7 @@ Nothing is downloaded or started without a yes. Also used by the settings page (
 
 import json
 import shutil
+import urllib.request
 import subprocess
 import sys
 import time
@@ -63,15 +64,34 @@ def _gb(num, unit):
         return 0
 
 
+ALLOW_PAGE = {  # let lesson pages opened as files (origin "null") talk to the model server
+    "lmstudio": "lms server stop && lms server start --cors",
+    "ollama": "launchctl setenv OLLAMA_ORIGINS null && brew services restart ollama",
+}
+
+
+def page_allowed(url):
+    """True if the model server answers browser requests from a file:// page (CORS)."""
+    try:
+        req = urllib.request.Request(f"{url}/v1/models", headers={"Origin": "null"})
+        with urllib.request.urlopen(req, timeout=1.5) as r:
+            allow = r.headers.get("Access-Control-Allow-Origin", "")
+        return allow in ("*", "null")
+    except Exception:
+        return False
+
+
 def status():
     """Everything the settings page shows about local AI."""
     running = {s["name"]: s for s in detect("auto")}
     apps = []
     for app, name, binary in (("lmstudio", "LM Studio", lms_bin()), ("ollama", "Ollama", shutil.which("ollama"))):
+        srv = running.get(name)
         apps.append({
             "app": app, "name": name, "installed": bool(binary),
-            "running": name in running, "loaded": running.get(name, {}).get("models", []),
+            "running": bool(srv), "loaded": (srv or {}).get("models", []),
             "models": [{"name": n, "gb": gb} for n, gb in installed_models(app)] if binary else [],
+            "page_allowed": page_allowed(srv["url"]) if srv else False, "allow_cmd": ALLOW_PAGE[app],
         })
     rec = recommend()
     return {"apps": apps, "ram_gb": round(ram_gb()), "recommended": {"lmstudio": rec[1], "ollama": rec[2],
@@ -109,7 +129,7 @@ def _run(cmd):
 
 
 def wizard():
-    steps = ui.Steps(5)
+    steps = ui.Steps(6)
     ui.title(f"{APP_NAME}: set up a local AI model (offline)")
     ui.explain("A local model makes --ai and the Ask tab work without internet. Nothing is downloaded or "
                "started without your yes.")
@@ -205,5 +225,28 @@ def wizard():
     ui.info(f"answer: {data.get('answer', '')[:160]}")
     speed = f", {usage.output_tokens / dt:.0f} tokens/s" if usage.output_tokens else ""
     steps.end(f"works ({dt:.1f} s{speed}). Saved to {config.config_path()}")
-    ui.info(f"Use it: `{APP_NAME} <video> <out> --ai` (local is the default when it runs) and the Ask tab.")
+
+    steps.begin("Ask from a lesson page opened as a file (optional)",
+                f"With `{APP_NAME} open <folder>` Ask always works. To also use Ask when you just double-click "
+                "index.html, the model server must allow browser pages.")
+    if page_allowed(url):
+        steps.end("already allowed")
+    else:
+        if app["app"] == "lmstudio":
+            ui.explain("Note: LM Studio's switch allows ANY website you visit to use your local model (not your "
+                       "files). To keep it after a restart: LM Studio → Developer → Server Settings → Enable CORS.")
+        else:
+            ui.explain("This allows only pages opened as files (origin 'null') to use Ollama.")
+        if _ask("Allow it now?"):
+            if app["app"] == "lmstudio":
+                _run([lms_bin(), "server", "stop"])
+                _run([lms_bin(), "server", "start", "--cors"])
+            else:
+                _run(["launchctl", "setenv", "OLLAMA_ORIGINS", "null"])
+                if shutil.which("brew"):
+                    _run(["brew", "services", "restart", "ollama"])
+            steps.end("allowed" if page_allowed(url) else "done; if Ask still can't reach it, restart the app")
+        else:
+            steps.end(f"skipped; later: {ALLOW_PAGE[app['app']]}")
+    ui.info(f"Use it: `{APP_NAME} <video> <out> --ai` (local is the default when it runs) and the Ask box.")
     return 0

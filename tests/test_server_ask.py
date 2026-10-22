@@ -206,3 +206,20 @@ def test_start_questions_use_the_earliest_strong_match(monkeypatch, tmp_path):
     assert r["main_time"] == 120 and [s["t"] for s in r["sources"]] == [181.0]
     r = ask.answer(lesson_dict(), "what happens in the virtual machine demo?", Late(), "")
     assert r["main_time"] == 181.0  # not a "start" question: the model's choice stays
+
+
+def test_page_embeds_the_same_ask_prompt(tmp_path):
+    """The file:// page asks local models directly; its prompt, schema and stop words come from ask.py."""
+    from lecap.ai.schema import AskAnswer
+    from lecap.steps import render
+
+    cfg = render.ask_config(tmp_path)
+    assert cfg["system"] == ask.ASK_SYSTEM
+    assert cfg["schema"] == json_schema(AskAnswer)
+    assert set(cfg["stop"]) == ask.STOP
+    assert cfg["open_cmd"] == f"lecap open '{tmp_path}'"
+    les = Lesson(id="z", title="T", source="video", cards=[Card(id=0, kind="slide", start=0, end=1)])
+    out = tmp_path / "index.html"
+    render.render(les, out)
+    page = out.read_text()
+    assert "/*ASK_DATA*/" not in page and '"main_time"' in page

@@ -220,7 +220,7 @@ def decorate_chapters(chapters, cards, divider_pages=(), min_demo=180):
                 while j + 1 < len(inside) and inside[j + 1].kind == "demo":
                     j += 1
                 if (inside[j].end or 0) - (c.start or 0) >= min_demo:
-                    subs.append({"title": "Live demo", "card": c.id})
+                    subs.append({"title": c.quick_title or "Live demo", "card": c.id})
                 i = j + 1
                 continue
             i += 1

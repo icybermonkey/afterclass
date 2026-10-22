@@ -16,6 +16,7 @@ RESULT = {
     "lesson_title": "Code Obfuscation",
     "chapters": [{"start_card": 1, "title": "Opaque Predicates"}],
     "glossary": [{"term": "Opaque predicate", "definition": "A condition known a priori.", "card": 1}],
+    "card_titles": [{"card": 0, "title": "Welcome and course goals"}, {"card": 1, "title": "What makes a predicate opaque"}],
 }
 # What v0.2 cached in data/ai.json: must still be readable
 OLD_RESULT = {**RESULT, "lesson_summary": "About obfuscation.",
@@ -62,6 +63,7 @@ def test_prompt_and_apply():
     ai_step.apply(les, AiResult.model_validate(RESULT), {"provider": "test", "model": "m"})
     assert les.chapters[0].card == 0  # first chapter snaps to the first card
     assert les.ai["glossary"][0]["term"] == "Opaque predicate"
+    assert [c.quick_title for c in les.cards] == ["Welcome and course goals", "What makes a predicate opaque"]
     assert ai_step.parse({**OLD_RESULT, "chapters": OLD_RESULT["chapters"] * 2}).chapters[0].title == "Opaque Predicates"
 
 
@@ -150,6 +152,7 @@ def test_cached_ai_result_survives_renumbered_cards():
     les.cards[2].id = 2
     ai_step.apply(les, AiResult.model_validate(RESULT), {"provider": "test", "model": "m"}, times)
     assert les.ai["glossary"][0]["card"] == 2
+    assert les.cards[2].quick_title == "What makes a predicate opaque" and les.cards[1].quick_title == ""
 
 
 def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):

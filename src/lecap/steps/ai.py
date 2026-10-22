@@ -1,4 +1,4 @@
-"""--ai: chapter names and a glossary from any provider (local model or Claude)."""
+"""--ai: chapter names, quick titles per card and a glossary from any provider (local model or Claude)."""
 
 import bisect
 import math
@@ -25,6 +25,8 @@ Create:
 - chapters: 4-12 chapters following the structure of the lecture, each starting at a card id, in order.
   The first chapter starts at card {first}. Use the hints where they fit. Titles: 2-6 words.
 - glossary: 8-20 important terms with a short definition as explained in the lecture.
+- card_titles: for EVERY card, a quick title of 3-8 words saying what is said or shown there
+  (start live demos with "Demo:"). Concrete, not just the slide title.
 - lesson_title: a short title for the lesson.
 
 Cards:
@@ -36,6 +38,8 @@ Chapter hints in this part: {hints}
 Create, for this part only:
 - chapters: 1-4 chapters, each starting at a card id of this part, in order. Titles: 2-6 words.
 - glossary: 3-8 important terms explained in this part.
+- card_titles: for EVERY card of this part, a quick title of 3-8 words saying what is said or shown there
+  (start live demos with "Demo:").
 - lesson_title: a short title for the whole lesson.
 
 Cards:
@@ -102,7 +106,7 @@ def _run_parts(provider, lesson, model, limit):
     info(f"the model's context ({limit:,} tokens) is too small for the whole lecture: "
          f"working in {len(parts)} parts")
     system = _system(lesson)
-    title, chapters, glossary, total_in, total_out, usage = "", [], {}, 0, 0, None
+    title, chapters, glossary, card_titles, total_in, total_out, usage = "", [], {}, [], 0, 0, None
     for k, cards in enumerate(parts, 1):
         ids = {c.id for c in cards}
         hints = ", ".join(f"card {ch.card}: {ch.title}" for ch in lesson.chapters if ch.card in ids) or "none"
@@ -120,7 +124,9 @@ def _run_parts(provider, lesson, model, limit):
         chapters += [ch for ch in part.chapters if ch.start_card in ids] or part.chapters[:1]
         for t in part.glossary:
             glossary.setdefault(term_key(t.term), t)
-    merged = AiResult(lesson_title=title or lesson.title, chapters=chapters, glossary=list(glossary.values())[:20])
+        card_titles += [ct for ct in part.card_titles if ct.card in ids]
+    merged = AiResult(lesson_title=title or lesson.title, chapters=chapters, glossary=list(glossary.values())[:20],
+                      card_titles=card_titles)
     usage.input_tokens, usage.output_tokens = total_in, total_out
     return parse(merged.model_dump()), usage
 
@@ -135,11 +141,13 @@ def _compat(data):
     """Results cached by older versions carry extra fields (summaries, exam questions, …): drop them."""
     if not isinstance(data, dict):
         return data
-    out = {"lesson_title": data.get("lesson_title", ""), "chapters": [], "glossary": []}
+    out = {"lesson_title": data.get("lesson_title", ""), "chapters": [], "glossary": [], "card_titles": []}
     out["chapters"] = [{"start_card": c.get("start_card"), "title": c.get("title")} for c in data.get("chapters", [])
                        if isinstance(c, dict)]
     out["glossary"] = [{k: g.get(k) for k in ("term", "definition", "card")} for g in data.get("glossary", [])
                        if isinstance(g, dict)]
+    out["card_titles"] = [{"card": t.get("card"), "title": t.get("title")} for t in data.get("card_titles", [])
+                          if isinstance(t, dict)]
     return out
 
 
@@ -191,6 +199,10 @@ def apply(lesson, result, meta, times=None):
             chapters[0].card = lesson.cards[0].id
         lesson.stats["slide_chapters"] = [{"title": c.title, "card": c.card} for c in lesson.chapters]
         lesson.chapters = chapters
+    for ct in result.card_titles:
+        title = " ".join(ct.title.split())[:80]
+        if title:
+            lesson.cards[to_current(ct.card)].quick_title = title
     lesson.ai = {
         "title": result.lesson_title,
         "glossary": [{**t.model_dump(), "card": to_current(t.card)}

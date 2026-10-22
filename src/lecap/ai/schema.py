@@ -18,10 +18,16 @@ class AiTerm(_Strict):
     card: int = Field(description="id of the card where it is explained")
 
 
+class AiCardTitle(_Strict):
+    card: int
+    title: str = Field(description="3-8 words: what is said or shown on this card")
+
+
 class AiResult(_Strict):
     lesson_title: str
     chapters: list[AiChapter]
     glossary: list[AiTerm]
+    card_titles: list[AiCardTitle] = Field(description="one quick title for every card")
 
 
 class AskAnswer(_Strict):

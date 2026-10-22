@@ -1,7 +1,20 @@
 """Write index.html: the template with the lesson JSON embedded (works from file://, no server)."""
 
 import html
+import json
 from importlib.resources import files
+
+from .. import APP_NAME
+
+
+def ask_config(folder):
+    """What the page needs to ask a local model directly when opened as a plain file:
+    the same prompt and answer schema as `lecap open` uses, and the command to open it properly."""
+    from ..ai.schema import AskAnswer, json_schema
+    from ..ask import ASK_SYSTEM, STOP
+
+    return {"system": ASK_SYSTEM, "schema": json_schema(AskAnswer), "stop": sorted(STOP),
+            "open_cmd": f"{APP_NAME} open '{folder}'"}
 
 
 def render(lesson, out_path):
@@ -12,7 +25,8 @@ def render(lesson, out_path):
     page = (template
             .replace("__TITLE__", html.escape((lesson.ai or {}).get("title") or lesson.title))
             .replace("/*LESSON_DATA*/", _safe(lesson.to_json()))
-            .replace("/*NOTES_DATA*/", _safe(notes)))
+            .replace("/*NOTES_DATA*/", _safe(notes))
+            .replace("/*ASK_DATA*/", _safe(json.dumps(ask_config(out_path.parent), ensure_ascii=False))))
     out_path.write_text(page, encoding="utf-8")
     return len(page.encode())
 

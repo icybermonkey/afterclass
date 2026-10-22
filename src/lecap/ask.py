@@ -62,7 +62,7 @@ def passages(lesson):
                 out.append(para)
             else:
                 para["text"] += " " + s["text"]
-        slide = " ".join(x for x in (c.get("title"), c.get("text")) if x)
+        slide = " ".join(x for x in (c.get("quick_title"), c.get("title"), c.get("text")) if x)
         if slide.strip():
             out.append({"kind": "slide", "card": c["id"], "t": c.get("start") or 0, "text": slide[:800]})
     starts = {c["id"]: c.get("start") or 0 for c in lesson.get("cards", [])}
