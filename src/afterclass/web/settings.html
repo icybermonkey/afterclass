@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>afterclass settings</title>
+<title>AfterClass settings</title>
 <link rel="icon" href="__ICON__">
 <style>
 :root {
@@ -75,7 +75,7 @@ h2 .tag { margin-left: 8px; }
 </head>
 <body>
 <main>
-  <h1>afterclass settings</h1>
+  <h1>AfterClass settings</h1>
   <p class="sub">Global for all lessons, saved in <code id="path">…</code>. Changes save immediately. API keys go to the macOS Keychain, never into a file.</p>
 
   <section>
@@ -211,7 +211,7 @@ function render() {
   const cmd = c => `<div class="cmd"><code>${esc(c)}</code><button data-copy="${esc(c)}">Copy</button></div>`;
   let guide = "";
   if (running) {
-    guide = `<p class="muted">Ready. afterclass will use the running model when the provider is “auto” or “local”.</p>
+    guide = `<p class="muted">Ready. AfterClass will use the running model when the provider is “auto” or “local”.</p>
       <details><summary>Other models for your ${esc(L.mac.chip)} (bigger = better answers, slower)</summary>
       ${modelList(L.choices.lmstudio, L.recommended.lmstudio)}
       <p class="muted">Download with the copied command (or <code>afterclass setup ai</code>), then pick it under “Local model” below.</p></details>`;

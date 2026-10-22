@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib.resources import files
 from pathlib import Path
 
-from . import APP_NAME, OLD_NAME, config, ui
+from . import APP_NAME, DISPLAY_NAME, OLD_NAME, config, ui
 from .ui import AfterclassError
 
 BASE_PORT = 8476
@@ -414,11 +414,24 @@ def running_url(folder, start=BASE_PORT, tries=50):
     return None
 
 
+def lesson_folder(folder):
+    """The resolved lesson folder, or AfterclassError if it isn't one."""
+    folder = Path(folder).expanduser().resolve()
+    if not (folder / "index.html").exists() or not (folder / "data" / "lesson.json").exists():
+        raise AfterclassError(f"{folder} is not a {APP_NAME} lesson folder (no index.html / data/lesson.json)")
+    return folder
+
+
+def start_in_background(folder=None):
+    """Serve on a daemon thread (the Mac app's windows). Returns (server, page URL)."""
+    httpd = make_server(folder)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    return httpd, f"http://127.0.0.1:{httpd.server_address[1]}/" + ("index.html" if folder else "")
+
+
 def serve(folder=None, port=None, browser=True):
     if folder is not None:
-        folder = Path(folder).expanduser().resolve()
-        if not (folder / "index.html").exists() or not (folder / "data" / "lesson.json").exists():
-            raise AfterclassError(f"{folder} is not a {APP_NAME} lesson folder (no index.html / data/lesson.json)")
+        folder = lesson_folder(folder)
         url = running_url(folder) if port is None else None
         if url:
             ui.info(f"already open: {url}")
@@ -457,7 +470,7 @@ def open_url(url):
     try:
         return serve(folder_from_url(url))
     except AfterclassError as e:
-        ui.notify(f"{APP_NAME}: can't open the lesson", str(e), sound="Basso")
+        ui.notify(f"{DISPLAY_NAME}: can't open the lesson", str(e), sound="Basso")
         raise
 
 

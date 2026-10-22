@@ -4,10 +4,12 @@
 
 **Lecture recording in, searchable study page out. Offline first.**
 
-**As a Mac app:** `afterclass install-app` puts **afterclass.app** into /Applications. Open it, drop the recording (and
-the slides), choose the output folder, press **Run**, then **Open lesson**. `afterclass app` opens the same window from
-the Terminal. With the app installed, a page you double-clicked (`index.html`) has an **Open in afterclass** button that
-reopens it with `afterclass open` (notes in the folder, all Ask models).
+**As a Mac app:** `afterclass install-app` puts **AfterClass.app** into /Applications. Open it, drop the recording (and
+the slides), choose the output folder, press **Run**, then **Open lesson**. Lessons and the settings open as windows of
+the app (File → Open Lesson… for earlier ones), and it shows up as **AfterClass** in the Dock. `afterclass app` opens
+the same window from the Terminal. With the app installed, a page you double-clicked (`index.html`) has an **Open in
+AfterClass** button that reopens it in the app (notes in the folder, all Ask models). Installing needs clang (Xcode
+command line tools: `xcode-select --install`); after a Python upgrade run `afterclass install-app` again.
 
 ```bash
 afterclass lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
@@ -78,7 +80,7 @@ brew install ffmpeg tesseract uv
 git clone https://github.com/icybermonkey/afterclass.git ~/Projects/afterclass
 uv tool install --python 3.14 --editable "$HOME/Projects/afterclass[claude]"
 afterclass --help
-afterclass install-app   # optional: afterclass.app in /Applications (remove: afterclass install-app --remove)
+afterclass install-app   # optional: AfterClass.app in /Applications (remove: afterclass install-app --remove)
 ```
 
 `--editable` means code changes in the repo apply immediately. After a change to the dependencies, run the same command with `--reinstall`.
@@ -121,7 +123,7 @@ afterclass <video> <output-folder> [options]
   --open                open the page with `afterclass open` when done
 
 afterclass app               a window: drop the video (+ slides), pick the output folder, Run
-afterclass install-app       afterclass.app in /Applications (opens `afterclass app`); --remove deletes it
+afterclass install-app       AfterClass.app in /Applications (opens `afterclass app`); --remove deletes it
 afterclass open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
 afterclass settings          global settings in the browser
 afterclass setup ai          guided local AI setup

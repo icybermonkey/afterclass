@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>afterclass · new lesson</title>
+<title>AfterClass · new lesson</title>
 <link rel="icon" href="__ICON__">
 <style>
 :root {
@@ -250,6 +250,14 @@ window.addEventListener("pywebviewready", async () => {
   $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").checked = d.speakers; $("#media").value = d.media; $("#deck_media").value = d.deck_media;
   form.out_dir = d.out_dir; $("#outdir").textContent = d.out_dir;
   refresh();
+  // reopened (File → New Lesson) while a lesson runs or has finished: show it again
+  const p = await api.poll(0);
+  if (p.state !== "idle") {
+    next = 0; $("#log").textContent = "";
+    $("#progress").classList.remove("hidden"); $("#done").classList.add("hidden");
+    if (p.state === "running") { $("#running").classList.remove("hidden"); $("#run").disabled = true; timer = setInterval(poll, 700); }
+    poll();
+  }
 });
 </script>
 </body>

@@ -7,7 +7,7 @@ import signal
 import sys
 from pathlib import Path
 
-from . import APP_NAME, __version__, config, ui
+from . import APP_NAME, DISPLAY_NAME, __version__, config, ui
 from .ui import AfterclassError
 
 REDO_STEPS = ("transcribe", "speakers", "scenes", "ocr", "deck", "ai")
@@ -17,7 +17,7 @@ def build_parser():
     p = argparse.ArgumentParser(
         prog=APP_NAME,
         description="Turn a lecture recording into a searchable study page: index.html + subfolders.",
-        epilog=(f"Also: `{APP_NAME} app` (window to start a lesson), `{APP_NAME} install-app` (afterclass.app in /Applications), "
+        epilog=(f"Also: `{APP_NAME} app` (window to start a lesson), `{APP_NAME} install-app` ({DISPLAY_NAME}.app in /Applications), "
                 f"`{APP_NAME} open <folder>`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -153,10 +153,10 @@ def run(args):
         raise
     except AfterclassError as e:
         if notify:
-            ui.notify(f"{APP_NAME}: lesson failed", f"{args.input.name}: {str(e)[:120]}", sound="Basso")
+            ui.notify(f"{DISPLAY_NAME}: lesson failed", f"{args.input.name}: {str(e)[:120]}", sound="Basso")
         raise
     if notify:
-        ui.notify(f"{APP_NAME}: lesson ready", f"{args.title or args.input.stem} is ready to study ({steps.elapsed()})")
+        ui.notify(f"{DISPLAY_NAME}: lesson ready", f"{args.title or args.input.stem} is ready to study ({steps.elapsed()})")
 
     print(f"\n{ui.GREEN}{ui.BOLD}Done{ui.RESET} in {steps.elapsed()}: {index}")
     for w in ctx.warnings:

@@ -312,7 +312,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   </div>
   <div class="tools">
     <label title="Keep chapters and transcript on what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
-    <span id="openwrap"><span id="sync"></span><a id="openafterclass" class="hidden" title="Save notes in the lesson folder, all Ask models, settings">Open in afterclass</a>
+    <span id="openwrap"><span id="sync"></span><a id="openafterclass" class="hidden" title="Save notes in the lesson folder, all Ask models, settings">Open in AfterClass</a>
       <div id="openhint" class="hidden"></div></span><div id="hintback" class="hidden"></div>
     <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
     <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
@@ -352,7 +352,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
     <div class="tab hidden" id="tab-overview"></div>
   </section>
 </div>
-<div id="settings-help" class="hidden"><b>Settings run through afterclass</b>
+<div id="settings-help" class="hidden"><b>Settings run through AfterClass</b>
   <p>Start them in Terminal, then click ⚙ again:</p>
   <div class="cmdrow"><code>afterclass settings</code><button class="btn" data-copy="afterclass settings">Copy</button></div>
   <p class="muted">Or open this lesson with <code>afterclass open</code>: then ⚙, notes in the folder and Claude online all work directly.</p></div>
@@ -427,12 +427,12 @@ if (location.protocol === "file:") {
   $("#openafterclass").href = link;
   $("#openafterclass").classList.remove("hidden");
   hint.innerHTML = `<div class="hhead"><b>Opened as a file</b><button class="x" title="Close">×</button></div>
-    <p class="lead">Notes you write here are <b>not saved in the lesson folder</b>. To study, open the lesson with afterclass.</p>
-    <table class="cmp"><tr><th></th><th>Here</th><th class="good">In afterclass</th></tr>
+    <p class="lead">Notes you write here are <b>not saved in the lesson folder</b>. To study, open the lesson with AfterClass.</p>
+    <table class="cmp"><tr><th></th><th>Here</th><th class="good">In AfterClass</th></tr>
       <tr><td>Notes &amp; stars</td><td><span class="no">✕</span> this browser only</td><td><span class="ok">✓</span> in the lesson folder, synced</td></tr>
       <tr><td>Ask</td><td><span class="no">✕</span> search or a local model</td><td><span class="ok">✓</span> all models, also Claude</td></tr>
       <tr><td>Settings</td><td><span class="no">✕</span> not here</td><td><span class="ok">✓</span> change them on the page</td></tr></table>
-    <p><a class="go" href="${esc(link)}">Open in afterclass</a><button class="stay">Continue here</button></p>
+    <p><a class="go" href="${esc(link)}">Open in AfterClass</a><button class="stay">Continue here</button></p>
     <div class="fallback"><span class="opening hidden"><b>Opening…</b> your browser may ask first. </span>Nothing happens? Install the Mac app once:
       <div class="cmd"><code>afterclass install-app</code><button class="btn" data-copy="afterclass install-app">Copy</button></div>or open it from Terminal:
       <div class="cmd"><code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></div></div>`;
@@ -784,6 +784,7 @@ const closeChapters = () => $("#chapters").classList.remove("open");
 $$(".seg2 [data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; lsSet("afterclass:view", view); renderTranscript(); if (current >= 0) scrollToCard(current, true); });
 /* ⚙: settings are served by afterclass. Opened as a file, look for a running `afterclass settings` / `afterclass open`. */
 async function openSettings() {
+  if (window.pywebview) { window.pywebview.api.settings(); return; }  // in the Mac app: its settings window
   if (SERVER && serverOK) { window.open("/settings", "_blank"); return; }
   const btn = $("#settings");
   btn.textContent = "…";
@@ -1009,7 +1010,7 @@ function askWho() {
       h = `<div class="askhelp"><div class="line">${tagHTML(false)} <b>${directState === "blocked" ? `${esc(direct.name)} is running but doesn't allow this page yet` : "No local model found"}</b>
           <button class="btn" id="recheck" style="margin-left:auto">↻ Check again</button></div>
         ${first}
-        <div class="opt"><span>${directState === "blocked" ? "2" : "·"}</span><span><b>Or open the lesson with afterclass</b> (notes saved in the folder):<code>${esc(openCmd)}</code></span><button class="btn" data-copy="${esc(openCmd)}">Copy</button></div>
+        <div class="opt"><span>${directState === "blocked" ? "2" : "·"}</span><span><b>Or open the lesson with AfterClass</b> (notes saved in the folder):<code>${esc(openCmd)}</code></span><button class="btn" data-copy="${esc(openCmd)}">Copy</button></div>
         <div class="line muted" style="margin-top:6px">Until then, questions are answered by search only.</div></div>`;
     }
     else h = `${tagHTML(false)} looking for a local model…`;
@@ -1136,7 +1137,8 @@ document.addEventListener("click", e => {
   const b = e.target.closest("[data-addai]");
   if (!b) { if (!e.target.closest("#addai-menu")) $("#addai-menu").classList.add("hidden"); return; }
   const [kind, ...rest] = b.dataset.addai.split(":"), value = rest.join(":");
-  if (kind === "open") window.open(value, "_blank");
+  if (kind === "open" && window.pywebview) value.startsWith("/settings") ? window.pywebview.api.settings() : window.pywebview.api.open_external(value);  // in the Mac app
+  else if (kind === "open") window.open(value, "_blank");
   else navigator.clipboard?.writeText(value).then(() => toast("Copied: paste it in Terminal"), () => toast(value));
   $("#addai-menu").classList.add("hidden");
 });

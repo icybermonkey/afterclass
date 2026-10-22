@@ -35,15 +35,104 @@ def test_app_bundle(tmp_path):
     assert (app / "Contents/Resources/afterclass.icns").stat().st_size > 1000
 
 
-@pytest.mark.skipif(sys.platform != "darwin", reason="the link helper is built with osacompile/codesign")
-def test_link_helper(tmp_path):
+@pytest.mark.skipif(sys.platform != "darwin", reason="codesign is macOS only")
+def test_app_handles_lesson_links(tmp_path):
     app = macapp.build(tmp_path / "afterclass.app", command=["/usr/local/bin/afterclass"])
-    helper = app / macapp.HELPER
-    info = plistlib.loads((helper / "Contents/Info.plist").read_bytes())
-    assert info["CFBundleURLTypes"][0]["CFBundleURLSchemes"] == ["afterclass", "lecap"] and info["LSBackgroundOnly"] is True
-    script = (helper / "Contents/Resources/open-url").read_text()
-    assert script.rstrip().endswith('exec "/usr/local/bin/afterclass" open-url "$1"')
-    assert subprocess.run(["codesign", "--verify", str(helper)]).returncode == 0
+    info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    assert info["CFBundleURLTypes"][0]["CFBundleURLSchemes"] == ["afterclass", "lecap"]
+    assert info["CFBundleName"] == info["CFBundleDisplayName"] == "AfterClass"  # the command stays afterclass
+    assert not (app / macapp.OLD_HELPER).exists()
+    assert subprocess.run(["codesign", "--verify", str(app)]).returncode == 0
+
+
+@pytest.mark.skipif(not macapp.can_compile(), reason="the native launcher needs macOS and clang")
+def test_native_launcher_runs_afterclass_in_this_python(tmp_path):
+    exe = macapp.compile_launcher(tmp_path / "afterclass", sys.executable, arg="--help")
+    r = subprocess.run([str(exe)], capture_output=True, text=True)
+    assert r.returncode == 0 and r.stdout.startswith("usage: afterclass")
+    app = macapp.build(tmp_path / "afterclass.app", python=sys.executable)
+    assert (app / "Contents/MacOS/afterclass").read_bytes()[:4] == bytes.fromhex("cffaedfe")  # Mach-O, not a script
+    assert subprocess.run(["codesign", "--verify", str(app)]).returncode == 0
+
+
+class FakeWindow:
+    def __init__(self, title, url=None, **kw):
+        self.title, self.url, self.kw, self.shown, self.destroyed = title, url, kw, 0, False
+
+        class Events:
+            def __init__(self):
+                self.closed, self.loaded = Hook(), Hook()
+
+        self.events = Events()
+
+    def show(self):
+        self.shown += 1
+
+    def destroy(self):
+        self.destroyed = True
+
+
+class Hook(list):
+    def __iadd__(self, fn):
+        self.append(fn)
+        return self
+
+    def fire(self):
+        for fn in self:
+            fn()
+
+
+class FakeWebview:
+    def __init__(self):
+        self.windows = []
+
+    def create_window(self, title, url=None, **kw):
+        self.windows.append(FakeWindow(title, url, **kw))
+        return self.windows[-1]
+
+
+def lesson(tmp_path, name="L1"):
+    folder = tmp_path / name
+    (folder / "data").mkdir(parents=True)
+    (folder / "index.html").write_text("<html></html>")
+    (folder / "data/lesson.json").write_text('{"title": "Lesson one"}')
+    return folder
+
+
+def test_a_lesson_opens_once_in_its_own_window_with_a_server(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "running_url", lambda folder: None)
+    web = FakeWebview()
+    windows = gui.Windows(gui.Api(), webview=web)
+    folder = lesson(tmp_path)
+    first = windows.show(folder)
+    assert first.title == "Lesson one" and first.url.startswith("http://127.0.0.1:") and first.url.endswith("/index.html")
+    assert windows.show(folder) is first and first.shown == 1 and len(web.windows) == 1  # the same window again
+    httpd = windows.pages[folder.resolve()][1]
+    first.events.closed.fire()
+    assert not windows.pages and httpd.socket.fileno() == -1  # its server stopped
+
+
+def test_started_by_a_link_the_app_quits_with_the_lesson_window(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "running_url", lambda folder: None)
+    web = FakeWebview()
+    windows = gui.Windows(gui.Api(), webview=web)
+    main = windows.new_lesson()
+    assert main.kw["hidden"] is True
+    page = windows.show(lesson(tmp_path))
+    page.events.closed.fire()
+    assert main.destroyed  # the hidden new-lesson window doesn't keep the app running unseen
+
+
+def test_settings_window_and_bad_lesson_links(tmp_path, monkeypatch):
+    notes = []
+    monkeypatch.setattr(gui.ui, "notify", lambda title, msg, sound=None: notes.append(msg))
+    web = FakeWebview()
+    windows = gui.Windows(gui.Api(), webview=web)
+    assert windows.show(None).url.endswith("/") and web.windows[0].title == "AfterClass · settings"
+    windows.open_url(f"afterclass://open?folder={tmp_path}")  # not a lesson folder
+    windows.open_url("https://example.com")
+    assert len(notes) == 2 and len(web.windows) == 1
+    web.windows[0].events.closed.fire()
 
 
 def test_media_choice_is_passed_on():
