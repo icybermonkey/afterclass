@@ -104,6 +104,11 @@ body.dragging video { pointer-events: none; }
 #askform .btn { height: 38px; }
 #addai-wrap { position: relative; }
 #addai { height: 38px; padding: 0 10px; font-size: 16px; color: var(--muted); }
+#settings-help { position: fixed; top: 46px; right: 12px; width: 300px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 10px 12px; z-index: 45; font-size: 13px; }
+#settings-help p { margin: 6px 0; }
+#settings-help .cmdrow { display: flex; gap: 6px; align-items: center; }
+#settings-help code { flex: 1; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 8px; }
 #addai-menu { position: absolute; bottom: 44px; right: 0; width: 280px; background: var(--panel); border: 1px solid var(--line);
   border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 6px; z-index: 30; }
 #addai-menu .mt { font-size: 11px; color: var(--muted); padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: .04em; }
@@ -292,6 +297,10 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
     <div class="tab hidden" id="tab-overview"></div>
   </section>
 </div>
+<div id="settings-help" class="hidden"><b>Settings run through lecap</b>
+  <p>Start them in Terminal, then click ⚙ again:</p>
+  <div class="cmdrow"><code>lecap settings</code><button class="btn" data-copy="lecap settings">Copy</button></div>
+  <p class="muted">Or open this lesson with <code>lecap open</code>: then ⚙, notes in the folder and Claude online all work directly.</p></div>
 <div id="lightbox" class="hidden"><img alt=""></div>
 <div id="toast"></div>
 
@@ -638,7 +647,24 @@ toggleLane("right", lsGet("lecap:no-right") === "1");
 $("#menu").onclick = () => $("#chapters").classList.toggle("open");
 const closeChapters = () => $("#chapters").classList.remove("open");
 $$(".seg2 [data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; lsSet("lecap:view", view); renderTranscript(); if (current >= 0) scrollToCard(current, true); });
-$("#settings").onclick = () => SERVER && serverOK ? window.open("/settings", "_blank") : toast("Settings: run `lecap settings` in Terminal (or open this lesson with `lecap open`)");
+/* ⚙: settings are served by lecap. Opened as a file, look for a running `lecap settings` / `lecap open`. */
+async function openSettings() {
+  if (SERVER && serverOK) { window.open("/settings", "_blank"); return; }
+  const btn = $("#settings");
+  btn.textContent = "…";
+  for (let port = 8476; port < 8486; port++) {
+    try {
+      await fetch(`http://127.0.0.1:${port}/settings`, { mode: "no-cors", signal: AbortSignal.timeout(400) });
+      btn.textContent = "⚙";
+      window.open(`http://127.0.0.1:${port}/settings`, "_blank");
+      return;
+    } catch (e) {}
+  }
+  btn.textContent = "⚙";
+  $("#settings-help").classList.toggle("hidden");
+}
+$("#settings").onclick = e => { e.stopPropagation(); openSettings(); };
+document.addEventListener("click", e => { if (!e.target.closest("#settings-help")) $("#settings-help").classList.add("hidden"); });
 
 function toggleStar(id) {
   if (store.stars[id]) delete store.stars[id]; else store.stars[id] = true;
