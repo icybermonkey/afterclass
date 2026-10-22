@@ -26,17 +26,34 @@ class AiQuestion(_Strict):
     card: int = Field(description="id of the card that covers the answer")
 
 
+class AiKeyPoints(_Strict):
+    card: int = Field(description="id of a card with a long transcript")
+    points: list[str] = Field(description="2-4 short key points of what is said on this card")
+
+
 class AiResult(_Strict):
     lesson_title: str
     lesson_summary: str = Field(description="4-6 sentences")
     chapters: list[AiChapter]
     glossary: list[AiTerm]
     exam_questions: list[AiQuestion]
+    key_points: list[AiKeyPoints] = Field(description="for each card marked LONG")
 
 
-def json_schema():
-    """AiResult as a self-contained JSON schema ($refs inlined, no titles)."""
-    schema = AiResult.model_json_schema()
+class AiLessonSummary(_Strict):
+    lesson_title: str
+    lesson_summary: str = Field(description="4-6 sentences")
+
+
+class AskAnswer(_Strict):
+    answer: str = Field(description="the answer in Markdown-free plain text, short paragraphs")
+    times: list[float] = Field(description="start times (seconds) of the passages the answer relies on")
+    in_lesson: bool = Field(description="false if the lesson material does not answer the question")
+
+
+def json_schema(model=None):
+    """A model (default AiResult) as a self-contained JSON schema ($refs inlined, no titles)."""
+    schema = (model or AiResult).model_json_schema()
     defs = schema.pop("$defs", {})
 
     def walk(node):

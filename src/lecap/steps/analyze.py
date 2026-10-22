@@ -99,7 +99,24 @@ def assign_segments(cards, segments):
     starts = [c.start for c in cards]
     for s in segments:
         i = max(bisect.bisect_right(starts, s["start"]) - 1, 0)
-        cards[i].segments.append(Segment(s["start"], s["end"], s["text"]))
+        cards[i].segments.append(Segment(s["start"], s["end"], s["text"], s.get("speaker", "")))
+
+
+def mark_paragraphs(cards, max_sentences=4, max_words=90, pause=1.5):
+    """Flag the segments that start a paragraph: speaker change, a pause, or a long enough run."""
+    for c in cards:
+        prev, sentences, words = None, 0, 0
+        for s in c.segments:
+            ends_sentence = prev is not None and prev.text.rstrip().endswith((".", "?", "!"))
+            new = (prev is None
+                   or s.speaker != prev.speaker
+                   or s.start - prev.end > pause
+                   or (ends_sentence and (sentences >= max_sentences or words >= max_words)))
+            if new:
+                s.para, sentences, words = True, 0, 0
+            sentences += sum(s.text.count(p) for p in ".?!") or 1
+            words += len(s.text.split())
+            prev = s
 
 
 def mark_breaks(cards, silences, min_len=60):

@@ -33,3 +33,7 @@ index.html
 
 .DS_Store
 .work/
+.venv.nosync/
+.work.nosync/
+.venv
+.work

@@ -10,7 +10,7 @@ from pathlib import Path
 from . import APP_NAME, __version__, config, ui
 from .ui import LecapError
 
-REDO_STEPS = ("transcribe", "scenes", "ocr", "deck", "ai")
+REDO_STEPS = ("transcribe", "speakers", "scenes", "ocr", "deck", "ai")
 
 
 def build_parser():
@@ -29,6 +29,8 @@ def build_parser():
     g.add_argument("-t", "--threshold", type=float, metavar="NUM", help="slide change sensitivity, higher = fewer cards (default 4)")
     g.add_argument("-m", "--model", metavar="MODEL", help="mlx-whisper model (default whisper-large-v3-turbo)")
     g.add_argument("-w", "--word-timestamps", action="store_true", help="word timestamps + hallucination filter (slower)")
+    g.add_argument("--speakers", action=argparse.BooleanOptionalAction, default=None,
+                   help="tell the lecturer and other speakers apart, offline (default from config: on)")
     g = p.add_argument_group("AI extras")
     g.add_argument("--ai", nargs="?", const="default", metavar="PROVIDER",
                    help="chapters, summaries, tags, glossary, exam questions. PROVIDER: claude (API key) or "
@@ -41,6 +43,7 @@ def build_parser():
                    help=f"redo one step, repeatable: {', '.join(REDO_STEPS)}")
     g = p.add_argument_group("media")
     m = g.add_mutually_exclusive_group()
+    m.add_argument("--copy", action="store_true", help="copy the video into media/ (default, see `lecap config set media`)")
     m.add_argument("--link", action="store_true", help="symlink the video into media/ instead of copying")
     m.add_argument("--move", action="store_true", help="move the video into media/ instead of copying")
     g.add_argument("--open", action="store_true", help="open the page when done")

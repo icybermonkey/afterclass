@@ -14,6 +14,8 @@ class Segment:
     start: float
     end: float
     text: str
+    speaker: str = ""  # "A" = lecturer, "B", "C", … = others; "" = unknown
+    para: bool = False  # starts a new paragraph
 
 
 @dataclass
@@ -28,6 +30,7 @@ class Card:
     title: str = ""
     text: str = ""  # slide text (deck text if matched, else OCR)
     segments: list[Segment] = field(default_factory=list)
+    points: list[str] = field(default_factory=list)  # AI key points for long cards
 
 
 @dataclass
@@ -52,6 +55,8 @@ class Lesson:
     cards: list[Card] = field(default_factory=list)
     chapters: list[Chapter] = field(default_factory=list)
     silences: list[list[float]] = field(default_factory=list)
+    speakers: list[dict] = field(default_factory=list)  # [{id, label, minutes}]
+    transcript_view: str = "paragraphs"  # default view on the page
     ai: dict | None = None  # glossary, exam questions, summary, provider info
     stats: dict = field(default_factory=dict)
 

@@ -21,7 +21,8 @@ class VideoSource(Source):
         language = a.language or cfg["language"]
         threshold = a.threshold or cfg["threshold"]
         model = a.model or cfg["whisper_model"]
-        total = 8 + bool(a.deck) + bool(a.ai)
+        use_speakers = cfg["speakers"] if a.speakers is None else a.speakers
+        total = 8 + bool(a.deck) + bool(a.ai) + bool(use_speakers)
         steps = ui.Steps(total)
         title = a.title or ctx.input.stem.replace("_", " ").replace("-", " ").strip()
 
@@ -38,14 +39,16 @@ class VideoSource(Source):
         steps.end()
 
         # 2. Media
-        mode = "link" if a.link else "move" if a.move else cfg["media"]
+        mode = "copy" if a.copy else "link" if a.link else "move" if a.move else cfg["media"]
         steps.begin("Place the video", f"The page plays media/{ctx.input.name}. Mode: {mode} "
-                    "(--link saves space, --move moves the file).")
+                    "(--copy keeps the folder self-contained, --link saves space, --move moves the file; "
+                    "default via `lecap config set media …`).")
         dest, what = media.place(ctx.input, ctx.media, mode)
         steps.end(f"{what} → media/{dest.name}")
 
         # 3. Transcript
         raw_json = ctx.data / "transcript.raw.json"
+        transcribed = False
         if ctx.cached("transcribe", raw_json):
             steps.skip("Transcribe speech", "transcript exists (use --redo transcribe to run Whisper again)")
             raw = json.loads(raw_json.read_text(encoding="utf-8"))
@@ -56,6 +59,7 @@ class VideoSource(Source):
                 ui.explain("Word timestamps + hallucination filter on (slower).")
             raw = transcribe.transcribe(dest, model, language, a.word_timestamps)
             transcribe.save(raw, raw_json, ctx.data / "transcript.srt")
+            transcribed = True
             steps.end(f"{len(raw)} segments → data/transcript.srt")
 
         # 4. Silences
@@ -79,6 +83,11 @@ class VideoSource(Source):
             ctx.warnings.append(
                 f"{report['dropped_share']:.0%} of the transcript was filtered as Whisper hallucination "
                 f"({report['loops']} repetition loops). If text is missing, try: --redo transcribe -w")
+
+        # 5. Speakers (optional)
+        speaker_list = []
+        if use_speakers:
+            speaker_list = self._speakers(ctx, steps, dest, segments, transcribed)
 
         # 5. Scenes
         csv_path = ctx.data / "scenes.csv"
@@ -131,6 +140,7 @@ class VideoSource(Source):
         cards = analyze.split_at_silences(cards, silences)
         analyze.assign_segments(cards, segments)
         analyze.mark_breaks(cards, silences)
+        analyze.mark_paragraphs(cards)
         if pages:
             chapters, source = analyze.chapters_from_deck(cards, pages, outline)
             if not chapters:
@@ -147,6 +157,7 @@ class VideoSource(Source):
             title=title, source="video", duration=info["duration"],
             media=f"media/{dest.name}", deck=deck_rel, deck_pages=len(pages) if pages else None,
             language=language, cards=cards, chapters=chapters, silences=silences,
+            speakers=speaker_list, transcript_view=cfg["transcript_view"],
             stats={"transcript": report, "kinds": kinds, "chapter_source": source,
                    "frames": n_before, "deck_matched": len(matched)},
         )
@@ -179,6 +190,42 @@ class VideoSource(Source):
         size = render.render(lesson, out)
         steps.end(f"index.html ({human_size(size)})")
         return out, steps
+
+    # --- speakers ------------------------------------------------------------
+
+    def _speakers(self, ctx, steps, video, segments, transcribed):
+        """Label every cleaned segment with a speaker (in place). Returns the speaker summary."""
+        from ..steps import speakers
+
+        sp_json = ctx.data / "speakers.json"
+        starts = [s["start"] for s in segments]
+        if not transcribed and ctx.cached("speakers", sp_json):
+            cached = json.loads(sp_json.read_text())
+            if cached.get("starts") == starts:
+                for s, lab in zip(segments, cached["labels"]):
+                    s["speaker"] = lab
+                steps.skip("Tell speakers apart", ", ".join(f"{x['label']} {x['minutes']} min" for x in cached["summary"])
+                           + " (cached)")
+                return cached["summary"]
+        steps.begin("Tell speakers apart", "Experimental, offline: a voice fingerprint per sentence (SpeechBrain "
+                    "ECAPA). The main voice is the lecturer; other voices become Speaker B, C, …")
+        try:
+            audio = speakers.load_audio(video)
+            ui.info("computing voice fingerprints…")
+            emb = speakers.embed(audio, segments, progress=_progress_n("segments"))
+        except LecapError as e:
+            ctx.warnings.append(f"speaker detection skipped: {e}")
+            ui.warn(str(e))
+            steps.end()
+            return []
+        labels = speakers.assign(segments, emb)
+        summary = speakers.summary(segments, labels)
+        for s, lab in zip(segments, labels):
+            s["speaker"] = lab
+        sp_json.write_text(json.dumps({"starts": starts, "labels": labels, "summary": summary}))
+        changes = sum(1 for x, y in zip(labels, labels[1:]) if x != y)
+        steps.end(", ".join(f"{x['label']} {x['minutes']} min" for x in summary) + f"; {changes} speaker changes")
+        return summary
 
     # --- deck ----------------------------------------------------------------
 
@@ -219,8 +266,10 @@ class VideoSource(Source):
         a, cfg = ctx.args, ctx.cfg
         provider = registry.pick(a.ai if a.ai != "default" else cfg["ai_provider"])
         model = a.ai_model or cfg["ai_model"] or provider.default_model
-        steps.begin("AI study extras", f"{provider.label} ({model}): chapters with summaries, tags, glossary and "
-                    "exam questions. Only text is sent (transcript + slide text), no video or images.")
+        where = ("offline, on this Mac" if not registry.is_online(provider)
+                 else "online: only text is sent (transcript + slide text), no video or images")
+        steps.begin("AI study extras", f"{provider.label} ({model or 'default model'}), {where}. "
+                    "Chapters with summaries, tags, glossary, exam questions and key points.")
         system, prompt = ai_step.build_prompt(lesson)
         # Content fingerprint without card numbers: re-cut cards don't invalidate the AI result
         content = "\n".join(s.text for c in lesson.cards for s in c.segments) + "".join(c.text for c in lesson.cards)
@@ -259,9 +308,11 @@ class VideoSource(Source):
                     return
         elif provider.name == "claude-code":
             ui.explain("Runs through your Claude subscription (no extra cost, counts against its usage limits).")
-        ui.info("waiting for the model (usually 1–4 minutes)…")
-        data, usage = provider.run(system, prompt, ai_step.SCHEMA, model)
-        result = ai_step.parse(data)
+        elif provider.name == "local":
+            model = provider.pick_model(model)
+            ui.kv("model", provider.describe(model))
+        ui.info("waiting for the model (online usually 1–4 minutes; local models can take longer)…")
+        result, usage = ai_step.run(provider, lesson, model)
         meta = {"provider": provider.name, "model": usage.model or model,
                 "input_tokens": usage.input_tokens, "output_tokens": usage.output_tokens, "cost_usd": usage.cost_usd}
         ai_json.write_text(json.dumps({"input": digest, "meta": meta, "card_times": ai_step.card_times(lesson),
@@ -272,12 +323,17 @@ class VideoSource(Source):
                   f"{len(result.exam_questions)} questions ({usage.input_tokens:,} in / {usage.output_tokens:,} out{cost})")
 
 
-def _progress(i, n):
-    if sys.stdout.isatty():
-        sys.stdout.write(f"\r{ui.INDENT}{ui.DIM}{i}/{n} frames{ui.RESET}\033[K")
-        if i == n:
-            sys.stdout.write("\n")
-        sys.stdout.flush()
+def _progress_n(unit):
+    def progress(i, n):
+        if sys.stdout.isatty():
+            sys.stdout.write(f"\r{ui.INDENT}{ui.DIM}{i}/{n} {unit}{ui.RESET}\033[K")
+            if i == n:
+                sys.stdout.write("\n")
+            sys.stdout.flush()
+    return progress
+
+
+_progress = _progress_n("frames")
 
 
 def _ranges(nums):

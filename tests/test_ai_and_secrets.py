@@ -18,6 +18,7 @@ RESULT = {
     "chapters": [{"start_card": 1, "title": "Opaque Predicates", "summary": "S.", "tags": ["Opaque", "cfg"]}],
     "glossary": [{"term": "Opaque predicate", "definition": "A condition known a priori.", "card": 1}],
     "exam_questions": [{"question": "Why?", "answer": "Because.", "card": 1}],
+    "key_points": [{"card": 1, "points": ["Opaque predicates have a known outcome."]}],
 }
 
 

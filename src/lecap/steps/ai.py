@@ -1,18 +1,19 @@
-"""--ai: chapters, summaries, tags, glossary and exam questions from any provider."""
+"""--ai: chapters, summaries, tags, glossary, exam questions and key points from any provider."""
 
 import bisect
 
 from pydantic import ValidationError
 
-from ..ai.schema import AiResult, json_schema
+from ..ai.schema import AiLessonSummary, AiResult, json_schema
 from ..model import Chapter
-from ..ui import LecapError, fmt_time
+from ..ui import LecapError, fmt_time, info
 
 LANG_NAMES = {"en": "English", "de": "German", "fr": "French", "it": "Italian", "es": "Spanish"}
+LONG_WORDS = 250  # cards with more speech than this get key points
 
 SYSTEM = """You turn a recorded university lecture into study material.
 You get the lecture as numbered cards in time order. Each card is one slide or screen and carries the
-slide text and what the lecturer said while it was shown. Base everything on this material only.
+slide text and what was said while it was shown. Base everything on this material only.
 Write in {language}. Keep technical terms as the lecturer uses them."""
 
 TASK = """Lesson: {title}
@@ -25,36 +26,126 @@ Create:
   if it is short. Each chapter gets a 2-4 sentence summary and 3-6 lowercase tags.
 - glossary: 8-20 important terms with a short definition as explained in the lecture.
 - exam_questions: 6-10 questions a student should be able to answer, with short answers.
+- key_points: for every card marked LONG, 2-4 short key points of what is said there.
 - lesson_title and lesson_summary.
 
 Cards:
 {cards}"""
 
+TASK_PART = """Lesson: {title}. This is part {part} of {parts} of the lecture (cards {a}-{b}).
+Chapter hints in this part: {hints}
 
-def build_prompt(lesson):
+Create, for this part only:
+- chapters: 1-4 chapters, each starting at a card id of this part, in order; 2-3 sentence summary, 3-5 lowercase tags.
+- glossary: 3-8 important terms explained in this part.
+- exam_questions: 2-4 questions with short answers.
+- key_points: for every card marked LONG, 2-4 short key points.
+- lesson_title and lesson_summary: describe this part.
+
+Cards:
+{cards}"""
+
+SUMMARY_TASK = """These are the chapters of a lecture titled "{title}":
+{chapters}
+
+Give the lesson a short title and a 4-6 sentence summary."""
+
+
+def card_lines(lesson, cards=None):
     lines = []
-    for c in lesson.cards:
+    for c in cards or lesson.cards:
         if c.kind == "break":
             continue
+        speech = " ".join(s.text for s in c.segments)
         head = f"[card {c.id} | {fmt_time(c.start)} | {c.kind}"
         if c.deck_page:
             head += f" | deck p.{c.deck_page}"
-        head += f"] {c.title}".rstrip()
-        lines.append(head)
+        if len(speech.split()) > LONG_WORDS:
+            head += " | LONG"
+        lines.append((head + f"] {c.title}").rstrip())
         if c.text and c.kind == "slide":
             lines.append("SLIDE: " + " ".join(c.text.split())[:600])
-        speech = " ".join(s.text for s in c.segments)
         if speech:
             lines.append("SPEECH: " + speech)
+    return lines
+
+
+def _system(lesson):
+    return SYSTEM.format(language=LANG_NAMES.get(lesson.language, lesson.language))
+
+
+def build_prompt(lesson):
     hints = "\n".join(f"- card {ch.card}: {ch.title}" for ch in lesson.chapters) or "- none"
     first = next((c.id for c in lesson.cards if c.kind != "break"), 0)
-    system = SYSTEM.format(language=LANG_NAMES.get(lesson.language, lesson.language))
     prompt = TASK.format(title=lesson.title, hint_source=lesson.stats.get("chapter_source", "slides"),
-                         hints=hints, first=first, cards="\n".join(lines))
-    return system, prompt
+                         hints=hints, first=first, cards="\n".join(card_lines(lesson)))
+    return _system(lesson), prompt
+
+
+def tokens(text):
+    return len(text) // 3  # rough and on the safe side for mixed prose/code
+
+
+def run(provider, lesson, model):
+    """Run the AI step; splits the lecture into parts when the model's context is too small."""
+    system, prompt = build_prompt(lesson)
+    limit = provider.context_limit(model) if hasattr(provider, "context_limit") else None
+    if not limit or tokens(system + prompt) + 8000 <= limit:
+        data, usage = provider.run(system, prompt, SCHEMA, model)
+        return parse(data), usage
+    return _run_parts(provider, lesson, model, limit)
+
+
+def _run_parts(provider, lesson, model, limit):
+    budget = max(limit - 6000, 2000) * 3  # characters of cards per part
+    parts, current, size = [], [], 0
+    for c in lesson.cards:
+        n = sum(len(x) for x in card_lines(lesson, [c]))
+        if current and size + n > budget:
+            parts.append(current)
+            current, size = [], 0
+        current.append(c)
+        size += n
+    if current:
+        parts.append(current)
+    info(f"the model's context ({limit:,} tokens) is too small for the whole lecture: "
+         f"working in {len(parts)} parts")
+    system = _system(lesson)
+    chapters, glossary, questions, points, total_in, total_out = [], {}, [], [], 0, 0
+    for k, cards in enumerate(parts, 1):
+        ids = {c.id for c in cards}
+        hints = ", ".join(f"card {ch.card}: {ch.title}" for ch in lesson.chapters if ch.card in ids) or "none"
+        prompt = TASK_PART.format(title=lesson.title, part=k, parts=len(parts), a=cards[0].id, b=cards[-1].id,
+                                  hints=hints, cards="\n".join(card_lines(lesson, cards)))
+        info(f"part {k}/{len(parts)} (cards {cards[0].id}-{cards[-1].id})…")
+        data, usage = provider.run(system, prompt, SCHEMA, model)
+        total_in += usage.input_tokens
+        total_out += usage.output_tokens
+        try:
+            part = AiResult.model_validate(data)
+        except ValidationError:
+            continue
+        chapters += [ch for ch in part.chapters if ch.start_card in ids] or part.chapters[:1]
+        for t in part.glossary:
+            glossary.setdefault(t.term.lower(), t)
+        questions += part.exam_questions
+        points += part.key_points
+    overview = "\n".join(f"- {ch.title}: {ch.summary}" for ch in chapters)
+    data, usage = provider.run(system, SUMMARY_TASK.format(title=lesson.title, chapters=overview),
+                               json_schema(AiLessonSummary), model)
+    total_in += usage.input_tokens
+    total_out += usage.output_tokens
+    head = AiLessonSummary.model_validate(data)
+    step = max(len(questions) // 10, 1)
+    merged = AiResult(lesson_title=head.lesson_title, lesson_summary=head.lesson_summary, chapters=chapters,
+                      glossary=list(glossary.values())[:20], exam_questions=questions[::step][:10], key_points=points)
+    usage.input_tokens, usage.output_tokens = total_in, total_out
+    return parse(merged.model_dump()), usage
 
 
 def parse(data):
+    if isinstance(data, dict):
+        data = {"key_points": [], **data}  # results cached before key points existed
     try:
         result = AiResult.model_validate(data)
     except ValidationError as e:
@@ -101,6 +192,8 @@ def apply(lesson, result, meta, times=None):
             chapters[0].card = lesson.cards[0].id
         lesson.stats["slide_chapters"] = [{"title": c.title, "card": c.card} for c in lesson.chapters]
         lesson.chapters = chapters
+    for kp in result.key_points:
+        lesson.cards[to_current(kp.card)].points = kp.points[:4]
     lesson.ai = {
         "title": result.lesson_title,
         "summary": result.lesson_summary,

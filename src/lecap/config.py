@@ -15,9 +15,41 @@ DEFAULTS = {
     "language": "en",
     "threshold": 4.0,
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
-    "ai_provider": "auto",  # auto = claude with a key, else claude-code
-    "ai_model": "",  # empty = the provider's default
     "media": "copy",  # copy | link | move
+    "speakers": True,  # tell lecturer and other speakers apart
+    "transcript_view": "paragraphs",  # paragraphs | blocks
+    "ai_provider": "auto",  # auto = local LLM if running, else claude with a key, else claude-code
+    "ai_model": "",  # empty = the provider's default
+    "ask_provider": "auto",
+    "local_llm_url": "auto",  # auto = LM Studio, then Ollama; or an OpenAI-compatible base URL
+    "local_llm_model": "",  # empty = the first loaded chat model
+    "allow_online": "ask",  # off | ask | on: may Ask use an online model for questions beyond the lesson
+    "allow_web": "ask",  # off | ask: may Ask search the web (always needs a click)
+}
+
+CHOICES = {
+    "media": ("copy", "link", "move"),
+    "transcript_view": ("paragraphs", "blocks"),
+    "ai_provider": ("auto", "local", "claude", "claude-code"),
+    "ask_provider": ("auto", "local", "claude", "claude-code"),
+    "allow_online": ("off", "ask", "on"),
+    "allow_web": ("off", "ask"),
+}
+
+HELP = {
+    "language": "Spoken language of the lectures (en, de, …)",
+    "threshold": "Slide change sensitivity; higher = fewer cards",
+    "whisper_model": "Speech-to-text model (mlx-whisper)",
+    "media": "What happens to the video: copy into the lesson folder, symlink, or move",
+    "speakers": "Tell the lecturer and other speakers apart (offline)",
+    "transcript_view": "Default transcript view on the page",
+    "ai_provider": "Model for the --ai study extras",
+    "ai_model": "Model name for --ai (empty = provider default)",
+    "ask_provider": "Model for the Ask tab",
+    "local_llm_url": "Local AI server (auto = LM Studio, then Ollama)",
+    "local_llm_model": "Local model (empty = the first loaded one)",
+    "allow_online": "Ask may use online Claude for questions beyond the lesson",
+    "allow_web": "Ask may offer a web search (always needs your click)",
 }
 
 # Provider name -> environment variable holding its key
@@ -44,18 +76,50 @@ def load():
     return cfg
 
 
-def set_value(key, raw):
+def coerce(key, raw):
+    """Convert a raw value (CLI string or JSON value) to the key's type. Raises ValueError."""
     if key not in DEFAULTS:
         raise KeyError(key)
-    cfg = {k: v for k, v in load().items()}
     default = DEFAULTS[key]
-    cfg[key] = type(default)(raw) if not isinstance(default, str) else raw
+    if isinstance(default, bool):
+        if isinstance(raw, bool):
+            value = raw
+        elif str(raw).lower() in ("1", "true", "yes", "on"):
+            value = True
+        elif str(raw).lower() in ("0", "false", "no", "off"):
+            value = False
+        else:
+            raise ValueError(f"{key} must be true or false")
+    elif isinstance(default, float):
+        value = float(raw)
+    else:
+        value = str(raw).strip()
+    if key in CHOICES and value not in CHOICES[key]:
+        raise ValueError(f"{key} must be one of: {', '.join(CHOICES[key])}")
+    return value
+
+
+def set_value(key, raw):
+    cfg = load()
+    cfg[key] = coerce(key, raw)
+    save(cfg)
+
+
+def save(cfg):
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     lines = [f"# {APP_NAME} defaults. No secrets here: use `{APP_NAME} auth set <provider>`."]
-    for k, v in cfg.items():
-        lines.append(f"{k} = {v!r}" if not isinstance(v, str) else f'{k} = "{_toml_escape(v)}"')
-    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    for k in DEFAULTS:
+        v = cfg.get(k, DEFAULTS[k])
+        if isinstance(v, bool):
+            lines.append(f"{k} = {'true' if v else 'false'}")
+        elif isinstance(v, str):
+            lines.append(f'{k} = "{_toml_escape(v)}"')
+        else:
+            lines.append(f"{k} = {v!r}")
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    tmp.replace(path)
 
 
 def _toml_escape(s):
