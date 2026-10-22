@@ -135,6 +135,10 @@ body.dragging video { pointer-events: none; }
 #player video { width: 100%; max-height: calc(100vh - 290px); background: #000; border-radius: 10px; display: block; }
 #now { font-size: 13px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #ask { flex: 1; min-height: 150px; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 8px; }
+#askbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
+#clearchat { font-size: 12px; padding: 1px 8px; color: var(--muted); }
+#clearchat:hover { color: var(--fg); }
+#clearchat.sure { color: var(--bad); border-color: var(--bad); }
 #asklog { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
 #askform { flex: none; display: flex; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
 #askq { flex: 1; min-height: 38px; max-height: 120px; resize: none; font: inherit; color: var(--fg); background: var(--panel);
@@ -320,6 +324,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   <section class="pane" id="stage">
     <div id="player"><video id="v" controls preload="metadata"></video><div id="now"></div></div>
     <section id="ask">
+      <div id="askbar" class="hidden"><button type="button" class="btn" id="clearchat" title="Remove all questions and answers of this lesson">Clear chat</button></div>
       <div id="asklog"></div>
       <div id="askwho"></div>
       <form id="askform">
@@ -1010,11 +1015,30 @@ function answerHTML(r, q, secs) {
   return h;
 }
 function addQA(q) {
+  $("#askbar").classList.remove("hidden");
   $("#asklog").insertAdjacentHTML("beforeend", `<div class="qa"><div class="q">${esc(q)}</div><div class="a"></div></div>`);
   const a = $("#asklog").lastElementChild.querySelector(".a");
   a.scrollIntoView({ block: "nearest" });
   return a;
 }
+// Clear chat: a second click within 3 s confirms (no browser dialog)
+let clearTimer = 0;
+$("#clearchat").onclick = async () => {
+  const b = $("#clearchat");
+  if (!b.classList.contains("sure")) {
+    b.classList.add("sure"); b.textContent = "Click again to clear";
+    clearTimer = setTimeout(() => { b.classList.remove("sure"); b.textContent = "Clear chat"; }, 3000);
+    return;
+  }
+  clearTimeout(clearTimer);
+  b.classList.remove("sure"); b.textContent = "Clear chat";
+  if (SERVER && serverOK) {
+    try { await api("DELETE", "/api/chat"); } catch (e) { toast("Couldn't clear the saved chat"); return; }
+  }
+  $("#asklog").innerHTML = "";
+  $("#askbar").classList.add("hidden");
+  toast("Chat cleared");
+};
 async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
   box = box || addQA(q);
   const t0 = Date.now();
