@@ -86,7 +86,7 @@ h2 .tag { margin-left: 8px; }
   <section>
     <h2>Local AI <span class="tag off">offline · on this Mac</span></h2>
     <p class="hint">Runs on this Mac with LM Studio or Ollama. Needed once: an app, a model, and its server running.</p>
-    <div class="status" id="localstatus"></div>
+    <div class="status" id="localstatus" style="scroll-margin-top:20px"></div>
     <div id="localguide"></div>
     <div id="pageask"></div>
     <div id="local"></div>
@@ -96,7 +96,7 @@ h2 .tag { margin-left: 8px; }
     <h2>Claude API key <span class="tag on">online · sends text to Anthropic</span></h2>
     <p class="hint">Only for the “claude” provider (pay per use, ≈ $0.35 per lecture). The “claude-code” provider uses your
       Claude subscription and needs no key.</p>
-    <div id="keys"></div>
+    <div id="keys" style="scroll-margin-top:60px"></div>
   </section>
 </main>
 <div id="toast"></div>
@@ -218,7 +218,7 @@ function render() {
         <button class="primary" data-savekey="${p}">Save</button>${k.set && k.source.includes("Keychain") ? `<button data-delkey="${p}">Remove</button>` : ""}</div></div>`).join("");
 }
 
-async function load() { S = await api("GET", "/api/settings"); render(); }
+async function load() { S = await api("GET", "/api/settings"); render(); if (location.hash) document.querySelector(location.hash)?.scrollIntoView(); }
 
 document.addEventListener("change", async e => {
   const key = e.target.dataset.key;

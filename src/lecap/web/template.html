@@ -95,6 +95,14 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 #askq { flex: 1; min-height: 38px; max-height: 120px; resize: none; font: inherit; color: var(--fg); background: var(--panel);
   border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
 #askform .btn { height: 38px; }
+#addai-wrap { position: relative; }
+#addai { height: 38px; padding: 0 10px; font-size: 16px; color: var(--muted); }
+#addai-menu { position: absolute; bottom: 44px; right: 0; width: 280px; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; box-shadow: 0 6px 24px rgba(0,0,0,.18); padding: 6px; z-index: 30; }
+#addai-menu .mt { font-size: 11px; color: var(--muted); padding: 4px 8px 2px; text-transform: uppercase; letter-spacing: .04em; }
+#addai-menu button { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; padding: 6px 8px; border-radius: 6px; font-size: 13px; }
+#addai-menu button:hover { background: var(--accent-soft); }
+#addai-menu button small { display: block; color: var(--muted); font-size: 11px; }
 #askmodel { height: 38px; max-width: 210px; font: inherit; font-size: 12px; color: var(--fg); background: var(--panel);
   border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
 #askwho { font-size: 12px; color: var(--muted); padding-bottom: 6px; }
@@ -193,6 +201,13 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
   padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
 
+/* collapsible lanes: more room for the video */
+body.no-left #chapters, body.no-right #panel { display: none; }
+body.no-left .layout { grid-template-columns: minmax(0, 1fr) minmax(360px, 34%); }
+body.no-right .layout { grid-template-columns: 300px minmax(0, 1fr); }
+body.no-left.no-right .layout { grid-template-columns: minmax(0, 1fr); }
+.tools .lane { font-size: 14px; }
+.tools .lane[aria-pressed="false"] { opacity: .45; }
 @media (max-width: 1250px) { .layout { grid-template-columns: 270px minmax(0, 1fr) minmax(330px, 38%); } h1 { max-width: 18ch; } }
 @media (max-width: 980px) {
   body { overflow: auto; height: auto; }
@@ -233,6 +248,8 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
     <label title="Keep chapters and transcript on what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
     <span id="sync"></span>
     <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
+    <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
+    <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
     <button id="theme" title="Theme">◐</button>
     <button id="settings" title="Settings">⚙</button>
   </div>
@@ -248,6 +265,8 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
       <form id="askform">
         <textarea id="askq" rows="1" placeholder="Ask about this lesson, e.g. “Where do we talk about virtual machines?”  ( a )"></textarea>
         <select id="askmodel" class="hidden" title="Which model answers (offline = on this Mac, online = Claude)"></select>
+        <span id="addai-wrap"><button type="button" class="btn" id="addai" title="Add more AI models">⋯</button>
+          <div id="addai-menu" class="hidden" role="menu"></div></span>
         <button class="btn primary" type="submit">Ask</button>
       </form>
     </section>
@@ -567,6 +586,17 @@ document.addEventListener("click", e => {
   if (t.closest(".link")) { copyLink(cards[+tc.dataset.id].start); return; }
   if (t.id === "export2") { e.preventDefault(); exportNotes(); return; }  // inside a <summary>: don't fold
 });
+function toggleLane(side, force) {
+  const cls = side === "left" ? "no-left" : "no-right";
+  const hide = force !== undefined ? force : !document.body.classList.contains(cls);
+  document.body.classList.toggle(cls, hide);
+  $(side === "left" ? "#toggleLeft" : "#toggleRight").setAttribute("aria-pressed", String(!hide));
+  lsSet("lecap:" + cls, hide ? "1" : "");
+}
+$("#toggleLeft").onclick = () => toggleLane("left");
+$("#toggleRight").onclick = () => toggleLane("right");
+toggleLane("left", lsGet("lecap:no-left") === "1");
+toggleLane("right", lsGet("lecap:no-right") === "1");
 $("#menu").onclick = () => $("#chapters").classList.toggle("open");
 const closeChapters = () => $("#chapters").classList.remove("open");
 $$(".seg2 [data-view]").forEach(b => b.onclick = () => { view = b.dataset.view; lsSet("lecap:view", view); renderTranscript(); if (current >= 0) scrollToCard(current, true); });
@@ -669,6 +699,8 @@ document.addEventListener("keydown", e => {
     case "s": if (current >= 0) toggleStar(current); break;
     case "n": if (current >= 0) { e.preventDefault(); openNote(current); } break;
     case "a": e.preventDefault(); $("#askq").focus(); break;
+    case "[": toggleLane("left"); break;
+    case "]": toggleLane("right"); break;
   }
 });
 
@@ -871,6 +903,25 @@ async function loadModels() {
   sel.innerHTML = opts.map(o => `<option value="${esc(o.value)}" ${o.disabled ? "disabled" : ""} ${o.selected ? "selected" : ""}>${esc(o.label)}</option>`).join("");
   sel.classList.toggle("hidden", !opts.length);
 }
+/* "⋯" next to the picker: shortcuts to add more AI (settings page with lecap open, Terminal commands otherwise) */
+function addAiMenu() {
+  const live = SERVER && serverOK;
+  const item = (icon, title, hint, act) => `<button data-addai="${esc(act)}">${icon}<span>${esc(title)}<small>${esc(hint)}</small></span></button>`;
+  $("#addai-menu").innerHTML = `<div class="mt">Add AI</div>` +
+    item("💻", "Local model", live ? "offline · guided setup in Settings" : "offline · copies: lecap setup ai", live ? "open:/settings#localstatus" : "copy:lecap setup ai") +
+    item("🔑", "Claude API key", live ? "online · pay per use · in Settings" : "online · copies: lecap auth set claude", live ? "open:/settings#keys" : "copy:lecap auth set claude") +
+    item("✳", "Claude Code", "online · your Claude subscription", "open:https://claude.com/claude-code") +
+    item("⚙", "All settings", live ? "models, online permissions" : "copies: lecap settings", live ? "open:/settings" : "copy:lecap settings");
+}
+$("#addai").addEventListener("click", e => { e.stopPropagation(); addAiMenu(); $("#addai-menu").classList.toggle("hidden"); });
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-addai]");
+  if (!b) { if (!e.target.closest("#addai-menu")) $("#addai-menu").classList.add("hidden"); return; }
+  const [kind, ...rest] = b.dataset.addai.split(":"), value = rest.join(":");
+  if (kind === "open") window.open(value, "_blank");
+  else navigator.clipboard?.writeText(value).then(() => toast("Copied: paste it in Terminal"), () => toast(value));
+  $("#addai-menu").classList.add("hidden");
+});
 $("#askmodel").addEventListener("change", async e => {
   const v = JSON.parse(e.target.value), label = e.target.selectedOptions[0].textContent;
   if (v.p === "direct") { direct.model = v.m; lsSet("lecap:directModel", v.m); askWho(); toast("Ask uses " + label); return; }

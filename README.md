@@ -38,7 +38,7 @@ lesson-01/
   - **Blocks**: each part is one continuous text block (like v0.1), with speaker names inline.
 - **Overview**: all your stars and notes by chapter (export to Markdown), plus the glossary.
 - **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
-- Deep links like `index.html#t=01:23:45` or `#q=opaque`. Keyboard: `/` search · `j`/`k` parts · `Space` pause · `s` star · `n` note · `a` ask.
+- **◧ ◨** in the top bar (or `[` `]`) hide the chapter or transcript lane for a bigger video. **⋯** next to Ask: shortcuts to add a local model, a Claude key or Claude Code.
 
 ## What runs where
 
