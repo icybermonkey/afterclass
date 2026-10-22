@@ -119,7 +119,7 @@ function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classNa
 
 const LABELS = {
   language: "Spoken language", threshold: "Slide change sensitivity", whisper_model: "Speech-to-text model",
-  media: "Recording → lesson folder", deck_media: "Slides → lesson folder", speakers: "Tell speakers apart", transcript_view: "Transcript view",
+  media: "Recording → lesson folder", deck_media: "Slides → lesson folder", notify: "Notify when ready", speakers: "Tell speakers apart", transcript_view: "Transcript view",
   ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for Ask", ask_model: "Model name for Ask",
   allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
   local_llm_url: "Local AI server", local_llm_model: "Local model",
@@ -174,7 +174,7 @@ function pill(ok, text, warn) { return `<span class="pill ${ok ? "ok" : warn ? "
 
 function render() {
   $("#path").textContent = S.config_path;
-  $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "deck_media", "speakers", "transcript_view"].map(field).join("");
+  $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "deck_media", "speakers", "notify", "transcript_view"].map(field).join("");
   $("#ai").innerHTML = ["ai_provider", "ai_model", "ask_provider", "ask_model", "allow_online", "allow_web"].map(field).join("");
   $("#providers").innerHTML = S.providers.map(p => `<span class="pill ${p.available ? "ok" : "no"}">${p.available ? "✔" : "✗"} ${esc(p.label)}${p.detail ? ": " + esc(p.detail) : ""} ${p.online ? ON : OFF}</span>`).join("");
   $("#local").innerHTML = ["local_llm_url", "local_llm_model"].map(field).join("");

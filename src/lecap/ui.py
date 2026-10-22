@@ -134,3 +134,17 @@ def run(cmd, show=True):
 def _quote(s):
     s = str(s)
     return f"'{s}'" if any(c in s for c in " $*?") else s
+
+
+def notify(title, message, sound="Glass"):
+    """A macOS notification (best effort; silently skipped elsewhere or when it fails)."""
+    if sys.platform != "darwin":
+        return
+    def esc(text):  # AppleScript string literal
+        return str(text).replace("\\", "\\\\").replace('"', '\\"')
+
+    script = f'display notification "{esc(message)}" with title "{esc(title)}" sound name "{sound}"'
+    try:
+        subprocess.run(["osascript", "-e", script], capture_output=True, timeout=10)
+    except Exception:
+        pass

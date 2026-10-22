@@ -53,3 +53,16 @@ def test_recording_and_slides_have_their_own_mode():
     args = gui.build_args(form(media="move", deck="/x/s.pdf", deck_media="copy"))[0]
     assert "--move" in args and args[-2:] == ["--deck-mode", "copy"]
     assert "--deck-mode" not in gui.build_args(form(deck_media="move"))[0]  # no slides: nothing to place
+
+
+def test_notification_script(monkeypatch):
+    import sys
+
+    from lecap import ui
+
+    calls = []
+    monkeypatch.setattr(sys, "platform", "darwin")
+    monkeypatch.setattr(ui.subprocess, "run", lambda cmd, **kw: calls.append(cmd))
+    ui.notify("lecap: lesson ready", 'SPCS "Lesson 1" is ready')
+    assert calls[0][:2] == ["osascript", "-e"]
+    assert calls[0][2] == 'display notification "SPCS \\"Lesson 1\\" is ready" with title "lecap: lesson ready" sound name "Glass"'

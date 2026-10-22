@@ -47,6 +47,8 @@ def build_parser():
     m.add_argument("--link", action="store_true", help="symlink the video into media/ instead of copying")
     m.add_argument("--move", action="store_true", help="move the video into media/ instead of copying")
     g.add_argument("--deck-mode", choices=("copy", "link", "move"), help="what happens to the slides (default from settings: copy)")
+    g.add_argument("--notify", action=argparse.BooleanOptionalAction, default=None,
+                   help="macOS notification when the lesson is ready or failed (default from settings: on)")
     g.add_argument("--open", action="store_true", help="open the page with notes, Ask and settings (lecap open) when done")
     p.add_argument("--version", action="version", version=f"{APP_NAME} {__version__}")
     return p
@@ -130,7 +132,15 @@ def run(args):
         ui.kv("deck", args.deck)
     ui.kv("output", args.out)
 
-    index, steps = source.run(ctx)
+    notify = cfg["notify"] if args.notify is None else args.notify
+    try:
+        index, steps = source.run(ctx)
+    except LecapError as e:
+        if notify:
+            ui.notify(f"{APP_NAME}: lesson failed", f"{args.input.name}: {str(e)[:120]}", sound="Basso")
+        raise
+    if notify:
+        ui.notify(f"{APP_NAME}: lesson ready", f"{args.title or args.input.stem} is ready to study ({steps.elapsed()})")
 
     print(f"\n{ui.GREEN}{ui.BOLD}Done{ui.RESET} in {steps.elapsed()}: {index}")
     for w in ctx.warnings:
