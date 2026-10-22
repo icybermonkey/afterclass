@@ -22,22 +22,21 @@ lesson-01/
 ## The page
 
 ```
-┌ search · Slides · Demos · ★ · Auto-scroll · Export · Theme · ⚙ ─────────────────┐
-│ chapters + cards │            video            │ Transcript │ Ask │ Study │ Notes │
-│ (orientation)    │  sharp slide · now playing  │ readable, with speakers         │
-└──────────────────┴─────────────────────────────┴─────────────────────────────────┘
+┌ search · Slides · Demos · ★ · Auto-scroll · Export · Theme · ⚙ ──────────────────────┐
+│ chapters        │              video                │ Transcript │ Overview          │
+│ [slide picture] │                                   │ [pic] 59:49 Opaque Predicates │
+│  · subchapters  ├───────────────────────────────────┤  An opaque predicate is …     │
+│ [slide picture] │ Ask: "Where do we talk about VMs?"│  ✎ your note                  │
+│                 │ → answer · ▶ 1:49:09 · sources    │                               │
+└─────────────────┴───────────────────────────────────┴───────────────────────────────┘
 ```
 
-- **Video in the middle**. On the left, chapters with compact cards (one per slide or screen); click one to jump there.
-- **Transcript** on the right, in **paragraphs** (speaker changes, pauses, sentence runs) or **blocks** (one per card). Click any sentence to jump there. The current sentence is highlighted, and glossary terms are emphasized.
-- **Speakers**: the lecturer and the people asking questions are told apart (offline, experimental) and can be renamed.
-- **Search** in the top bar across the transcript, slide text and notes, with hits and filters for slides, demos or ★.
-- **Auto-scroll** keeps the chapter list and transcript on what is playing. It pauses for a few seconds when you scroll yourself.
-- **Notes and stars** per card. Export them to Markdown.
-- **Ask**: "Where do we start talking about virtual machines?", "Explain opaque predicates".
-- **Study**: summary, tags, chapters, glossary and exam questions (with `--ai`).
-- **Slide deck** (`--deck`): sharp slides, exact slide text and chapters from the deck's section pages.
-- Deep links like `index.html#t=01:23:45` or `#q=opaque`. Keyboard: `/` search · `j`/`k` cards · `Enter` play · `Space` pause · `s` star · `n` note · `a` ask.
+- **Left: chapters.** One slide picture per chapter. Below it are the subchapters (slide titles, long live demos) as plain text. Click to jump.
+- **Middle: the video**, with an **Ask box** below it. A model (local first) reads the relevant parts of the lesson and answers in its own words, with a ▶ button to the main moment. The other moments are listed as small "sources". Questions beyond the lesson can go to Claude online, but only after a click.
+- **Right: the transcript**, one part per slide or screen with its picture. Click any sentence to jump there. Choose paragraphs or blocks. Other speakers (questions from the audience) are marked. ☆ stars and ✎ notes go straight into the transcript.
+- **Overview**: all your stars and notes by chapter (export to Markdown), plus the glossary.
+- **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
+- Deep links like `index.html#t=01:23:45` or `#q=opaque`. Keyboard: `/` search · `j`/`k` parts · `Space` pause · `s` star · `n` note · `a` ask.
 
 ## What runs where
 
@@ -52,17 +51,9 @@ lesson-01/
 
 ## What `--ai` adds
 
-Without AI, you already get the transcript, slides, search, notes and chapters, *if the slides have section pages*. A language model adds:
-
-| | Without AI | With `--ai` (local or Claude) |
-|---|---|---|
-| Chapters | from section slides only | always, with good names |
-| Summaries, tags, glossary, exam questions | – | ✔ |
-| Key points for long transcript parts | – | ✔ |
-| Ask "where is X?" | offline search jumps to the best moment | a written answer with clickable times |
-| Ask "explain X" | – | ✔ (from the lesson; web or general knowledge only after a click) |
-
-Local models are free, offline and slower, with lower quality. Claude is online, with the best quality.
+Without AI you get the transcript, slides, search and notes, plus chapters *if the slides have section pages*.
+`--ai` (a local model or Claude) adds **chapter names for every lesson** and a **glossary**.
+Ask always needs a model: local (offline, `lecap setup ai`) or Claude (online, only text is sent).
 
 ## Install (macOS, Apple Silicon)
 
@@ -103,7 +94,7 @@ lecap <video> <output-folder> [options]
   -t NUM                slide-change sensitivity, higher = fewer cards (default 4)
   -w                    word timestamps + extra hallucination filter (slower)
   --speakers / --no-speakers   tell speakers apart (default on)
-  --ai [PROVIDER]       study extras: local, claude-code (subscription), claude (API key); default: local first
+  --ai [PROVIDER]       chapter names + glossary: local, claude-code (subscription), claude (API key); default: local first
   --ai-model MODEL      e.g. claude-sonnet-5-5, sonnet for claude-code, or a local model name
   -y                    don't ask before paid API calls
   --redo STEP           redo one step: transcribe, speakers, scenes, ocr, deck, ai (repeatable)
@@ -147,8 +138,8 @@ Lectures on security topics can occasionally trip a model's safety filter. lecap
 3. **SpeechBrain ECAPA** voice fingerprints (on the Apple GPU) separate the lecturer from other voices.
 4. **PySceneDetect** finds slide changes. **tesseract** reads each frame: titles, "Page X of N", section slides, and macOS menu bars (= live demo).
 5. With `--deck`, **PyMuPDF** reads the deck, and frames are matched to pages by page number or text similarity.
-6. Cards, paragraphs, chapters and speakers go into `data/lesson.json`, which is embedded in `index.html`.
-7. Ask uses BM25 search over paragraphs, slides and the glossary, optionally followed by a model that answers only from those passages.
+6. Cards, paragraphs, chapters (picture + subchapters) and speakers go into `data/lesson.json`, which is embedded in `index.html`.
+7. Ask uses BM25 search over paragraphs, slides and the glossary, then a model that answers from those passages. For "where does X start" questions, the earliest strong match sets the ▶ moment.
 
 ## Project layout
 

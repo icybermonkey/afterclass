@@ -36,6 +36,21 @@ CHOICES = {
     "allow_web": ("off", "ask"),
 }
 
+# Dropdown options for free-text settings (a custom value stays possible)
+SUGGESTIONS = {
+    "whisper_model": [
+        ("mlx-community/whisper-large-v3-turbo", "large-v3-turbo · fast and accurate (default)"),
+        ("mlx-community/whisper-large-v3-mlx", "large-v3 · most accurate, about 2× slower"),
+        ("mlx-community/whisper-medium-mlx", "medium · faster, less accurate"),
+        ("mlx-community/whisper-small-mlx", "small · fastest, least accurate"),
+    ],
+    "local_llm_url": [
+        ("auto", "automatic (LM Studio, then Ollama)"),
+        ("http://localhost:1234", "LM Studio"),
+        ("http://localhost:11434", "Ollama"),
+    ],
+}
+
 HELP = {
     "language": "Spoken language of the lectures (en, de, …)",
     "threshold": "Slide change sensitivity; higher = fewer cards",
@@ -45,7 +60,7 @@ HELP = {
     "transcript_view": "Default transcript view on the page",
     "ai_provider": "Model for the --ai study extras",
     "ai_model": "Model name for --ai (empty = provider default)",
-    "ask_provider": "Model for the Ask tab",
+    "ask_provider": "Model for the Ask box under the video",
     "local_llm_url": "Local AI server (auto = LM Studio, then Ollama)",
     "local_llm_model": "Local model (empty = the first loaded one)",
     "allow_online": "Ask may use online Claude for questions beyond the lesson",

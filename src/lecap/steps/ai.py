@@ -1,4 +1,4 @@
-"""--ai: chapters, summaries, tags, glossary, exam questions and key points from any provider."""
+"""--ai: chapter names and a glossary from any provider (local model or Claude)."""
 
 import bisect
 import math
@@ -6,14 +6,13 @@ import re
 
 from pydantic import ValidationError
 
-from ..ai.schema import AiLessonSummary, AiResult, json_schema
+from ..ai.schema import AiResult, json_schema
 from ..model import Chapter
 from ..ui import LecapError, fmt_time, info
 
 LANG_NAMES = {"en": "English", "de": "German", "fr": "French", "it": "Italian", "es": "Spanish"}
-LONG_WORDS = 250  # cards with more speech than this get key points
 
-SYSTEM = """You turn a recorded university lecture into study material.
+SYSTEM = """You structure a recorded university lecture for students.
 You get the lecture as numbered cards in time order. Each card is one slide or screen and carries the
 slide text and what was said while it was shown. Base everything on this material only.
 Write in {language}. Keep technical terms as the lecturer uses them."""
@@ -24,12 +23,9 @@ Detected chapter hints ({hint_source}):
 
 Create:
 - chapters: 4-12 chapters following the structure of the lecture, each starting at a card id, in order.
-  The first chapter starts at card {first}. Use the hints where they fit; skip organisational chatter only
-  if it is short. Each chapter gets a 2-4 sentence summary and 3-6 lowercase tags.
+  The first chapter starts at card {first}. Use the hints where they fit. Titles: 2-6 words.
 - glossary: 8-20 important terms with a short definition as explained in the lecture.
-- exam_questions: 6-10 questions a student should be able to answer, with short answers.
-- key_points: for every card marked LONG, 2-4 short key points of what is said there.
-- lesson_title and lesson_summary.
+- lesson_title: a short title for the lesson.
 
 Cards:
 {cards}"""
@@ -38,19 +34,12 @@ TASK_PART = """Lesson: {title}. This is part {part} of {parts} of the lecture (c
 Chapter hints in this part: {hints}
 
 Create, for this part only:
-- chapters: 1-4 chapters, each starting at a card id of this part, in order; 2-3 sentence summary, 3-5 lowercase tags.
+- chapters: 1-4 chapters, each starting at a card id of this part, in order. Titles: 2-6 words.
 - glossary: 3-8 important terms explained in this part.
-- exam_questions: 2-4 questions with short answers.
-- key_points: for every card marked LONG, 2-4 short key points.
-- lesson_title and lesson_summary: describe this part.
+- lesson_title: a short title for the whole lesson.
 
 Cards:
 {cards}"""
-
-SUMMARY_TASK = """These are the chapters of a lecture titled "{title}":
-{chapters}
-
-Give the lesson a short title and a 4-6 sentence summary."""
 
 
 def card_lines(lesson, cards=None):
@@ -58,15 +47,13 @@ def card_lines(lesson, cards=None):
     for c in cards or lesson.cards:
         if c.kind == "break":
             continue
-        speech = " ".join(s.text for s in c.segments)
         head = f"[card {c.id} | {fmt_time(c.start)} | {c.kind}"
         if c.deck_page:
             head += f" | deck p.{c.deck_page}"
-        if len(speech.split()) > LONG_WORDS:
-            head += " | LONG"
         lines.append((head + f"] {c.title}").rstrip())
         if c.text and c.kind == "slide":
             lines.append("SLIDE: " + " ".join(c.text.split())[:600])
+        speech = " ".join(s.text for s in c.segments)
         if speech:
             lines.append("SPEECH: " + speech)
     return lines
@@ -92,14 +79,14 @@ def run(provider, lesson, model):
     """Run the AI step; splits the lecture into parts when the model's context is too small."""
     system, prompt = build_prompt(lesson)
     limit = provider.context_limit(model) if hasattr(provider, "context_limit") else None
-    if not limit or tokens(system + prompt) + 8000 <= limit:
+    if not limit or tokens(system + prompt) + 4000 <= limit:
         data, usage = provider.run(system, prompt, SCHEMA, model)
         return parse(data), usage
     return _run_parts(provider, lesson, model, limit)
 
 
 def _run_parts(provider, lesson, model, limit):
-    budget = max(limit - 6000, 2000) * 3  # characters of cards per part
+    budget = max(limit - 4000, 2000) * 3  # characters of cards per part
     sizes = [sum(len(x) for x in card_lines(lesson, [c])) for c in lesson.cards]
     # Equal-sized parts (not "fill one, leave a scrap"): a tiny last part makes tiny chapters
     target = sum(sizes) / max(math.ceil(sum(sizes) / budget), 1)
@@ -115,7 +102,7 @@ def _run_parts(provider, lesson, model, limit):
     info(f"the model's context ({limit:,} tokens) is too small for the whole lecture: "
          f"working in {len(parts)} parts")
     system = _system(lesson)
-    chapters, glossary, questions, points, total_in, total_out = [], {}, [], [], 0, 0
+    title, chapters, glossary, total_in, total_out, usage = "", [], {}, 0, 0, None
     for k, cards in enumerate(parts, 1):
         ids = {c.id for c in cards}
         hints = ", ".join(f"card {ch.card}: {ch.title}" for ch in lesson.chapters if ch.card in ids) or "none"
@@ -126,23 +113,14 @@ def _run_parts(provider, lesson, model, limit):
         total_in += usage.input_tokens
         total_out += usage.output_tokens
         try:
-            part = AiResult.model_validate(data)
+            part = AiResult.model_validate(_compat(data))
         except ValidationError:
             continue
+        title = title or part.lesson_title
         chapters += [ch for ch in part.chapters if ch.start_card in ids] or part.chapters[:1]
         for t in part.glossary:
             glossary.setdefault(term_key(t.term), t)
-        questions += part.exam_questions
-        points += part.key_points
-    overview = "\n".join(f"- {ch.title}: {ch.summary}" for ch in chapters)
-    data, usage = provider.run(system, SUMMARY_TASK.format(title=lesson.title, chapters=overview),
-                               json_schema(AiLessonSummary), model)
-    total_in += usage.input_tokens
-    total_out += usage.output_tokens
-    head = AiLessonSummary.model_validate(data)
-    step = max(len(questions) // 10, 1)
-    merged = AiResult(lesson_title=head.lesson_title, lesson_summary=head.lesson_summary, chapters=chapters,
-                      glossary=list(glossary.values())[:20], exam_questions=questions[::step][:10], key_points=points)
+    merged = AiResult(lesson_title=title or lesson.title, chapters=chapters, glossary=list(glossary.values())[:20])
     usage.input_tokens, usage.output_tokens = total_in, total_out
     return parse(merged.model_dump()), usage
 
@@ -153,18 +131,27 @@ def term_key(term):
     return t[:-1] if t.endswith("s") and len(t) > 4 else t
 
 
+def _compat(data):
+    """Results cached by older versions carry extra fields (summaries, exam questions, …): drop them."""
+    if not isinstance(data, dict):
+        return data
+    out = {"lesson_title": data.get("lesson_title", ""), "chapters": [], "glossary": []}
+    out["chapters"] = [{"start_card": c.get("start_card"), "title": c.get("title")} for c in data.get("chapters", [])
+                       if isinstance(c, dict)]
+    out["glossary"] = [{k: g.get(k) for k in ("term", "definition", "card")} for g in data.get("glossary", [])
+                       if isinstance(g, dict)]
+    return out
+
+
 def parse(data):
-    if isinstance(data, dict):
-        data = {"key_points": [], **data}  # results cached before key points existed
     try:
-        result = AiResult.model_validate(data)
+        result = AiResult.model_validate(_compat(data))
     except ValidationError as e:
         raise LecapError(f"the AI answer does not match the expected format: {e.errors()[0]['msg']}")
     # Valid JSON can still be a placeholder ("could not generate ..."): never cache or show that
-    if len(result.chapters) < 2 or not result.glossary or not result.exam_questions:
+    if len(result.chapters) < 2 or not result.glossary:
         raise LecapError(f"the AI answer is nearly empty ({len(result.chapters)} chapters, "
-                         f"{len(result.glossary)} terms, {len(result.exam_questions)} questions): "
-                         f"{result.lesson_summary[:160]}")
+                         f"{len(result.glossary)} glossary terms)")
     return result
 
 
@@ -187,7 +174,7 @@ def _remap(lesson, times):
 
 
 def apply(lesson, result, meta, times=None):
-    """Use AI chapters and store the extras on the lesson. times: card_times() from the AI call."""
+    """Use AI chapters and the glossary on the lesson. times: card_times() from the AI call."""
     to_current = _remap(lesson, times)
     chapters, seen = [], set()
     for ch in sorted(result.chapters, key=lambda c: c.start_card):
@@ -195,8 +182,7 @@ def apply(lesson, result, meta, times=None):
         if card in seen:
             continue
         seen.add(card)
-        chapters.append(Chapter(title=ch.title, card=card, source="ai", summary=ch.summary,
-                                tags=[t.lower() for t in ch.tags]))
+        chapters.append(Chapter(title=ch.title, card=card, source="ai"))
     # Chapters shorter than 3 minutes merge into the next one (small models like to over-split)
     starts = [lesson.cards[ch.card].start or 0 for ch in chapters] + [lesson.duration or float("inf")]
     chapters = [ch for k, ch in enumerate(chapters) if k == len(chapters) - 1 or starts[k + 1] - starts[k] >= 180]
@@ -205,14 +191,10 @@ def apply(lesson, result, meta, times=None):
             chapters[0].card = lesson.cards[0].id
         lesson.stats["slide_chapters"] = [{"title": c.title, "card": c.card} for c in lesson.chapters]
         lesson.chapters = chapters
-    for kp in result.key_points:
-        lesson.cards[to_current(kp.card)].points = kp.points[:4]
     lesson.ai = {
         "title": result.lesson_title,
-        "summary": result.lesson_summary,
         "glossary": [{**t.model_dump(), "card": to_current(t.card)}
                      for t in {term_key(t.term): t for t in reversed(result.glossary)}.values()][::-1],
-        "questions": [{**q.model_dump(), "card": to_current(q.card)} for q in result.exam_questions],
         **meta,
     }
 

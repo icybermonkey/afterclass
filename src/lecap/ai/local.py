@@ -39,7 +39,11 @@ def _is_chat_model(model_id):
 
 def detect(url_setting="auto"):
     """Running servers: [{name, url, models: [ids]}]. url_setting = 'auto' or a base URL."""
-    candidates = SERVERS if url_setting in ("", "auto") else [("custom", url_setting.rstrip("/").removesuffix("/v1"))]
+    if url_setting in ("", "auto"):
+        candidates = SERVERS
+    else:
+        base = url_setting.rstrip("/").removesuffix("/v1")
+        candidates = [(next((n for n, u in SERVERS if base.endswith(u.rsplit(":", 1)[1])), "custom"), base)]
     found = []
     for name, base in candidates:
         try:

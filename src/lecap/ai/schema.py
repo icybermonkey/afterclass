@@ -1,4 +1,4 @@
-"""Provider-neutral AI result. Every provider returns this; the HTML reads it from data/ai.json."""
+"""Provider-neutral AI results. Every provider returns these; the page reads them from data/lesson.json."""
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,8 +10,6 @@ class _Strict(BaseModel):
 class AiChapter(_Strict):
     start_card: int = Field(description="id of the card where the chapter begins")
     title: str = Field(description="short chapter title, 2-6 words")
-    summary: str = Field(description="2-4 sentences: what is taught in this chapter")
-    tags: list[str] = Field(description="3-6 lowercase keyword tags")
 
 
 class AiTerm(_Strict):
@@ -20,34 +18,16 @@ class AiTerm(_Strict):
     card: int = Field(description="id of the card where it is explained")
 
 
-class AiQuestion(_Strict):
-    question: str
-    answer: str = Field(description="a short model answer")
-    card: int = Field(description="id of the card that covers the answer")
-
-
-class AiKeyPoints(_Strict):
-    card: int = Field(description="id of a card with a long transcript")
-    points: list[str] = Field(description="2-4 short key points of what is said on this card")
-
-
 class AiResult(_Strict):
     lesson_title: str
-    lesson_summary: str = Field(description="4-6 sentences")
     chapters: list[AiChapter]
     glossary: list[AiTerm]
-    exam_questions: list[AiQuestion]
-    key_points: list[AiKeyPoints] = Field(description="for each card marked LONG")
-
-
-class AiLessonSummary(_Strict):
-    lesson_title: str
-    lesson_summary: str = Field(description="4-6 sentences")
 
 
 class AskAnswer(_Strict):
-    answer: str = Field(description="the answer in Markdown-free plain text, short paragraphs")
-    times: list[float] = Field(description="start times (seconds) of the passages the answer relies on")
+    answer: str = Field(description="your answer in your own words, 2-6 sentences, plain text")
+    main_time: float = Field(description="start time (seconds) of the single most relevant passage, -1 if none")
+    sources: list[float] = Field(description="start times (seconds) of other passages the answer uses")
     in_lesson: bool = Field(description="false if the lesson material does not answer the question")
 
 

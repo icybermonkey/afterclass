@@ -30,7 +30,6 @@ class Card:
     title: str = ""
     text: str = ""  # slide text (deck text if matched, else OCR)
     segments: list[Segment] = field(default_factory=list)
-    points: list[str] = field(default_factory=list)  # AI key points for long cards
 
 
 @dataclass
@@ -38,8 +37,8 @@ class Chapter:
     title: str
     card: int  # id of the first card
     source: str = "slides"  # slides | deck | ai
-    summary: str = ""
-    tags: list[str] = field(default_factory=list)
+    image: str | None = None  # one picture for the whole chapter
+    subs: list[dict] = field(default_factory=list)  # subchapters: [{title, card}], text only
 
 
 @dataclass

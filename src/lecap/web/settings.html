@@ -55,6 +55,12 @@ ol li { margin: 4px 0; }
 #toast.show { opacity: 1; }
 #toast.bad { background: var(--bad); color: #fff; }
 .muted { color: var(--muted); }
+.tag { font-size: 10px; font-weight: 700; letter-spacing: .05em; border-radius: 4px; padding: 2px 6px; text-transform: uppercase;
+  vertical-align: middle; white-space: nowrap; }
+.tag.off { color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent); }
+.tag.on { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
+h2 .tag { margin-left: 8px; }
+.row label .tag { margin-left: 6px; }
 @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -64,13 +70,13 @@ ol li { margin: 4px 0; }
   <p class="sub">Global for all lessons, saved in <code id="path">…</code>. Changes save immediately. API keys go to the macOS Keychain, never into a file.</p>
 
   <section>
-    <h2>Lessons</h2>
+    <h2>Lessons <span class="tag off">offline · on this Mac</span></h2>
     <p class="hint">Defaults for new runs of <code>lecap &lt;video&gt; &lt;folder&gt;</code>. A flag on the command line always wins.</p>
     <div id="general"></div>
   </section>
 
   <section>
-    <h2>AI</h2>
+    <h2>AI <span class="tag off">offline first</span><span class="tag on">online optional</span></h2>
     <p class="hint">“auto” uses a local model when one is running (offline), otherwise Claude. Online models only ever get text
       (transcript and slide text), never the video.</p>
     <div class="status" id="providers"></div>
@@ -78,7 +84,7 @@ ol li { margin: 4px 0; }
   </section>
 
   <section>
-    <h2>Local AI (offline)</h2>
+    <h2>Local AI <span class="tag off">offline · on this Mac</span></h2>
     <p class="hint">Runs on this Mac with LM Studio or Ollama. Needed once: an app, a model, and its server running.</p>
     <div class="status" id="localstatus"></div>
     <div id="localguide"></div>
@@ -86,7 +92,7 @@ ol li { margin: 4px 0; }
   </section>
 
   <section>
-    <h2>Claude API key</h2>
+    <h2>Claude API key <span class="tag on">online · sends text to Anthropic</span></h2>
     <p class="hint">Only for the “claude” provider (pay per use, ≈ $0.35 per lecture). The “claude-code” provider uses your
       Claude subscription and needs no key.</p>
     <div id="keys"></div>
@@ -112,7 +118,7 @@ function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classNa
 const LABELS = {
   language: "Spoken language", threshold: "Slide change sensitivity", whisper_model: "Speech-to-text model",
   media: "Video in the lesson folder", speakers: "Tell speakers apart", transcript_view: "Transcript view",
-  ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for the Ask tab",
+  ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for Ask",
   allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
   local_llm_url: "Local AI server", local_llm_model: "Local model",
 };
@@ -123,6 +129,23 @@ const OPTION_TEXT = {
   off: "off", ask: "ask me each time", on: "allowed",
 };
 
+const OFF = '<span class="tag off">offline</span>', ON = '<span class="tag on">online</span>';
+function liveTag(key, v) {  // what the current choice means: stays on this Mac, or may go online
+  if (key === "ai_provider" || key === "ask_provider") {
+    if (v === "local") return OFF;
+    if (v === "auto") return `${OFF}<span class="muted" style="font-size:11px"> · falls back to </span>${ON}`;
+    return ON;
+  }
+  if (key === "allow_online") return v === "off" ? OFF : ON;
+  if (key === "allow_web") return v === "off" ? OFF : ON;
+  if (key === "ai_model") return "";
+  return "";
+}
+function options(list, v) {
+  const known = list.some(([val]) => val === v);
+  return list.map(([val, label]) => `<option value="${esc(val)}" ${val === v ? "selected" : ""}>${esc(label)}</option>`).join("")
+    + (known ? "" : `<option value="${esc(v)}" selected>${esc(v)} (custom)</option>`);
+}
 function field(key) {
   const v = S.values[key], choices = S.choices[key];
   let input;
@@ -130,15 +153,19 @@ function field(key) {
     input = `<div class="switch"><input type="checkbox" data-key="${key}" ${v ? "checked" : ""}></div>`;
   } else if (choices) {
     input = `<select data-key="${key}">${choices.map(c => `<option value="${c}" ${c === v ? "selected" : ""}>${esc(OPTION_TEXT[c] || c)}</option>`).join("")}</select>`;
+  } else if (S.suggestions[key]) {
+    input = `<select data-key="${key}">${options(S.suggestions[key], v)}</select>`;
   } else if (key === "local_llm_model") {
-    const models = new Set();
-    S.local.apps.forEach(a => { a.loaded.forEach(m => models.add(m)); a.models.forEach(m => models.add(m.name)); });
-    input = `<input type="text" data-key="${key}" list="models" value="${esc(v)}" placeholder="first loaded model">
-      <datalist id="models">${[...models].map(m => `<option value="${esc(m)}">`).join("")}</datalist>`;
+    const list = [["", "automatic: the first loaded model"]], seen = new Set();
+    S.local.apps.forEach(a => {
+      a.loaded.forEach(m => { if (!seen.has(m)) { seen.add(m); list.push([m, `${m} · ${a.name} · loaded`]); } });
+      a.models.forEach(m => { if (!seen.has(m.name)) { seen.add(m.name); list.push([m.name, `${m.name} · ${a.name} · ${m.gb} GB`]); } });
+    });
+    input = `<select data-key="${key}">${options(list, v)}</select>`;
   } else {
     input = `<input type="${typeof S.defaults[key] === "number" ? "number" : "text"}" step="0.5" data-key="${key}" value="${esc(v)}" placeholder="${esc(S.defaults[key])}">`;
   }
-  return `<div class="row"><label>${esc(LABELS[key] || key)}<small>${esc(S.help[key] || "")}</small></label>${input}</div>`;
+  return `<div class="row"><label>${esc(LABELS[key] || key)}${liveTag(key, v)}<small>${esc(S.help[key] || "")}</small></label>${input}</div>`;
 }
 
 function pill(ok, text, warn) { return `<span class="pill ${ok ? "ok" : warn ? "warn" : "no"}">${ok ? "✔" : "✗"} ${esc(text)}</span>`; }
@@ -147,7 +174,7 @@ function render() {
   $("#path").textContent = S.config_path;
   $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "speakers", "transcript_view"].map(field).join("");
   $("#ai").innerHTML = ["ai_provider", "ai_model", "ask_provider", "allow_online", "allow_web"].map(field).join("");
-  $("#providers").innerHTML = S.providers.map(p => pill(p.available, `${p.label}${p.online ? " (online)" : " (offline)"}${p.detail ? ": " + p.detail : ""}`)).join("");
+  $("#providers").innerHTML = S.providers.map(p => `<span class="pill ${p.available ? "ok" : "no"}">${p.available ? "✔" : "✗"} ${esc(p.label)}${p.detail ? ": " + esc(p.detail) : ""} ${p.online ? ON : OFF}</span>`).join("");
   $("#local").innerHTML = ["local_llm_url", "local_llm_model"].map(field).join("");
 
   const L = S.local, apps = L.apps;

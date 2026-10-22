@@ -14,12 +14,13 @@ from lecap.steps import ai as ai_step
 
 RESULT = {
     "lesson_title": "Code Obfuscation",
-    "lesson_summary": "About obfuscation.",
-    "chapters": [{"start_card": 1, "title": "Opaque Predicates", "summary": "S.", "tags": ["Opaque", "cfg"]}],
+    "chapters": [{"start_card": 1, "title": "Opaque Predicates"}],
     "glossary": [{"term": "Opaque predicate", "definition": "A condition known a priori.", "card": 1}],
-    "exam_questions": [{"question": "Why?", "answer": "Because.", "card": 1}],
-    "key_points": [{"card": 1, "points": ["Opaque predicates have a known outcome."]}],
 }
+# What v0.2 cached in data/ai.json: must still be readable
+OLD_RESULT = {**RESULT, "lesson_summary": "About obfuscation.",
+              "chapters": [{"start_card": 1, "title": "Opaque Predicates", "summary": "S.", "tags": ["x"]}],
+              "exam_questions": [{"question": "Why?", "answer": "Because.", "card": 1}], "key_points": []}
 
 
 def lesson():
@@ -60,8 +61,8 @@ def test_prompt_and_apply():
     assert "SPEECH: An opaque predicate is..." in prompt
     ai_step.apply(les, AiResult.model_validate(RESULT), {"provider": "test", "model": "m"})
     assert les.chapters[0].card == 0  # first chapter snaps to the first card
-    assert les.chapters[0].tags == ["opaque", "cfg"]
     assert les.ai["glossary"][0]["term"] == "Opaque predicate"
+    assert ai_step.parse({**OLD_RESULT, "chapters": OLD_RESULT["chapters"] * 2}).chapters[0].title == "Opaque Predicates"
 
 
 def test_claude_api_request_body(monkeypatch):
@@ -149,13 +150,12 @@ def test_cached_ai_result_survives_renumbered_cards():
     les.cards[2].id = 2
     ai_step.apply(les, AiResult.model_validate(RESULT), {"provider": "test", "model": "m"}, times)
     assert les.ai["glossary"][0]["card"] == 2
-    assert les.ai["questions"][0]["card"] == 2
 
 
 def test_placeholder_answers_are_rejected(tmp_path, monkeypatch):
     from lecap.ui import LecapError
 
-    placeholder = {**RESULT, "chapters": RESULT["chapters"][:1], "glossary": [], "exam_questions": []}
+    placeholder = {**RESULT, "chapters": RESULT["chapters"][:1], "glossary": []}
     with pytest.raises(LecapError, match="nearly empty"):
         ai_step.parse(placeholder)
     # Claude Code reporting a safety stop is retried, then fails with a clear message
@@ -172,8 +172,7 @@ def test_glossary_duplicates_and_short_chapters_are_merged():
     les = lesson()
     les.duration = 1000
     data = {**RESULT,
-            "chapters": [{"start_card": 0, "title": "A", "summary": "s", "tags": []},
-                         {"start_card": 1, "title": "B", "summary": "s", "tags": []}],
+            "chapters": [{"start_card": 0, "title": "A"}, {"start_card": 1, "title": "B"}],
             "glossary": [{"term": "Opaque Predicates", "definition": "1", "card": 1},
                          {"term": "opaque predicate", "definition": "2", "card": 1},
                          {"term": "Control Flow Flattening (CFF)", "definition": "3", "card": 1}]}

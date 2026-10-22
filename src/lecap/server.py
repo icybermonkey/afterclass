@@ -92,7 +92,7 @@ def providers_status():
 
 
 def settings_payload():
-    from .config import CHOICES, DEFAULTS, HELP, KEY_ENV, get_secret, mask
+    from .config import CHOICES, DEFAULTS, HELP, KEY_ENV, SUGGESTIONS, get_secret, mask
     from .setup_ai import status
 
     keys = {}
@@ -100,6 +100,7 @@ def settings_payload():
         value, source = get_secret(provider)
         keys[provider] = {"set": bool(value), "masked": mask(value) if value else "", "source": source or ""}
     return {"values": config.load(), "defaults": DEFAULTS, "choices": CHOICES, "help": HELP, "keys": keys,
+            "suggestions": SUGGESTIONS,
             "local": status(), "providers": providers_status(), "config_path": str(config.config_path())}
 
 
@@ -147,7 +148,9 @@ def ask_payload(app, body):
         provider.default_model if provider else "")
     result = ask.answer(lesson, question, provider, model, t, "lesson" if mode == "search" else mode)
     result["mode"] = mode
-    entry = {"q": question, "t": t, **{k: result[k] for k in ("answer", "times", "in_lesson", "provider", "mode")}}
+    result["online"] = bool(provider and is_online(provider))
+    entry = {"q": question, **{k: result.get(k) for k in ("answer", "main_time", "sources", "in_lesson", "provider",
+                                                           "model", "mode", "online")}}
     with app.lock:
         chat = read_json(app.chat_path, [])
         chat = (chat + [entry])[-200:]
@@ -355,7 +358,11 @@ def free_port(start=BASE_PORT, tries=50):
 def make_server(folder=None, port=None):
     app = App(folder)
     handler = type("LecapHandler", (Handler,), {"app": app})
-    return ThreadingHTTPServer(("127.0.0.1", port if port is not None else free_port()), handler)
+    try:
+        return ThreadingHTTPServer(("127.0.0.1", port if port is not None else free_port()), handler)
+    except OSError:
+        raise LecapError(f"port {port} is already in use (another `{APP_NAME} open` or `{APP_NAME} settings`?). "
+                         "Leave out --port to use the next free one.")
 
 
 def serve(folder=None, port=None, browser=True):

@@ -2,6 +2,7 @@
 
 import bisect
 import hashlib
+import re
 from collections import Counter
 from difflib import SequenceMatcher
 
@@ -188,6 +189,48 @@ def with_start(chapters, cards, min_len=30):
                 if k + 1 == len(chapters) or cards[chapters[k + 1].card].start - cards[ch.card].start >= min_len]
     if cards and (not chapters or chapters[0].card != cards[0].id):
         chapters.insert(0, Chapter(title="Beginning", card=cards[0].id, source="auto"))
+    return chapters
+
+
+_ODD = re.compile(r"[{}<>=_\[\]|\\]")
+
+
+def good_title(title):
+    """A plausible slide title, not a diagram label or OCR noise ('} VM Entry', 'handle_vpush', 'FDE')."""
+    t = title.strip()
+    return (3 <= len(t) <= 60 and not _ODD.search(t) and (t[0].isupper() or t[0].isdigit())
+            and any(len(w) >= 4 and w.isalpha() for w in t.split()))
+
+
+def decorate_chapters(chapters, cards, divider_pages=(), min_demo=180):
+    """One picture per chapter and text-only subchapters: each slide title once, live demos of at
+    least min_demo seconds, no section-divider slides."""
+    starts = [ch.card for ch in chapters] + [len(cards)]
+    for k, ch in enumerate(chapters):
+        inside = [c for c in cards[starts[k]:starts[k + 1]] if c.kind != "break"]
+        pick = (next((c for c in inside if c.deck_image), None)
+                or next((c for c in inside if c.kind == "slide" and c.image), None)
+                or next((c for c in inside if c.image), None))
+        ch.image = (pick.deck_image or pick.image) if pick else None
+        subs, seen, i = [], {ch.title.lower()}, 0
+        while i < len(inside):
+            c = inside[i]
+            if c.kind == "demo":  # a run of demo cards is one "Live demo"
+                j = i
+                while j + 1 < len(inside) and inside[j + 1].kind == "demo":
+                    j += 1
+                if (inside[j].end or 0) - (c.start or 0) >= min_demo:
+                    subs.append({"title": "Live demo", "card": c.id})
+                i = j + 1
+                continue
+            i += 1
+            divider = c.deck_page in divider_pages or getattr(c, "_ocr", {}).get("divider")
+            title = c.title.strip()
+            if divider or not good_title(title) or title.lower() in seen:
+                continue
+            seen.add(title.lower())
+            subs.append({"title": title, "card": c.id})
+        ch.subs = subs
     return chapters
 
 

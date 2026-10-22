@@ -67,9 +67,12 @@ def read(pdf):
             biggest = max(l["size"] for l in top)
             first = next(k for k, l in enumerate(lines) if l["y"] < 0.35 and l["size"] >= biggest - 0.5)
             parts = [lines[first]["text"]]
-            # A title wrapped over two lines keeps the same size
-            if first + 1 < len(lines) and abs(lines[first + 1]["size"] - lines[first]["size"]) < 0.5:
-                parts.append(lines[first + 1]["text"])
+            # A title wrapped over two lines keeps the same size and sits right below,
+            # but a numbered or bulleted line ("1.", "•") under it is content, not title
+            nxt = lines[first + 1] if first + 1 < len(lines) else None
+            if (nxt and abs(nxt["size"] - lines[first]["size"]) < 0.5 and nxt["y"] - lines[first]["y"] < 0.1
+                    and nxt["text"][:1].isalpha() and len(parts[0]) + len(nxt["text"]) <= 60):
+                parts.append(nxt["text"])
             title = " ".join(parts) if _wordy(" ".join(parts)) else ""
         divider = []
         if lines and words <= 8:

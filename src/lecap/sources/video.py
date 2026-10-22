@@ -185,6 +185,7 @@ class VideoSource(Source):
 
         # 10. Render
         steps.begin("Write the page", "index.html with everything embedded; open it straight from the folder.")
+        analyze.decorate_chapters(lesson.chapters, lesson.cards, {p["page"] for p in pages or [] if p["divider"]})
         lesson.save(ctx.data / "lesson.json")
         out = ctx.out / "index.html"
         size = render.render(lesson, out)
@@ -269,7 +270,7 @@ class VideoSource(Source):
         where = ("offline, on this Mac" if not registry.is_online(provider)
                  else "online: only text is sent (transcript + slide text), no video or images")
         steps.begin("AI study extras", f"{provider.label} ({model or 'default model'}), {where}. "
-                    "Chapters with summaries, tags, glossary, exam questions and key points.")
+                    "Chapter names and a glossary.")
         system, prompt = ai_step.build_prompt(lesson)
         # Content fingerprint without card numbers: re-cut cards don't invalidate the AI result
         content = "\n".join(s.text for c in lesson.cards for s in c.segments) + "".join(c.text for c in lesson.cards)
@@ -319,8 +320,8 @@ class VideoSource(Source):
                                        "result": result.model_dump()}, ensure_ascii=False, indent=1), encoding="utf-8")
         ai_step.apply(lesson, result, meta)
         cost = f", ${usage.cost_usd:.2f}" if usage.cost_usd is not None else ""
-        steps.end(f"{len(result.chapters)} chapters, {len(result.glossary)} glossary terms, "
-                  f"{len(result.exam_questions)} questions ({usage.input_tokens:,} in / {usage.output_tokens:,} out{cost})")
+        steps.end(f"{len(result.chapters)} chapters, {len(result.glossary)} glossary terms "
+                  f"({usage.input_tokens:,} in / {usage.output_tokens:,} out{cost})")
 
 
 def _progress_n(unit):

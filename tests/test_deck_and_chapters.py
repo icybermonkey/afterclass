@@ -70,3 +70,24 @@ def test_long_silence_inside_a_card_becomes_a_break():
     analyze.assign_segments(cards, [{"start": 10, "end": 12, "text": "a"}, {"start": 905, "end": 910, "text": "b"}])
     analyze.mark_breaks(cards, [[300.0, 900.0]])
     assert cards[1].kind == "break" and not cards[1].segments
+
+
+def test_chapter_picture_and_text_subchapters():
+    from lecap.model import Chapter
+
+    def card(i, kind, title, deck=None, page=None, length=10):
+        return Card(id=i, kind=kind, start=i * 100.0, end=i * 100.0 + length, title=title,
+                    image=f"slides/{i:03d}.jpg", deck_image=deck, deck_page=page)
+
+    cards = [card(0, "slide", "Code Obfuscation Techniques Opaque Predicates", deck="deck/045.jpg", page=45),
+             card(1, "slide", "Opaque Predicates"), card(2, "slide", "Examples"),
+             card(3, "demo", "", length=100), card(4, "demo", "", length=200),   # one long demo run
+             card(5, "slide", "Examples"),                                        # repeated title
+             card(6, "demo", "", length=20),                                      # short demo: skipped
+             card(7, "slide", "} VM Entry"), card(8, "slide", "handle_vpush handle_vadd"),
+             card(9, "break", ""), card(10, "slide", "Control Flow Flattening")]
+    chapters = analyze.decorate_chapters([Chapter("Opaque Predicates", 0), Chapter("CFF", 10)], cards, {45})
+    assert chapters[0].image == "deck/045.jpg"
+    assert [(s["title"], s["card"]) for s in chapters[0].subs] == [("Examples", 2), ("Live demo", 3)]
+    assert chapters[1].image == "slides/010.jpg"
+    assert [s["title"] for s in chapters[1].subs] == ["Control Flow Flattening"]

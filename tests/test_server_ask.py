@@ -40,7 +40,7 @@ def test_bm25_and_first_mention():
 
 def test_offline_answer_without_model():
     r = ask.answer(lesson_dict(), "virtual machines", provider=None)
-    assert r["provider"] is None and r["times"] and r["passages"]
+    assert r["provider"] is None and r["answer"] == "" and r["main_time"] == 120 and r["sources"]
 
 
 # --- server ---------------------------------------------------------------
@@ -108,7 +108,7 @@ def test_ask_search_mode_and_online_gate(lesson_folder, monkeypatch):
     _folder, base = lesson_folder
     status, body, _ = call(base + "/api/ask", "POST", {"question": "virtual machines", "mode": "search"})
     assert status == 200
-    assert json.loads(body)["times"] == [120]  # the "Virtual Machines" slide, without any model
+    assert json.loads(body)["main_time"] == 120  # the "Virtual Machines" slide, without any model
     config.set_value("allow_online", "off")
     status, body, _ = call(base + "/api/ask", "POST", {"question": "what is x", "mode": "general"})
     assert status == 403
@@ -144,13 +144,13 @@ class FakeLMStudio(BaseHTTPRequestHandler):
         schema = req["response_format"]["json_schema"]["schema"]
         if "chapters" in schema["properties"]:
             first = int(req["messages"][1]["content"].split("(cards ")[1].split("-")[0]) if "(cards " in req["messages"][1]["content"] else 0
-            content = {"lesson_title": "t", "lesson_summary": "s",
-                       "chapters": [{"start_card": first, "title": f"Part {first}", "summary": "x", "tags": ["a"]},
-                                    {"start_card": first + 1, "title": f"Part {first}b", "summary": "y", "tags": ["b"]}],
-                       "glossary": [{"term": f"T{first}", "definition": "d", "card": first}],
-                       "exam_questions": [{"question": "q", "answer": "a", "card": first}], "key_points": []}
+            content = {"lesson_title": "Whole lesson",
+                       "chapters": [{"start_card": first, "title": f"Part {first}"},
+                                    {"start_card": first + 1, "title": f"Part {first}b"}],
+                       "glossary": [{"term": f"T{first}", "definition": "d", "card": first}]}
         else:
-            content = {"lesson_title": "Whole lesson", "lesson_summary": "All parts."}
+            content = {"answer": "It starts at 2:00, where the lecturer introduces virtual machines.",
+                       "main_time": 121.0, "sources": [181.0], "in_lesson": True}
         self._send({"choices": [{"finish_reason": "stop", "message": {"content": json.dumps(content)}}],
                     "usage": {"prompt_tokens": 100, "completion_tokens": 20}})
 
@@ -171,9 +171,38 @@ def test_local_provider_and_parts(monkeypatch, tmp_path):
     les = Lesson(id="y", title="Long", source="video", cards=cards, chapters=[Chapter("C", 0)])
     FakeLMStudio.calls.clear()
     result, usage = ai_step.run(p, les, "tiny-model")
-    assert len(FakeLMStudio.calls) > 2  # several parts + the summary call
+    assert len(FakeLMStudio.calls) >= 2  # several parts
     assert result.lesson_title == "Whole lesson"
     assert len(result.chapters) >= 4 and usage.input_tokens == 100 * len(FakeLMStudio.calls)
     with pytest.raises(Exception, match="web"):
         p.run("s", "p", json_schema(), "tiny-model", web=True)
     httpd.shutdown()
+
+
+def test_model_answer_has_own_words_main_time_and_sources(monkeypatch, tmp_path):
+    monkeypatch.setenv("LECAP_CONFIG", str(tmp_path / "c.toml"))
+    httpd = HTTPServer(("127.0.0.1", 0), FakeLMStudio)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    config.set_value("local_llm_url", f"http://127.0.0.1:{httpd.server_address[1]}/v1")
+    r = ask.answer(lesson_dict(), "where do we start talking about virtual machines?", LocalProvider(), "", t=30)
+    assert r["answer"].startswith("It starts at 2:00")
+    assert r["main_time"] == 121.0
+    assert [s["t"] for s in r["sources"]] == [181.0] and "virtual machines" in r["sources"][0]["text"]
+    prompt = FakeLMStudio.calls[-1]["messages"][1]["content"]
+    assert "Use that only if the question says" in prompt  # the current moment is context, not the topic
+    httpd.shutdown()
+
+
+def test_start_questions_use_the_earliest_strong_match(monkeypatch, tmp_path):
+    """A model that points into the middle of a topic is corrected to where the topic starts."""
+    class Late:
+        name = "fake"
+
+        def run(self, system, prompt, schema, model, **kw):
+            from lecap.ai.base import Usage
+            return {"answer": "VMs come up in the demo.", "main_time": 181.0, "sources": [], "in_lesson": True}, Usage(model="m")
+
+    r = ask.answer(lesson_dict(), "where do we start talking about virtual machines?", Late(), "")
+    assert r["main_time"] == 120 and [s["t"] for s in r["sources"]] == [181.0]
+    r = ask.answer(lesson_dict(), "what happens in the virtual machine demo?", Late(), "")
+    assert r["main_time"] == 181.0  # not a "start" question: the model's choice stays

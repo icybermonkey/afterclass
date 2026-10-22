@@ -17,15 +17,19 @@ mention mentioned speak speaking lecture lesson part about please tell show find
 anfangen beginnen sprechen reden erklären erklärt erkläre zeig zeige thema""".split())  # question phrasing
 WORD = re.compile(r"[a-zA-Zäöüß0-9][a-zA-Zäöüß0-9\-_]*")
 
-ASK_SYSTEM = """You help a student with one recorded lecture. Answer from the lecture passages you are given
-(transcript with times, slide text, glossary). Explain clearly and briefly, in the language of the question.
-Put the start times (seconds) of the passages you used into "times". If the passages do not answer the
-question, say so in one sentence and set in_lesson to false; do not invent lecture content."""
+ASK_SYSTEM = """You help a student with one recorded lecture, using the lecture passages you are given
+(transcript with times, slide text, glossary). Think about what the student wants, then answer in your own
+words in 2-6 sentences, in the language of the question. Never answer with timestamps only:
+- "Where/when is X discussed?": say when it starts and summarize what is said about X there.
+- "What is X / explain X": explain it the way the lecture does, with its examples.
+Put the start time (seconds) of the single most relevant passage into main_time and the times of other
+passages you used into sources. If the passages do not answer the question, say so in one sentence,
+set in_lesson to false and main_time to -1; never invent lecture content."""
 
 GENERAL_SYSTEM = """You help a student with one recorded lecture. The lecture does not fully answer the
-question, so answer from your general knowledge, clearly marked as going beyond the lecture. Relate it to the
-lecture passages where that helps and put the times (seconds) of related passages into "times".
-Set in_lesson to false."""
+question, so answer from your general knowledge in 2-6 sentences, clearly marked as going beyond the lecture.
+Relate it to the lecture passages where that helps: main_time = the most related passage (or -1),
+sources = other related passages. Set in_lesson to false."""
 
 WEB_SYSTEM = GENERAL_SYSTEM + " You may search the web; name your sources briefly in the answer."
 
@@ -117,9 +121,9 @@ def first_mention(index, query):
 
 def context_for(lesson, index, question, t=None, k=8):
     hits = index.search(question, k=k)
-    if t is not None:  # "about this part": the passages around the current moment
-        near = [p for p in index.items if p["kind"] == "speech" and abs(p["t"] - t) <= 90]
-        hits = near[:6] + [h for h in hits if h not in near]
+    if t is not None:  # what is on screen right now, for questions like "explain this"
+        near = [p for p in index.items if p["kind"] == "speech" and abs(p["t"] - t) <= 60]
+        hits = hits + [p for p in near[:3] if p not in hits]
     lines = []
     for p in sorted(hits[:k + 6], key=lambda p: p["t"]):
         who = {"A": "Lecturer"}.get(p.get("speaker"), f"Speaker {p.get('speaker')}" if p.get("speaker") else "")
@@ -133,21 +137,38 @@ def answer(lesson, question, provider=None, model="", t=None, mode="lesson"):
     """mode: lesson (only lecture material) | general (general knowledge) | web (may search the web)."""
     index = Index(passages(lesson))
     hits, ctx = context_for(lesson, index, question, t)
-    found = [{"t": h["t"], "card": h["card"], "kind": h["kind"], "text": h["text"][:240]} for h in hits[:6]]
     first = first_mention(index, question)
-    if provider is None:  # offline search only
-        return {"answer": "", "times": [first["t"]] if first else [], "in_lesson": bool(hits),
-                "passages": found, "provider": None}
+
+    def source(t_):
+        """A time plus the passage text that starts there (for the grey, expandable sources)."""
+        near = min(index.items, key=lambda p: abs(p["t"] - t_), default=None)
+        text = near["text"][:200] if near and abs(near["t"] - t_) <= 5 else ""
+        return {"t": round(t_, 1), "text": text}
+
+    if provider is None:  # no model: the best moment and the search hits, said honestly
+        main = first["t"] if first else None
+        return {"answer": "", "main_time": main, "in_lesson": bool(hits), "provider": None,
+                "sources": [source(h["t"]) for h in hits[:6] if h["t"] != main]}
     system = {"lesson": ASK_SYSTEM, "general": GENERAL_SYSTEM, "web": WEB_SYSTEM}[mode]
     prompt = f"{ctx}\n\nQuestion: {question}"
+    if first and ASKS_FOR_START.search(question):
+        prompt += f"\n(Search hint: the topic first appears at {first['t']:.0f}s = {fmt_time(first['t'])}.)"
     if t is not None:
-        prompt += f"\n(The student is watching the moment at {fmt_time(t)}.)"
+        prompt += (f"\n(The student is watching {fmt_time(t)}. Use that only if the question says "
+                   "'this', 'here' or 'now'.)")
     kwargs = {"web": True} if mode == "web" else {}
     data, usage = provider.run(system, prompt, json_schema(AskAnswer), model, **kwargs)
     try:
         result = AskAnswer.model_validate(data)
     except Exception:
         raise LecapError("the model's answer did not have the expected format")
-    times = sorted({round(x, 1) for x in result.times if 0 <= x <= (lesson.get("duration") or 1e9)})
-    return {"answer": result.answer, "times": times[:6], "in_lesson": result.in_lesson and mode == "lesson",
-            "passages": found, "provider": provider.name, "model": usage.model or model}
+    duration = lesson.get("duration") or 1e9
+    main = result.main_time if 0 <= result.main_time <= duration else (first["t"] if first and result.in_lesson else None)
+    extra = [] if main is None else [main]
+    if main is not None and first and ASKS_FOR_START.search(question) and first["t"] < main - 30:
+        main = first["t"]  # "where do we start…": the search knows the earliest strong match better
+    times = sorted({round(x, 1) for x in [*result.sources, *extra] if 0 <= x <= duration and abs(x - main) > 2}
+                   if main is not None else {round(x, 1) for x in result.sources if 0 <= x <= duration})
+    return {"answer": result.answer, "main_time": round(main, 1) if main is not None else None,
+            "sources": [source(x) for x in times[:6]], "in_lesson": result.in_lesson and mode == "lesson",
+            "provider": provider.name, "model": usage.model or model}
