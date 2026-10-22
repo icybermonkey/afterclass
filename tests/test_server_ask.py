@@ -142,9 +142,11 @@ class FakeLMStudio(BaseHTTPRequestHandler):
         req = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
         FakeLMStudio.calls.append(req)
         schema = req["response_format"]["json_schema"]["schema"]
-        if "chapters" in schema["properties"]:
+        if list(schema["properties"]) == ["lesson_summary"]:
+            content = {"lesson_summary": "All parts together."}
+        elif "chapters" in schema["properties"]:
             first = int(req["messages"][1]["content"].split("(cards ")[1].split("-")[0]) if "(cards " in req["messages"][1]["content"] else 0
-            content = {"lesson_title": "Whole lesson",
+            content = {"lesson_title": "Whole lesson", "lesson_summary": f"Part {first}.",
                        "chapters": [{"start_card": first, "title": f"Part {first}"},
                                     {"start_card": first + 1, "title": f"Part {first}b"}],
                        "glossary": [{"term": f"T{first}", "definition": "d", "card": first}]}
@@ -171,7 +173,8 @@ def test_local_provider_and_parts(monkeypatch, tmp_path):
     les = Lesson(id="y", title="Long", source="video", cards=cards, chapters=[Chapter("C", 0)])
     FakeLMStudio.calls.clear()
     result, usage = ai_step.run(p, les, "tiny-model")
-    assert len(FakeLMStudio.calls) >= 2  # several parts
+    assert len(FakeLMStudio.calls) >= 3  # several parts + one call that merges their summaries
+    assert result.lesson_summary == "All parts together."
     assert result.lesson_title == "Whole lesson"
     assert len(result.chapters) >= 4 and usage.input_tokens == 100 * len(FakeLMStudio.calls)
     with pytest.raises(Exception, match="web"):

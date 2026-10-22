@@ -25,9 +25,14 @@ class AiCardTitle(_Strict):
 
 class AiResult(_Strict):
     lesson_title: str
+    lesson_summary: str = Field(description="4-6 sentences: what the lesson covers and its main points")
     chapters: list[AiChapter]
     glossary: list[AiTerm]
     card_titles: list[AiCardTitle] = Field(description="one quick title for every card")
+
+
+class AiSummary(_Strict):
+    lesson_summary: str = Field(description="4-6 sentences: what the lesson covers and its main points")
 
 
 class AskAnswer(_Strict):

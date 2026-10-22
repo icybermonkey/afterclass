@@ -62,7 +62,14 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 #sync.on { color: var(--off); }
 
 /* three columns */
-.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: 300px minmax(0, 1fr) minmax(360px, 34%); }
+:root { --lw: 300px; --rw: minmax(360px, 34%); }
+.layout { flex: 1; min-height: 0; display: grid; grid-template-columns: var(--lw) 6px minmax(0, 1fr) 6px var(--rw); }
+#chapters { grid-column: 1; } .gutter.l { grid-column: 2; } #stage { grid-column: 3; } .gutter.r { grid-column: 4; } #panel { grid-column: 5; }
+.gutter { cursor: col-resize; position: relative; z-index: 5; }
+.gutter::after { content: ""; position: absolute; top: 0; bottom: 0; left: 2px; width: 2px; background: transparent; transition: background .15s; }
+.gutter:hover::after, body.dragging .gutter.active::after { background: var(--accent); }
+body.dragging { user-select: none; cursor: col-resize; }
+body.dragging video { pointer-events: none; }
 .pane { min-height: 0; overflow: auto; }
 
 /* left: chapters */
@@ -176,6 +183,7 @@ h1 { font-size: 15px; margin: 0; white-space: nowrap; overflow: hidden; text-ove
 #tab-overview h2 { font-size: 15px; color: var(--accent); margin: 18px 0 10px; padding-bottom: 5px; border-bottom: 2px solid var(--accent-soft);
   display: flex; align-items: baseline; gap: 8px; }
 details.sec:first-child h2 { margin-top: 10px; }
+details.sec[data-sec="summary"] p { margin: 0 0 8px; line-height: 1.6; }
 #tab-overview h2 .n { font-size: 12px; color: var(--muted); font-weight: normal; }
 #tab-overview h2 .btn { margin-left: auto; font-size: 12px; padding: 1px 8px; }
 .ov-ch { font-size: 11px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 14px 0 6px; }
@@ -202,16 +210,17 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
 #toast.show { opacity: 1; }
 
 /* collapsible lanes: more room for the video */
-body.no-left #chapters, body.no-right #panel { display: none; }
-body.no-left .layout { grid-template-columns: minmax(0, 1fr) minmax(360px, 34%); }
-body.no-right .layout { grid-template-columns: 300px minmax(0, 1fr); }
-body.no-left.no-right .layout { grid-template-columns: minmax(0, 1fr); }
+body.no-left #chapters, body.no-left .gutter.l, body.no-right #panel, body.no-right .gutter.r { display: none; }
+body.no-left .layout { grid-template-columns: 0 0 minmax(0, 1fr) 6px var(--rw); }
+body.no-right .layout { grid-template-columns: var(--lw) 6px minmax(0, 1fr) 0 0; }
+body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
 .tools .lane { font-size: 14px; }
 .tools .lane[aria-pressed="false"] { opacity: .45; }
-@media (max-width: 1250px) { .layout { grid-template-columns: 270px minmax(0, 1fr) minmax(330px, 38%); } h1 { max-width: 18ch; } }
+@media (max-width: 1250px) { :root { --lw: 270px; --rw: minmax(330px, 38%); } h1 { max-width: 18ch; } }
 @media (max-width: 980px) {
   body { overflow: auto; height: auto; }
   .layout { display: flex; flex-direction: column; }
+  .gutter { display: none; }
   .pane { overflow: visible; }
   #menu { display: block; }
   #chapters { position: fixed; top: 0; left: 0; bottom: 0; width: min(300px, 86vw); z-index: 40; transform: translateX(-102%);
@@ -257,6 +266,7 @@ body.no-left.no-right .layout { grid-template-columns: minmax(0, 1fr); }
 
 <div class="layout">
   <nav class="pane" id="chapters"></nav>
+  <div class="gutter l" data-side="left" title="Drag to resize · double-click to reset"></div>
   <section class="pane" id="stage">
     <div id="player"><video id="v" controls preload="metadata"></video><div id="now"></div></div>
     <section id="ask">
@@ -271,6 +281,7 @@ body.no-left.no-right .layout { grid-template-columns: minmax(0, 1fr); }
       </form>
     </section>
   </section>
+  <div class="gutter r" data-side="right" title="Drag to resize · double-click to reset"></div>
   <section class="pane" id="panel">
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="transcript" aria-selected="true">Transcript</button>
@@ -522,7 +533,11 @@ $$(".tabs [data-tab]").forEach(b => b.onclick = () => showTab(b.dataset.tab));
 function renderOverview() {
   const items = cards.filter(c => store.stars[c.id] || store.notes[c.id]);
   const open = k => lsGet("lecap:ov:" + k) !== "closed" ? "open" : "";
-  let h = `<details class="sec" data-sec="notes" ${open("notes")}><summary><h2>My notes <span class="n">${items.length}</span>
+  // Summary first and folded unless you opened it before
+  let h = `<details class="sec" data-sec="summary" ${lsGet("lecap:ov:summary") === "open" ? "open" : ""}><summary><h2>Summary</h2></summary>
+    ${L.ai && L.ai.summary ? L.ai.summary.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("")
+      : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a summary.</p>`}</details>`;
+  h += `<details class="sec" data-sec="notes" ${open("notes")}><summary><h2>My notes <span class="n">${items.length}</span>
     ${items.length ? `<button class="btn" id="export2">Export as Markdown</button>` : ""}</h2></summary>`;
   if (!items.length) h += `<p class="muted">Star a part (☆) or write a note (✎) in the transcript; they are collected here.</p>`;
   let lastCh = -1;
@@ -593,6 +608,29 @@ function toggleLane(side, force) {
   $(side === "left" ? "#toggleLeft" : "#toggleRight").setAttribute("aria-pressed", String(!hide));
   lsSet("lecap:" + cls, hide ? "1" : "");
 }
+/* drag the gutters to resize the lanes; widths are remembered, double-click resets */
+function setLaneWidth(side, px) {
+  const v = side === "left" ? "--lw" : "--rw";
+  if (px) document.body.style.setProperty(v, px + "px"); else document.body.style.removeProperty(v);
+  lsSet("lecap:" + v, px ? String(px) : "");
+}
+$$(".gutter").forEach(g => {
+  g.addEventListener("pointerdown", e => {
+    e.preventDefault();
+    g.setPointerCapture(e.pointerId);
+    document.body.classList.add("dragging"); g.classList.add("active");
+    const box = $(".layout").getBoundingClientRect(), side = g.dataset.side;
+    const move = ev => {
+      const px = side === "left" ? ev.clientX - box.left : box.right - ev.clientX;
+      setLaneWidth(side, Math.round(Math.min(Math.max(px, side === "left" ? 160 : 260), box.width * 0.5)));
+    };
+    const up = () => { g.removeEventListener("pointermove", move); document.body.classList.remove("dragging"); g.classList.remove("active"); };
+    g.addEventListener("pointermove", move);
+    g.addEventListener("pointerup", up, { once: true });
+  });
+  g.addEventListener("dblclick", () => setLaneWidth(g.dataset.side, 0));
+});
+["left", "right"].forEach(side => { const w = +lsGet("lecap:" + (side === "left" ? "--lw" : "--rw")); if (w) setLaneWidth(side, w); });
 $("#toggleLeft").onclick = () => toggleLane("left");
 $("#toggleRight").onclick = () => toggleLane("right");
 toggleLane("left", lsGet("lecap:no-left") === "1");

@@ -36,9 +36,9 @@ lesson-01/
 - **Right: the transcript**, one part per slide or screen with its picture and an AI quick title (with `--ai`). Click any sentence to jump there. Other speakers (questions from the audience) are marked. ☆ stars and ✎ notes go straight into the transcript.
   - **Paragraphs**: each part is split at speaker changes, pauses and every ~4 sentences, with a small time and speaker label per paragraph; long parts show 2 paragraphs and "show all".
   - **Blocks**: each part is one continuous text block (like v0.1), with speaker names inline.
-- **Overview**: all your stars and notes by chapter (export to Markdown), plus the glossary.
+- **Overview**: the lesson summary (folded at first), all your stars and notes by chapter (export to Markdown), and the glossary.
 - **Search** in the top bar across the transcript, slide text and notes. Auto-scroll keeps chapters and transcript on what is playing.
-- **◧ ◨** in the top bar (or `[` `]`) hide the chapter or transcript lane for a bigger video. **⋯** next to Ask: shortcuts to add a local model, a Claude key or Claude Code.
+- **◧ ◨** in the top bar (or `[` `]`) hide the chapter or transcript lane for a bigger video; drag the edges between the lanes to resize them (double-click resets). **⋯** next to Ask: shortcuts to add a local model, a Claude key or Claude Code.
 
 ## What runs where
 
@@ -54,7 +54,7 @@ lesson-01/
 ## What `--ai` adds
 
 Without AI you get the transcript, slides, search and notes, plus chapters *if the slides have section pages*.
-`--ai` (a local model or Claude) adds **chapter names for every lesson**, a **quick title for every part** and a **glossary**.
+`--ai` (a local model or Claude) adds **chapter names for every lesson**, a **quick title for every part**, a **summary** and a **glossary**.
 Ask always needs a model: local (offline, `lecap setup ai`) or Claude (online, only text is sent).
 
 **Ask without `lecap open`** (when you just double-click `index.html`): the page talks to LM Studio or Ollama directly

@@ -14,6 +14,7 @@ from lecap.steps import ai as ai_step
 
 RESULT = {
     "lesson_title": "Code Obfuscation",
+    "lesson_summary": "About obfuscation.",
     "chapters": [{"start_card": 1, "title": "Opaque Predicates"}],
     "glossary": [{"term": "Opaque predicate", "definition": "A condition known a priori.", "card": 1}],
     "card_titles": [{"card": 0, "title": "Welcome and course goals"}, {"card": 1, "title": "What makes a predicate opaque"}],

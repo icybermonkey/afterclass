@@ -6,7 +6,7 @@ import re
 
 from pydantic import ValidationError
 
-from ..ai.schema import AiResult, json_schema
+from ..ai.schema import AiResult, AiSummary, json_schema
 from ..model import Chapter
 from ..ui import LecapError, fmt_time, info
 
@@ -28,6 +28,7 @@ Create:
 - card_titles: for EVERY card, a quick title of 3-8 words saying what is said or shown there
   (start live demos with "Demo:"). Concrete, not just the slide title.
 - lesson_title: a short title for the lesson.
+- lesson_summary: 4-6 sentences on what the lesson covers and its main points.
 
 Cards:
 {cards}"""
@@ -41,9 +42,16 @@ Create, for this part only:
 - card_titles: for EVERY card of this part, a quick title of 3-8 words saying what is said or shown there
   (start live demos with "Demo:").
 - lesson_title: a short title for the whole lesson.
+- lesson_summary: 2-3 sentences on what this part covers.
 
 Cards:
 {cards}"""
+
+
+SUMMARY_TASK = """These are summaries of the parts of a lecture titled "{title}", in order:
+{parts}
+
+Write lesson_summary: 4-6 sentences on what the whole lesson covers and its main points."""
 
 
 def card_lines(lesson, cards=None):
@@ -106,7 +114,7 @@ def _run_parts(provider, lesson, model, limit):
     info(f"the model's context ({limit:,} tokens) is too small for the whole lecture: "
          f"working in {len(parts)} parts")
     system = _system(lesson)
-    title, chapters, glossary, card_titles, total_in, total_out, usage = "", [], {}, [], 0, 0, None
+    title, chapters, glossary, card_titles, summaries, total_in, total_out, usage = "", [], {}, [], [], 0, 0, None
     for k, cards in enumerate(parts, 1):
         ids = {c.id for c in cards}
         hints = ", ".join(f"card {ch.card}: {ch.title}" for ch in lesson.chapters if ch.card in ids) or "none"
@@ -121,11 +129,24 @@ def _run_parts(provider, lesson, model, limit):
         except ValidationError:
             continue
         title = title or part.lesson_title
+        summaries.append(part.lesson_summary)
         chapters += [ch for ch in part.chapters if ch.start_card in ids] or part.chapters[:1]
         for t in part.glossary:
             glossary.setdefault(term_key(t.term), t)
         card_titles += [ct for ct in part.card_titles if ct.card in ids]
-    merged = AiResult(lesson_title=title or lesson.title, chapters=chapters, glossary=list(glossary.values())[:20],
+    # One short extra call turns the part summaries into a summary of the whole lesson
+    summary = " ".join(summaries)
+    if len(summaries) > 1:
+        try:
+            data, extra = provider.run(system, SUMMARY_TASK.format(title=lesson.title, parts="\n".join(f"- {x}" for x in summaries)),
+                                       json_schema(AiSummary), model)
+            summary = AiSummary.model_validate(data).lesson_summary
+            total_in += extra.input_tokens
+            total_out += extra.output_tokens
+        except (ValidationError, LecapError):
+            pass
+    merged = AiResult(lesson_title=title or lesson.title, lesson_summary=summary, chapters=chapters,
+                      glossary=list(glossary.values())[:20],
                       card_titles=card_titles)
     usage.input_tokens, usage.output_tokens = total_in, total_out
     return parse(merged.model_dump()), usage
@@ -141,7 +162,8 @@ def _compat(data):
     """Results cached by older versions carry extra fields (summaries, exam questions, …): drop them."""
     if not isinstance(data, dict):
         return data
-    out = {"lesson_title": data.get("lesson_title", ""), "chapters": [], "glossary": [], "card_titles": []}
+    out = {"lesson_title": data.get("lesson_title", ""), "lesson_summary": data.get("lesson_summary") or "",
+           "chapters": [], "glossary": [], "card_titles": []}
     out["chapters"] = [{"start_card": c.get("start_card"), "title": c.get("title")} for c in data.get("chapters", [])
                        if isinstance(c, dict)]
     out["glossary"] = [{k: g.get(k) for k in ("term", "definition", "card")} for g in data.get("glossary", [])
@@ -205,6 +227,7 @@ def apply(lesson, result, meta, times=None):
             lesson.cards[to_current(ct.card)].quick_title = title
     lesson.ai = {
         "title": result.lesson_title,
+        "summary": result.lesson_summary,
         "glossary": [{**t.model_dump(), "card": to_current(t.card)}
                      for t in {term_key(t.term): t for t in reversed(result.glossary)}.values()][::-1],
         **meta,
