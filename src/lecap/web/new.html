@@ -35,6 +35,8 @@ header .gear { margin-left: auto; border: 1px solid var(--line); background: var
 .drop .file { font-weight: 600; word-break: break-all; }
 .drop .sub { font-size: 12px; color: var(--muted); }
 .drop .row { display: flex; gap: 6px; }
+.drop .mode { display: flex; flex-direction: column; gap: 3px; margin-top: 8px; font-size: 11px; color: var(--muted); width: 100%; max-width: 330px; }
+.drop .mode select { font-size: 12px; padding: 3px 6px; text-align: center; }
 .btn { border: 1px solid var(--line); background: var(--panel); border-radius: 8px; padding: 4px 12px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 8px 22px; font-size: 15px; }
 .btn.primary:disabled { opacity: .45; cursor: default; }
@@ -80,12 +82,24 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
     <div class="empty"><b>Drop the recording here</b><div class="sub">.mp4 · .mov · .m4v · .mkv</div></div>
     <div class="file hidden"></div>
     <div class="row"><button class="btn small" data-choose="video">Choose…</button><button class="btn small hidden" data-clear="video">Remove</button></div>
+    <label class="mode">What happens to the file
+      <select id="media">
+        <option value="move">Move into the lesson folder (original is moved)</option>
+        <option value="copy">Copy into the lesson folder (original stays)</option>
+        <option value="link">Link to the original (saves space, keep the original)</option>
+      </select></label>
   </div>
   <div class="drop" id="drop-deck">
     <div class="big">🖼</div>
     <div class="empty"><b>Slides</b> <span class="muted">(optional)</span><div class="sub">.pdf · .pptx: sharp slides, exact text, chapters</div></div>
     <div class="file hidden"></div>
     <div class="row"><button class="btn small" data-choose="deck">Choose…</button><button class="btn small hidden" data-clear="deck">Remove</button></div>
+    <label class="mode">What happens to the file
+      <select id="deck_media">
+        <option value="move">Move into the lesson folder (original is moved)</option>
+        <option value="copy">Copy into the lesson folder (original stays)</option>
+        <option value="link">Link to the original (saves space, keep the original)</option>
+      </select></label>
   </div>
 </div>
 
@@ -102,10 +116,6 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
       <option value="claude-code">Claude Code (subscription)</option><option value="claude">Claude API (pay per use)</option>
       <option value="off">Off</option></select> <span id="aitag"></span></label>
     <label id="costwrap" class="hidden"><input type="checkbox" id="cost"> I accept the API cost (≈ $0.35)</label>
-    <label>Recording <select id="media" title="What happens to the recording">
-      <option value="copy">copy</option><option value="move">move</option><option value="link">link</option></select></label>
-    <label>Slides <select id="deck_media" title="What happens to the slides">
-      <option value="copy">copy</option><option value="move">move</option><option value="link">link</option></select></label>
     <label><input type="checkbox" id="speakers" checked> Tell speakers apart</label>
   </div>
 </div>
