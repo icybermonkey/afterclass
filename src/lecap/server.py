@@ -328,6 +328,8 @@ class Handler(BaseHTTPRequestHandler):
     def _api(self, method, path):
         app = self.app
         try:
+            if path == "/api/who" and method == "GET":  # lets a second `lecap open` reuse this server
+                return self._json({"app": APP_NAME, "folder": str(app.folder) if app.folder else None})
             if path == "/api/state" and method == "GET":
                 data = {"settings": config.load(), "providers": providers_status(), "server": True}
                 if app.folder:
@@ -397,11 +399,32 @@ def make_server(folder=None, port=None):
                          "Leave out --port to use the next free one.")
 
 
+def running_url(folder, start=BASE_PORT, tries=50):
+    """The page URL of a `lecap open` already serving this folder, if there is one."""
+    import urllib.request
+
+    for port in range(start, start + tries):
+        req = urllib.request.Request(f"http://127.0.0.1:{port}/api/who", headers={API_HEADER: "1"})
+        try:
+            with urllib.request.urlopen(req, timeout=0.5) as r:
+                if json.load(r).get("folder") == str(folder):
+                    return f"http://127.0.0.1:{port}/index.html"
+        except Exception:
+            continue
+    return None
+
+
 def serve(folder=None, port=None, browser=True):
     if folder is not None:
         folder = Path(folder).expanduser().resolve()
         if not (folder / "index.html").exists() or not (folder / "data" / "lesson.json").exists():
             raise LecapError(f"{folder} is not a {APP_NAME} lesson folder (no index.html / data/lesson.json)")
+        url = running_url(folder) if port is None else None
+        if url:
+            ui.info(f"already open: {url}")
+            if browser:
+                subprocess.run(["open", url])
+            return 0
     httpd = make_server(folder, port)
     port = httpd.server_address[1]
     url = f"http://127.0.0.1:{port}/" + ("index.html" if folder else "")
@@ -420,7 +443,27 @@ def serve(folder=None, port=None, browser=True):
     return 0
 
 
+def folder_from_url(url):
+    """lecap://open?folder=/path/to/lesson → Path (the "Open in lecap" button of a page opened as a file)."""
+    u = urllib.parse.urlparse(url)
+    folder = urllib.parse.parse_qs(u.query).get("folder", [""])[0]
+    if u.scheme != APP_NAME or u.netloc != "open" or not folder.startswith("/"):
+        raise LecapError(f"not a {APP_NAME} link: {url}")
+    return Path(folder)
+
+
+def open_url(url):
+    """Started by the Mac app's link helper, without a terminal: report problems as a notification."""
+    try:
+        return serve(folder_from_url(url))
+    except LecapError as e:
+        ui.notify(f"{APP_NAME}: can't open the lesson", str(e), sound="Basso")
+        raise
+
+
 def serve_main(argv):
+    if argv[0] == "open-url":
+        return open_url(argv[1] if len(argv) > 1 else "")
     p = argparse.ArgumentParser(prog=f"{APP_NAME} {argv[0]}")
     if argv[0] == "open":
         p.description = "Open a lesson page with notes saved in its folder, settings and Ask."

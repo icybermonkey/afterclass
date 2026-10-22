@@ -64,6 +64,15 @@ h1[contenteditable="true"] { outline: 2px solid var(--accent); background: var(-
 .tools button { border: 1px solid var(--line); border-radius: 6px; padding: 1px 8px; }
 #sync { font-size: 12px; }
 #sync.on { color: var(--off); }
+#openwrap { position: relative; }
+#openlecap { border: 1px solid var(--accent); border-radius: 6px; padding: 1px 8px; color: var(--accent); text-decoration: none; cursor: pointer; }
+#openlecap:hover { background: var(--accent-soft); }
+#openhint { position: absolute; right: 0; top: calc(100% + 8px); z-index: 30; width: 360px; padding: 10px 12px; border: 1px solid var(--line);
+  border-radius: 8px; background: var(--panel); color: var(--fg); box-shadow: 0 6px 24px rgba(0, 0, 0, .18); font-size: 12px; line-height: 1.5; }
+#openhint p { margin: 0 0 6px; }
+#openhint p:last-child { margin: 0; }
+#openhint code { display: block; margin: 3px 0; padding: 3px 6px; border-radius: 4px; background: var(--bg); font-size: 11px; word-break: break-all; }
+#openhint .btn { font-size: 11px; padding: 0 6px; }
 
 /* three columns */
 :root { --lw: 300px; --rw: minmax(360px, 34%); }
@@ -271,6 +280,8 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   <div class="tools">
     <label title="Keep chapters and transcript on what is playing"><input type="checkbox" id="follow" checked> Auto-scroll</label>
     <span id="sync"></span>
+    <span id="openwrap" class="hidden"><a id="openlecap" title="Opened as a file: notes stay in this browser and Ask has only the local model. Open it with lecap to save notes in the lesson folder and use all Ask models and settings.">Open in lecap</a>
+      <div id="openhint" class="hidden"></div></span>
     <button id="export" title="Download your stars and notes as Markdown">Export notes</button>
     <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
     <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
@@ -366,6 +377,19 @@ function setSync(on) {
 }
 setSync(false);
 if (SERVER) $("#sync").textContent = "… connecting";
+
+/* ---------- opened as a file: "Open in lecap" (the Mac app handles lecap:// links) ---------- */
+if (location.protocol === "file:") {
+  const folder = decodeURIComponent(location.pathname).replace(/\/[^/]*$/, "");
+  const cmd = `lecap open '${folder.replace(/'/g, `'\\''`)}'`;
+  $("#openlecap").href = "lecap://open?folder=" + encodeURIComponent(folder);
+  $("#openwrap").classList.remove("hidden");
+  $("#openhint").innerHTML = `<p><b>Opening the lesson in lecap…</b> Your browser may ask first.</p>
+    <p>Nothing happened? Install the Mac app once (it handles these links):<code>lecap install-app</code><button class="btn" data-copy="lecap install-app">Copy</button></p>
+    <p>Or open it from Terminal:<code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></p>`;
+  $("#openlecap").addEventListener("click", () => $("#openhint").classList.remove("hidden"));
+  document.addEventListener("click", e => { if (!e.target.closest("#openwrap")) $("#openhint").classList.add("hidden"); });
+}
 
 /* ---------- theme ---------- */
 let theme = lsGet("lecap:theme") || "auto";

@@ -1,4 +1,8 @@
 import plistlib
+import subprocess
+import sys
+
+import pytest
 
 from lecap import gui, macapp
 
@@ -29,6 +33,17 @@ def test_app_bundle(tmp_path):
     text = exe.read_text()
     assert exe.stat().st_mode & 0o111 and '/opt/homebrew/bin' in text and text.rstrip().endswith('exec "/usr/local/bin/lecap" app')
     assert (app / "Contents/Resources/lecap.icns").stat().st_size > 1000
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="the link helper is built with osacompile/codesign")
+def test_link_helper(tmp_path):
+    app = macapp.build(tmp_path / "lecap.app", command=["/usr/local/bin/lecap"])
+    helper = app / macapp.HELPER
+    info = plistlib.loads((helper / "Contents/Info.plist").read_bytes())
+    assert info["CFBundleURLTypes"][0]["CFBundleURLSchemes"] == ["lecap"] and info["LSBackgroundOnly"] is True
+    script = (helper / "Contents/Resources/open-url").read_text()
+    assert script.rstrip().endswith('exec "/usr/local/bin/lecap" open-url "$1"')
+    assert subprocess.run(["codesign", "--verify", str(helper)]).returncode == 0
 
 
 def test_media_choice_is_passed_on():

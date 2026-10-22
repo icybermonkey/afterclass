@@ -79,7 +79,7 @@ def main(argv=None):
         if argv[:2] == ["setup", "ai"]:
             from .setup_ai import wizard
             return wizard()
-        if argv and argv[0] in ("open", "settings"):
+        if argv and argv[0] in ("open", "settings", "open-url"):
             from .server import serve_main
             return serve_main(argv)
         return run(build_parser().parse_args(argv))

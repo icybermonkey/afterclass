@@ -246,3 +246,24 @@ def test_model_picker_options_and_choice(monkeypatch, tmp_path):
     assert local == [("gemma", False), ("qwen", False)]
     assert all(o["online"] and not o["available"] for o in m["options"] if o["provider"].startswith("claude"))
     assert m["current"] == {"provider": "local", "model": "qwen"}
+
+
+def test_a_second_open_reuses_the_running_server(lesson_folder, monkeypatch):
+    folder, base = lesson_folder
+    port = int(base.rsplit(":", 1)[1])
+    assert server.running_url(folder.resolve(), start=port, tries=1) == base + "/index.html"
+    assert server.running_url(folder.parent, start=port, tries=1) is None  # another folder: start a new one
+    opened = []
+    monkeypatch.setattr(server.subprocess, "run", lambda cmd, **kw: opened.append(cmd))
+    real = server.running_url
+    monkeypatch.setattr(server, "running_url", lambda f: real(f, start=port, tries=1))
+    assert server.serve(folder) == 0 and opened == [["open", base + "/index.html"]]
+
+
+def test_lecap_links():
+    from pathlib import Path
+
+    assert server.folder_from_url("lecap://open?folder=%2FUsers%2Fx%2FSMF%20-%20Module%201") == Path("/Users/x/SMF - Module 1")
+    for bad in ("https://open?folder=/x", "lecap://run?folder=/x", "lecap://open?folder=x", "lecap://open"):
+        with pytest.raises(server.LecapError):
+            server.folder_from_url(bad)

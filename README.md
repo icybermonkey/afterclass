@@ -6,7 +6,8 @@
 
 **As a Mac app:** `lecap install-app` puts **lecap.app** into /Applications. Open it, drop the recording (and
 the slides), choose the output folder, press **Run**, then **Open lesson**. `lecap app` opens the same window from
-the Terminal.
+the Terminal. With the app installed, a page you double-clicked (`index.html`) has an **Open in lecap** button that
+reopens it with `lecap open` (notes in the folder, all Ask models).
 
 ```bash
 lecap lesson.mp4 lesson-01/ --deck slides.pdf --ai   # build the page
