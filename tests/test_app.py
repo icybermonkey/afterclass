@@ -77,3 +77,16 @@ def test_model_suggestions_fit_the_memory():
     assert [n for n, _, _ in setup_ai.choices(8, "lmstudio")] == ["google/gemma-4-e4b-qat"]
     assert all(n for n, _, _ in setup_ai.choices(32, "ollama"))  # models without an Ollama tag are skipped
     assert setup_ai.recommend(32, "ollama")[0] == "gemma4:26b"
+
+
+def test_recommendation_uses_this_mac():
+    from lecap import setup_ai
+
+    m2pro = {"chip": "Apple M2 Pro", "ram_gb": 32, "free_gb": 36, "bandwidth": 200}
+    offer = setup_ai.choices(32, "lmstudio", m2pro)
+    assert "words/s on your M2 Pro" in offer[0][2]
+    assert setup_ai.words_per_second(3.8, 200) > setup_ai.words_per_second(30.7, 200) * 5  # MoE is much faster
+    assert setup_ai.recommend(32, "lmstudio", m2pro)[0] == "google/gemma-4-26b-a4b-qat"
+    tight = {**m2pro, "free_gb": 12}  # not enough disk for the big ones: recommend one that fits
+    assert setup_ai.recommend(32, "lmstudio", tight)[0] == "google/gemma-4-12b-qat"
+    assert "⚠ only 12 GB free disk" in setup_ai.choices(32, "lmstudio", tight)[0][2]

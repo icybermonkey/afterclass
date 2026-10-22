@@ -181,7 +181,7 @@ function render() {
 
   const L = S.local, apps = L.apps;
   $("#localstatus").innerHTML = apps.map(a => pill(a.running, `${a.name}: ${!a.installed ? "not installed" : a.running ? "running" + (a.loaded.length ? " · " + a.loaded.join(", ") : "") : "installed, server off"}`, a.installed && !a.running)).join("")
-    + `<span class="pill no">${L.ram_gb} GB RAM</span>`;
+    + `<span class="pill no">${esc(L.mac.chip)} · ${L.ram_gb} GB memory · ${L.mac.free_gb} GB free disk</span>`;
   const run = apps.filter(a => a.running);
   $("#pageask").innerHTML = !run.length ? "" : run.map(a => a.page_allowed
     ? `<p>${pill(true, `${a.name} allows Ask from lesson pages opened as files`)}</p>`
@@ -200,9 +200,9 @@ function render() {
       <p>Or step by step${lm && lm.installed ? " with LM Studio" : ol && ol.installed ? " with Ollama" : ""}:</p><ol>`;
     if (lm && lm.installed) {
       guide += `<li>Start the server: ${cmd("lms server start")}</li>
-        <li>${lm.models.length ? "Use an installed model or get" : "Get"} the recommended one (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("lms get " + L.recommended.lmstudio)}</li>
+        <li>${lm.models.length ? "Use an installed model or get" : "Get"} the one recommended for your ${esc(L.mac.chip)} (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("lms get " + L.recommended.lmstudio)}</li>
         <li>Load it with enough context for a whole lecture: ${cmd(`lms load ${lm.models[0] ? lm.models[0].name : L.recommended.lmstudio} --context-length 32768 -y`)}</li>
-        <li>Other good options for ${L.ram_gb} GB: ${L.choices.lmstudio.slice(1).map(c => `<code>${esc(c.name)}</code> (~${c.gb} GB, ${esc(c.why)})`).join(" · ")}</li>`;
+        <li>Other options for your Mac:<ul>${L.choices.lmstudio.filter(c => c.name !== L.recommended.lmstudio).map(c => `<li><code>${esc(c.name)}</code> ~${c.gb} GB: ${esc(c.why)}</li>`).join("")}</ul></li>`;
     } else if (ol && ol.installed) {
       guide += `<li>Start Ollama: ${cmd("brew services start ollama")}</li>
         <li>Get the recommended model (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("ollama pull " + L.recommended.ollama)}</li>`;

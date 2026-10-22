@@ -19,17 +19,39 @@ LMS_FALLBACK = Path.home() / ".lmstudio" / "bin" / "lms"
 CONTEXT = 32768  # enough for a 2.5 h lecture in one go
 
 # Models to offer, best first per memory size (checked against the LM Studio / Ollama catalogs, Oct 2026).
-# (min RAM GB, LM Studio key, Ollama tag or None, download GB, why)
+# (min RAM GB, LM Studio key, Ollama tag or None, download GB, active params in billions, why)
 # MoE models ("a4b", "a3b") only use a few billion parameters per word: big-model quality at small-model speed.
 # "-qat" versions are trained for compression: same size, better quality.
 MODELS = [
-    (32, "google/gemma-4-26b-a4b-qat", "gemma4:26b", 15.6, "fast (MoE, 3.8B active) and strong, 256K context"),
-    (32, "qwen/qwen3.6-35b-a3b", "qwen3.6:35b", 20.4, "very good and fast (MoE), thinks before answering; tight on 32 GB"),
-    (32, "google/gemma-4-31b-qat", "gemma4:31b", 19.0, "best Gemma quality, but dense: noticeably slower"),
-    (16, "google/gemma-4-12b-qat", "gemma4:12b", 7.4, "good and fast; the pick for 16 GB"),
-    (16, "qwen/qwen3.5-9b", None, 7.0, "good, thinks before answering"),
-    (0, "google/gemma-4-e4b-qat", "gemma4:e4b", 5.9, "small and fast; weaker summaries"),
+    (32, "google/gemma-4-26b-a4b-qat", "gemma4:26b", 15.6, 3.8, "fast (MoE) and strong, 256K context"),
+    (32, "qwen/qwen3.6-35b-a3b", "qwen3.6:35b", 20.4, 3.0, "very good and fast (MoE), thinks before answering; tight on 32 GB"),
+    (32, "google/gemma-4-31b-qat", "gemma4:31b", 19.0, 30.7, "best Gemma quality, but dense: much slower"),
+    (16, "google/gemma-4-12b-qat", "gemma4:12b", 7.4, 12.0, "good; the pick for 16 GB"),
+    (16, "qwen/qwen3.5-9b", None, 7.0, 9.0, "good, thinks before answering"),
+    (0, "google/gemma-4-e4b-qat", "gemma4:e4b", 5.9, 4.5, "small and fast; weaker summaries"),
 ]
+
+# Memory bandwidth (GB/s) decides how fast a local model writes on Apple Silicon
+BANDWIDTH = {"M1": 68, "M2": 100, "M3": 100, "M4": 120, "M1 Pro": 200, "M2 Pro": 200, "M3 Pro": 150, "M4 Pro": 273,
+             "M1 Max": 400, "M2 Max": 400, "M3 Max": 400, "M4 Max": 546, "M1 Ultra": 800, "M2 Ultra": 800, "M3 Ultra": 819}
+
+
+def mac():
+    """This Mac: chip, memory, free disk and memory bandwidth (for speed estimates)."""
+    try:
+        chip = subprocess.run(["sysctl", "-n", "machdep.cpu.brand_string"], capture_output=True, text=True).stdout.strip()
+    except Exception:
+        chip = ""
+    family = chip.replace("Apple ", "")
+    bw = next((v for k, v in sorted(BANDWIDTH.items(), key=lambda kv: -len(kv[0])) if family.startswith(k)), 100)
+    free = shutil.disk_usage(Path.home()).free / 1e9
+    return {"chip": chip or "this Mac", "ram_gb": round(ram_gb()), "free_gb": round(free), "bandwidth": bw}
+
+
+def words_per_second(active_b, bandwidth):
+    """Rough writing speed (an estimate, not a benchmark): each token reads the active weights once
+    (4-bit ≈ 0.6 GB per billion parameters), at ~50 % of the memory bandwidth; ~0.75 words per token."""
+    return round(bandwidth / (active_b * 0.6) * 0.5 * 0.75)
 
 
 def ram_gb():
@@ -39,19 +61,27 @@ def ram_gb():
         return 0
 
 
-def choices(ram=None, app="lmstudio"):
-    """Models that fit this Mac, best first: [(name, download GB, why)]."""
+def choices(ram=None, app="lmstudio", info=None):
+    """Models that fit this Mac's memory, best first: [(name, download GB, why)]. With info (from mac()),
+    'why' gets a speed estimate and a warning when the download doesn't fit on the disk."""
     ram = ram_gb() if ram is None else ram
     out = []
-    for min_ram, lms_key, ollama_tag, gb, why in MODELS:
+    for min_ram, lms_key, ollama_tag, gb, active, why in MODELS:
         name = lms_key if app == "lmstudio" else ollama_tag
-        if name and ram >= min_ram:
-            out.append((name, gb, why))
+        if not name or ram < min_ram:
+            continue
+        if info:
+            why = f"{why}; ~{words_per_second(active, info['bandwidth'])} words/s on your {info['chip'].replace('Apple ', '')}"
+            if gb + 3 > info["free_gb"]:
+                why += f"; ⚠ only {info['free_gb']} GB free disk"
+        out.append((name, gb, why))
     return out
 
 
-def recommend(ram=None, app="lmstudio"):
-    return choices(ram, app)[0]
+def recommend(ram=None, app="lmstudio", info=None):
+    """The best model that also fits on the disk (if known)."""
+    offer = choices(ram, app, info)
+    return next((c for c in offer if "⚠" not in c[2]), offer[-1])
 
 
 def lms_bin():
@@ -109,11 +139,13 @@ def status():
             "models": [{"name": n, "gb": gb} for n, gb in installed_models(app)] if binary else [],
             "page_allowed": page_allowed(srv["url"]) if srv else False, "allow_cmd": ALLOW_PAGE[app],
         })
-    ram = ram_gb()
-    lm, ol = recommend(ram, "lmstudio"), recommend(ram, "ollama")
-    return {"apps": apps, "ram_gb": round(ram), "recommended": {"lmstudio": lm[0], "ollama": ol[0], "gb": lm[1], "why": lm[2]},
-            "choices": {"lmstudio": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "lmstudio")],
-                        "ollama": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "ollama")]}}
+    info = mac()
+    ram = info["ram_gb"]
+    lm, ol = recommend(ram, "lmstudio", info), recommend(ram, "ollama", info)
+    return {"apps": apps, "ram_gb": ram, "mac": info,
+            "recommended": {"lmstudio": lm[0], "ollama": ol[0], "gb": lm[1], "why": lm[2]},
+            "choices": {"lmstudio": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "lmstudio", info)],
+                        "ollama": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "ollama", info)]}}
 
 
 # --- the wizard ------------------------------------------------------------
@@ -167,16 +199,19 @@ def wizard():
         ui.info("  Ollama:    brew install ollama   (runs in the background, terminal only)")
         steps.end()
         return 1
-    steps.end(f"your Mac has {st['ram_gb']} GB RAM")
+    m = st["mac"]
+    ui.info(f"your Mac: {m['chip']} · {m['ram_gb']} GB memory · {m['free_gb']} GB free disk · "
+            f"memory speed ~{m['bandwidth']} GB/s (decides how fast local models write)")
+    steps.end()
 
-    steps.begin("Choose the app")
+    steps.begin("Choose the app", "Recommended on Apple Silicon: LM Studio. It runs MLX models (made for Macs, usually "
+                "faster), has a model browser, and can allow Ask from lesson pages. Ollama works too.")
     if len(installed) == 1:
         app = installed[0]
     else:
-        # Prefer the one that already has models or is running
-        installed.sort(key=lambda a: (not a["models"], not a["running"]))
-        key = _choose("Which app should lecap use?", [(a["app"], f"{a['name']}" + (" (has models)" if a["models"] else ""))
-                                                     for a in installed])
+        installed.sort(key=lambda a: (a["app"] != "lmstudio", not a["models"], not a["running"]))
+        key = _choose("Which app should lecap use?", [(a["app"], f"{a['name']}" + (" (recommended)" if a["app"] == "lmstudio" else "")
+                                                       + (" · has models" if a["models"] else "")) for a in installed])
         app = next((a for a in installed if a["app"] == key), installed[0])
     steps.end(f"using {app['name']}")
 
@@ -202,14 +237,15 @@ def wizard():
         return 1
 
     steps.begin("Choose a model")
-    offer = choices(None, app["app"])
-    ui.explain(f"For {st['ram_gb']} GB the best choice is {offer[0][0]} ({offer[0][2]}). "
+    offer = choices(st["ram_gb"], app["app"], m)
+    best = recommend(st["ram_gb"], app["app"], m)
+    ui.explain(f"For your {m['chip']} with {m['ram_gb']} GB I recommend {best[0]} (~{best[1]} GB): {best[2]}. "
                "Bigger models write better titles and answers but need more memory and time.")
-    installed = {m["name"] for m in app["models"]}
-    options = [(m["name"], f"use {m['name']} ({m['gb']} GB, installed)") for m in app["models"]]
-    for i, (name, gb, why) in enumerate(offer):
+    installed = {x["name"] for x in app["models"]}
+    options = [(x["name"], f"use {x['name']} ({x['gb']} GB, installed)") for x in app["models"]]
+    for name, gb, why in offer:
         if name not in installed:
-            options.append((f"dl:{name}", f"download {name} (~{gb} GB): {why}{'  ← recommended' if i == 0 else ''}"))
+            options.append((f"dl:{name}", f"download {name} (~{gb} GB): {why}{'  ← recommended' if name == best[0] else ''}"))
     options.append(("__other__", "other model: type its name (from lmstudio.ai/models or ollama.com/library)"))
     choice = _choose("Which model?", options)
     if choice is None:
@@ -226,6 +262,7 @@ def wizard():
     if choice.startswith("dl:"):
         model = choice[3:]
         size = next((f"~{gb} GB" for n, gb, _ in offer if n == model), "size: see the catalog")
+        size += f"; {m['free_gb']} GB free on your disk"
         if not _ask(f"Download {model} now ({size})?"):
             ui.info("download later with: " + (f"lms get {model}" if app["app"] == "lmstudio" else f"ollama pull {model}"))
             steps.end()
@@ -234,6 +271,9 @@ def wizard():
     if app["app"] == "lmstudio":
         ui.explain(f"LM Studio loads models with a small context by default; lecap needs {CONTEXT:,} tokens "
                    "to read a whole lecture at once.")
+        others = [x for x in app["loaded"] if x != model]
+        if others and _ask(f"Unload {', '.join(others)} first to free memory?", default=True):
+            _run([lms_bin(), "unload", "--all"])
         if _ask(f"Load {model} with a {CONTEXT:,}-token context now?", default=True):
             _run([lms_bin(), "load", model, "--context-length", str(CONTEXT), "-y"])
     steps.end(f"model: {model}")
