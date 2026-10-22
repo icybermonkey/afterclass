@@ -1140,6 +1140,8 @@ if (SERVER) {
     const changed = JSON.stringify(merged) !== JSON.stringify(s.notes || {});
     store = merged;
     if (changed) save();
+    // with lecap, the current setting counts (the lesson keeps the one from when it was built); a clicked choice wins
+    if (!lsGet("lecap:view") && ["paragraphs", "blocks"].includes(settings.transcript_view)) view = settings.transcript_view;
     renderTranscript();
     const target = current >= 0 ? current : pendingCard;
     if (target >= 0) scrollToCard(target, true);
