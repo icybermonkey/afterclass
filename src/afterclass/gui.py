@@ -23,6 +23,7 @@ VIDEO_EXT = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"}
 DECK_EXT = {".pdf", ".pptx", ".ppt", ".odp", ".key"}
 STATE_FILE = "app.json"  # remembers the last output folder and recent lessons, next to config.toml
 RECENT_MAX = 12
+LESSON_EXT = ".afterclass"  # a lesson folder with this suffix is a document of the app (one icon in Finder)
 AI_CHOICES = ("off", "auto", "local", "claude-code", "claude")
 
 
@@ -31,9 +32,35 @@ def safe_name(name):
 
 
 def output_folder(form):
-    """Chosen folder + lesson name (default: the video's file name)."""
+    """Chosen folder + lesson name (default: the video's file name), as an AfterClass document."""
     name = form.get("name") or Path(form.get("video") or "lesson").stem
-    return Path(form["out_dir"]).expanduser() / safe_name(name)
+    return Path(form["out_dir"]).expanduser() / (safe_name(name) + LESSON_EXT)
+
+
+SHOW_IN_FINDER = ["on run argv", 'tell application "Finder"', "activate",
+                  "make new Finder window to (POSIX file (item 1 of argv) as alias)", "end tell", "end run"]
+
+
+def show_files(folder):
+    """The lesson's files in a Finder window. `open` would hand an .afterclass folder to the app itself."""
+    script = [arg for line in SHOW_IN_FINDER for arg in ("-e", line)]
+    subprocess.run(["osascript", *script, str(folder)], capture_output=True)
+
+
+def convert_lesson(folder):
+    """Make a lesson folder an AfterClass document: rename it to <name>.afterclass (Finder then shows one
+    icon that opens the app) and follow the rename in the recent list. Returns the new path."""
+    folder = lesson_folder(folder)
+    if folder.suffix == LESSON_EXT:
+        return folder
+    target = folder.with_name(folder.name + LESSON_EXT)
+    if target.exists():
+        raise AfterclassError(f"{target} already exists")
+    folder.rename(target)
+    state = _load_state()
+    if str(folder) in state.get("recent", []):
+        _save_state(recent=[str(target) if f == str(folder) else f for f in state["recent"]])
+    return target
 
 
 def build_args(form):
@@ -216,7 +243,7 @@ class Api:
 
     def reveal(self):
         if self._out:
-            subprocess.run(["open", str(self._out)])
+            show_files(self._out)
         return True
 
     def settings(self):
@@ -251,6 +278,11 @@ class PageApi:
         self._windows.show_main()
         return True
 
+    def reveal(self):
+        """The lesson's files in Finder (lesson pages don't know their folder: the window does)."""
+        self._windows.show_files()
+        return True
+
     def open_external(self, url):
         if str(url).startswith(("http://", "https://")):
             subprocess.run(["open", url])
@@ -281,6 +313,8 @@ class Windows:
         self.main_shown = False
         self.pages = {}  # folder (or None: settings) -> (window, server or None)
         self.lock = threading.Lock()
+        self.opened_by_event = False  # started by a link or a double-clicked lesson: show only that
+        self.reopening = False  # a lesson window closes to be opened again: don't quit
 
     def new_lesson(self):
         if self.main is None:
@@ -332,7 +366,7 @@ class Windows:
         if httpd:
             httpd.shutdown()
             httpd.server_close()
-        if last and self.main is not None and not self.main_shown:
+        if last and self.main is not None and not self.main_shown and not self.reopening:
             # started by a link: the hidden new-lesson window would keep the app running unseen
             if self.api._state == "running":
                 self.show_main()
@@ -343,9 +377,52 @@ class Windows:
         window = self.main if self.main_shown else next((w for w, _ in self.pages.values()), self.main)
         if window is None:
             return
-        res = window.create_file_dialog(self.webview.FileDialog.FOLDER)
+        # an .afterclass lesson is a file to the dialog; an older lesson folder is picked by its index.html
+        res = window.create_file_dialog(self.webview.FileDialog.OPEN, file_types=("Lessons (*.afterclass;*.html)",))
         if res:
-            self.show(res[0])
+            path = Path(res[0])
+            self.show(path.parent if path.suffix == ".html" else path)
+
+    def front_lesson(self):
+        """The folder of the active lesson window, or None."""
+        window = self.webview.active_window()
+        with self.lock:
+            return next((key for key, (w, _) in self.pages.items() if w is window and key is not None), None)
+
+    def show_files(self):
+        folder = self.front_lesson()
+        if folder is not None:
+            show_files(folder)
+
+    def make_document(self):
+        """File → Make Lesson a Document: rename the front lesson to .afterclass and reopen it."""
+        folder = self.front_lesson()
+        if folder is None or folder.suffix == LESSON_EXT:
+            return
+        target = folder.with_name(folder.name + LESSON_EXT)
+        if target.exists():
+            ui.notify(f"{DISPLAY_NAME}: can't convert the lesson", f"{target.name} already exists", sound="Basso")
+            return
+        window = self.pages[folder][0]
+        closed = threading.Event()
+        window.events.closed += closed.set
+        self.reopening = True
+        try:
+            window.destroy()  # its server stops (_page_closed) before the folder is renamed
+            closed.wait(5)
+            try:
+                target = convert_lesson(folder)
+            except (OSError, AfterclassError) as e:
+                ui.notify(f"{DISPLAY_NAME}: can't convert the lesson", str(e), sound="Basso")
+                target = folder
+            self.show(target)
+        finally:
+            self.reopening = False
+
+    def open_files(self, paths):
+        """Lessons double-clicked in Finder (an .afterclass folder, or a lesson's index.html)."""
+        for p in map(Path, paths):
+            self.show(p.parent if p.suffix == ".html" else p)
 
     def open_url(self, url):
         try:
@@ -365,6 +442,9 @@ class Windows:
         return [Menu("File", [MenuAction("New Lesson", later(self.show_main)),
                               MenuAction("Open Lesson…", later(self.choose_lesson)),
                               *([Menu("Open Recent", recent)] if recent else []),
+                              MenuSeparator(),
+                              MenuAction("Show Lesson Files", later(self.show_files)),
+                              MenuAction("Make Lesson a Document", later(self.make_document)),
                               MenuSeparator(),
                               MenuAction("Reload Page", later(self.reload)),
                               MenuSeparator(),
@@ -388,20 +468,40 @@ class Windows:
             @objc.signature(b"v@:@@")
             def handle_withReply_(self, event, reply):
                 url = event.paramDescriptorForKeyword_(DIRECT_OBJECT).stringValue()
+                windows.opened_by_event = True
                 threading.Thread(target=windows.open_url, args=(str(url),), daemon=True).start()
 
         self._link_handler = LinkHandler.alloc().init()
         NSAppleEventManager.sharedAppleEventManager().setEventHandler_andSelector_forEventClass_andEventID_(
             self._link_handler, "handle:withReply:", GET_URL, GET_URL)
 
+    def listen_for_documents(self):
+        """Double-clicked .afterclass lessons (Info.plist CFBundleDocumentTypes) reach the app delegate as
+        application:openURLs:. pywebview's delegate doesn't handle it: add the method to its class."""
+        try:
+            import objc
+            from webview.platforms.cocoa import BrowserView
+        except ImportError:
+            return
+        windows = self
+
+        def application_openURLs_(delegate, app, urls):
+            paths = [str(u.path()) for u in urls if u.isFileURL()]
+            if paths:
+                windows.opened_by_event = True
+                threading.Thread(target=windows.open_files, args=(paths,), daemon=True).start()
+
+        objc.classAddMethods(BrowserView.AppDelegate, [
+            objc.selector(application_openURLs_, selector=b"application:openURLs:", signature=b"v@:@@")])
+
     def startup(self):
-        """Open the most recent lesson (else the new-lesson window), unless the app was started by a link
-        (then only that lesson)."""
+        """Open the most recent lesson (else the new-lesson window), unless the app was started by a link or
+        a double-clicked lesson (then only that lesson)."""
         time.sleep(0.6)
         _add_shortcuts()
         with self.lock:
             opened = bool(self.pages)
-        if opened:
+        if opened or self.opened_by_event:
             return
         recent = recent_lessons()
         if not recent or self.show(recent[0]["path"]) is None:
@@ -431,11 +531,11 @@ def _page():
     return files(APP_NAME).joinpath("web/new.html").read_text(encoding="utf-8").replace("__ICON__", icon_uri())
 
 
-SHORTCUTS = {"New Lesson": "n", "Open Lesson…": "o", "Reload Page": "r", "Settings": ","}
+SHORTCUTS = {"New Lesson": "n", "Open Lesson…": "o", "Reload Page": "r", "Show Lesson Files": "R", "Settings": ","}
 
 
 def _add_shortcuts():
-    """⌘N, ⌘O, ⌘R, ⌘, for the File menu (pywebview's menu items take no shortcuts; best effort, macOS only)."""
+    """⌘N, ⌘O, ⌘R, ⌘⇧R, ⌘, for the File menu (pywebview's menu items take no shortcuts; best effort, macOS only)."""
     try:
         from AppKit import NSApplication
         from PyObjCTools import AppHelper
@@ -516,6 +616,7 @@ def main(argv=None):
     windows = Windows(api)
     windows.new_lesson()  # hidden until startup() knows the app wasn't started by a link
     windows.listen_for_links()
+    windows.listen_for_documents()
     _brand_app()
     # private_mode off: the pages keep their localStorage (view, theme…) between starts
     windows.webview.start(windows.startup, menu=windows.menu(), private_mode=False)

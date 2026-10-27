@@ -18,7 +18,7 @@ def build_parser():
         prog=APP_NAME,
         description="Turn a lecture recording into a searchable study page: index.html + subfolders.",
         epilog=(f"Also: `{APP_NAME} app` (window to start a lesson), `{APP_NAME} install-app` ({DISPLAY_NAME}.app in /Applications), "
-                f"`{APP_NAME} open <folder>`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
+                f"`{APP_NAME} open <folder>`, `{APP_NAME} convert`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("input", type=Path, help="lecture video (.mp4, .mov, …)")
@@ -73,6 +73,8 @@ def main(argv=None):
         if argv and argv[0] == "app":
             from .gui import main as app_main
             return app_main(argv[1:])
+        if argv and argv[0] == "convert":
+            return convert_main(argv[1:])
         if argv and argv[0] == "install-app":
             from .macapp import main as install_main
             return install_main(argv[1:])
@@ -211,6 +213,34 @@ def auth_main(argv):
 
 
 # --- config ----------------------------------------------------------------
+
+
+def convert_main(argv):
+    p = argparse.ArgumentParser(prog=f"{APP_NAME} convert",
+                                description=f"Make lesson folders {DISPLAY_NAME} documents: <name>.afterclass, one icon in "
+                                            f"Finder that opens in {DISPLAY_NAME} (run `{APP_NAME} install-app` once).")
+    p.add_argument("folders", nargs="*", type=Path, help="lesson folders (default: the app's recent lessons)")
+    a = p.parse_args(argv)
+    from .gui import LESSON_EXT, convert_lesson, recent_lessons
+    from .server import running_url
+
+    folders = a.folders or [Path(r["path"]) for r in recent_lessons()]
+    if not folders:
+        ui.info("no recent lessons: name the folders to convert")
+        return 0
+    failed = 0
+    for folder in folders:
+        if folder.suffix == LESSON_EXT:
+            ui.info(f"already a document: {folder}")
+            continue
+        try:
+            if running_url(folder.expanduser().resolve()):
+                raise AfterclassError("it is open: close its window first")
+            ui.ok(f"{folder.name} → {convert_lesson(folder).name}")
+        except (AfterclassError, OSError) as e:
+            ui.warn(f"{folder}: {e}")
+            failed += 1
+    return 1 if failed else 0
 
 
 def config_main(argv):

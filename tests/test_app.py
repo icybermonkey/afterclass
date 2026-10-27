@@ -19,11 +19,11 @@ def form(**kw):
 
 def test_form_becomes_the_normal_command_line():
     args, out = gui.build_args(form())
-    assert str(out) == "/x/out/SPCS lesson 1"  # lesson name defaults to the video's file name
-    assert args == ["/x/SPCS lesson 1.mp4", "/x/out/SPCS lesson 1", "-l", "en", "--ai"]
+    assert str(out) == "/x/out/SPCS lesson 1.afterclass"  # lesson name defaults to the video's file name; a document of the app
+    assert args == ["/x/SPCS lesson 1.mp4", "/x/out/SPCS lesson 1.afterclass", "-l", "en", "--ai"]
 
     args, out = gui.build_args(form(name="Lesson: 2/Obfuscation", deck="/x/s.pdf", ai="off", speakers=False))
-    assert str(out) == "/x/out/Lesson- 2-Obfuscation"  # safe folder name
+    assert str(out) == "/x/out/Lesson- 2-Obfuscation.afterclass"  # safe folder name
     assert args[2:] == ["--deck", "/x/s.pdf", "--title", "Lesson: 2/Obfuscation", "-l", "en", "--no-speakers"]
 
     assert gui.build_args(form(ai="claude"))[0][-2:] == ["--ai", "claude"]  # no cost confirmation: asks/skips
@@ -300,3 +300,46 @@ def test_the_video_fallback_makes_the_window_fullscreen():
     window, web = Window(), FakeWebview()
     web.active_window = lambda: window
     assert gui.PageApi(gui.Windows(gui.Api(), webview=web)).fullscreen() and window.toggled == 1
+
+
+def test_lessons_are_documents_of_the_app(tmp_path):
+    info = plistlib.loads((macapp.build(tmp_path / "afterclass.app", command=["/x"]) / "Contents/Info.plist").read_bytes())
+    kind = info["UTExportedTypeDeclarations"][0]
+    assert kind["UTTypeTagSpecification"]["public.filename-extension"] == ["afterclass"]
+    assert "com.apple.package" in kind["UTTypeConformsTo"]  # Finder shows the lesson folder as one icon
+    doc = info["CFBundleDocumentTypes"][0]
+    assert doc["LSItemContentTypes"] == [kind["UTTypeIdentifier"]] and doc["LSHandlerRank"] == "Owner" and doc["LSTypeIsPackage"]
+
+
+def test_convert_a_lesson_folder_to_a_document(tmp_path):
+    from afterclass import cli
+
+    a, b = lesson(tmp_path, "A"), lesson(tmp_path, "B")
+    gui.remember_lesson(a.resolve())
+    new = gui.convert_lesson(a)
+    assert new == (tmp_path / "A.afterclass").resolve() and (new / "index.html").exists() and not a.exists()
+    assert [r["path"] for r in gui.recent_lessons()] == [str(new)]  # the recent list follows the rename
+    assert gui.convert_lesson(new) == new  # already one: unchanged
+    lesson(tmp_path, "B.afterclass")
+    with pytest.raises(gui.AfterclassError):
+        gui.convert_lesson(b)  # never overwrites
+    assert cli.main(["convert", str(b)]) == 1 and b.exists()
+
+
+def test_double_clicked_lessons_open_in_their_window(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "running_url", lambda folder: None)
+    windows = gui.Windows(gui.Api(), webview=FakeWebview())
+    doc, old = lesson(tmp_path, "A.afterclass"), lesson(tmp_path, "B")
+    windows.open_files([str(doc), str(old / "index.html")])
+    assert list(windows.pages) == [doc.resolve(), old.resolve()]
+    for window, _ in list(windows.pages.values()):
+        window.events.closed.fire()
+
+
+def test_lesson_files_open_in_finder_not_in_the_app(monkeypatch, tmp_path):
+    runs = []
+    monkeypatch.setattr(gui.subprocess, "run", lambda cmd, **kw: runs.append(cmd))
+    api = gui.Api()
+    api._out = tmp_path / "L.afterclass"
+    api.reveal()
+    assert runs[0][0] == "osascript" and runs[0][-1] == str(tmp_path / "L.afterclass")  # path as an argument

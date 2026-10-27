@@ -94,6 +94,7 @@ h1[contenteditable="true"] { outline: 2px solid var(--accent); background: var(-
 #openhint.first .hhead { font-size: 18px; margin-bottom: 10px; }
 #openhint.first .go, #openhint.first .stay { padding: 6px 16px; font-size: 14px; }
 #hintback { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .5); backdrop-filter: blur(2px); }
+#openhint .auto { display: flex; gap: 6px; align-items: center; font-size: 13px; margin: 0 0 4px; cursor: pointer; }
 #openhint .fallback { margin: 8px 0 0; padding-top: 8px; border-top: 1px solid var(--line); font-size: 12px; color: var(--muted); }
 #openhint .cmd { display: flex; gap: 6px; align-items: center; margin: 3px 0 6px; }
 #openhint code { flex: 1; min-width: 0; padding: 3px 6px; border-radius: 4px; background: var(--bg); color: var(--fg); font-size: 11px; word-break: break-all; }
@@ -337,6 +338,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
     <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
     <button id="theme" title="Theme">◐</button>
     <button id="newlesson" class="hidden" title="New lesson, recent lessons">＋ New</button>
+    <button id="lessonfiles" class="hidden" title="Show the lesson's files in Finder (⇧⌘R)">📁</button>
     <button id="settings" title="Settings">⚙</button>
   </div>
 </header>
@@ -456,6 +458,7 @@ if (location.protocol === "file:") {
       <tr><td>Ask</td><td><span class="no">✕</span> search or a local model</td><td><span class="ok">✓</span> all models, also Claude</td></tr>
       <tr><td>Settings</td><td><span class="no">✕</span> not here</td><td><span class="ok">✓</span> change them on the page</td></tr></table>
     <p><a class="go" href="${esc(link)}">Open in AfterClass</a><button class="stay">Continue here</button></p>
+    <label class="auto"><input type="checkbox" id="autoopen"> Always open lessons in AfterClass</label>
     <div class="fallback"><span class="opening hidden"><b>Opening…</b> your browser may ask first. </span>Nothing happens? Install the Mac app once:
       <div class="cmd"><code>afterclass install-app</code><button class="btn" data-copy="afterclass install-app">Copy</button></div>or open it from Terminal:
       <div class="cmd"><code>${esc(cmd)}</code><button class="btn" data-copy="${esc(cmd)}">Copy</button></div></div>`;
@@ -470,7 +473,19 @@ if (location.protocol === "file:") {
   [$("#openafterclass"), $(".go", hint)].forEach(a => a.addEventListener("click", () => { show(true, hint.classList.contains("first")); $(".opening", hint).classList.remove("hidden"); }));
   document.addEventListener("click", e => { if (!hint.classList.contains("hidden") && !hint.classList.contains("first") && !e.target.closest("#openwrap")) show(false); });
   document.addEventListener("keydown", e => { if (e.key === "Escape" && !hint.classList.contains("hidden")) show(false); });
-  if (!lsGet("afterclass:filehint")) show(true, true);  // the first time as a dialog; ⓘ brings it back as a dropdown
+  // "Always open lessons in AfterClass": hand every lesson page opened as a file to the app right away
+  const auto = $("#autoopen", hint);
+  auto.checked = lsGet("afterclass:autoopen") === "1";
+  auto.addEventListener("change", () => {
+    lsSet("afterclass:autoopen", auto.checked ? "1" : "");
+    if (auto.checked) { $(".opening", hint).classList.remove("hidden"); location.href = link; }
+  });
+  if (auto.checked) {
+    show(true);
+    $(".opening", hint).classList.remove("hidden");
+    location.href = link;
+  }
+  else if (!lsGet("afterclass:filehint")) show(true, true);  // the first time as a dialog; ⓘ brings it back as a dropdown
 }
 
 /* ---------- theme ---------- */
@@ -610,6 +625,8 @@ function paragraphsOf(c) {
 }
 const segHTML = (c, j, other = false) => `<span class="seg${other ? " other" : ""}" data-c="${c.id}" data-j="${j}" data-t="${c.segments[j].start}">${decorate(c.segments[j].text, true)}</span>`;
 function transcriptBody(c) {
+  const group = groupOf[c.id];
+  if (group) return `<p class="nospeech">no speech · ${group.length} shots, ${fmt(c.start)}–${fmt(cards[group[group.length - 1]].end)}</p>`;
   if (!c.segments.length) return `<p class="nospeech">no speech</p>`;
   if (view === "blocks") {
     let last = null;
@@ -647,11 +664,35 @@ function tcardHTML(c) {
     <textarea class="note ${note ? "" : "hidden"}" data-id="${c.id}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
 }
 let activeSeg = null;
+/* Back-to-back cards without speech (a live demo cut into many short shots) show as one card. That includes
+   "slides" only recognised from screen text (no deck page), which in a hands-on lesson are demo windows;
+   a slide matched to the deck stays a card of its own.
+   lead[id] = the card that shows card id, groupOf[lead] = the ids it stands for. Ids stay as they are
+   (notes, stars, links, chapters jump to the card that shows them); a card with a star or a note is never folded in. */
+let lead = cards.map(c => c.id), groupOf = {};
+function groupSilentCards() {
+  lead = cards.map(c => c.id); groupOf = {};
+  const silent = c => c.kind !== "break" && !(c.kind === "slide" && c.deck_page) && !c.segments.length;
+  const own = c => store.stars[c.id] || store.notes[c.id];
+  for (let i = 0; i < cards.length; i++) {
+    if (!silent(cards[i])) continue;
+    let j = i;
+    while (j + 1 < cards.length && silent(cards[j + 1]) && !own(cards[j + 1])) j++;
+    if (j > i) {
+      groupOf[i] = [];
+      for (let k = i; k <= j; k++) { lead[k] = i; groupOf[i].push(k); }
+    }
+    i = j;
+  }
+}
+const tEl = id => document.getElementById("t" + (lead[id] ?? id));
 function renderTranscript() {
+  groupSilentCards();
   const parts = [];
   let i = 0;
   while (i < cards.length) {
     const c = cards[i];
+    if (lead[i] !== i) { i++; continue; }
     if (c.kind === "break") {
       let j = i;
       while (j + 1 < cards.length && cards[j + 1].kind === "break") j++;
@@ -668,9 +709,10 @@ function renderTranscript() {
   applyFilter(false);
 }
 function refreshCard(id) {
+  id = lead[id] ?? id;
   const el = document.getElementById("t" + id);
   if (el) { const n = document.createElement("div"); n.innerHTML = tcardHTML(cards[id]); el.replaceWith(n.firstElementChild); }
-  if (id === current) document.getElementById("t" + id)?.classList.add("active");
+  if (id === lead[current]) document.getElementById("t" + id)?.classList.add("active");
 }
 
 /* ---------- filters ---------- */
@@ -679,7 +721,7 @@ function applyFilter(rerender = true) {
   qterms = fold(q).split(/\s+/).filter(Boolean);
   let shown = 0;
   cards.forEach((c, idx) => {
-    if (c.kind === "break") return;
+    if (c.kind === "break" || lead[idx] !== idx) return;
     let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]);
     if (ok && qterms.length) ok = qterms.every(t => hay[idx].includes(t));
     if (rerender && ok) refreshCard(c.id);
@@ -764,7 +806,7 @@ function renderOverview() {
 let current = -1;
 function seek(t, play = true) { if (!L.media) return; v.currentTime = t; if (play) v.play().catch(() => {}); }
 function revealCard(id) {
-  const tc = document.getElementById("t" + id);
+  const tc = tEl(id);
   if (tc && tc.classList.contains("hidden")) {
     kind = "all"; starredOnly = false; q = ""; $("#q").value = "";
     $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
@@ -777,7 +819,7 @@ let userScroll = 0;
 ["wheel", "touchmove"].forEach(ev => ["#chapters", "#tab-transcript"].forEach(s => $(s).addEventListener(ev, () => userScroll = Date.now(), { passive: true })));
 function scrollToCard(id, force) {
   if (!force && (!$("#follow").checked || Date.now() - userScroll < 6000)) return;
-  const tc = document.getElementById("t" + id);
+  const tc = tEl(id);
   if (tc && !$("#tab-transcript").classList.contains("hidden")) tc.scrollIntoView({ block: "start", behavior: "smooth" });
   const k = cardChapter[id];
   document.getElementById("ch" + k)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -877,8 +919,12 @@ async function openSettings() {
 }
 $("#settings").onclick = e => { e.stopPropagation(); openSettings(); };
 /* in the Mac app: its new-lesson window (with the recent lessons) */
-window.addEventListener("pywebviewready", () => { if (window.pywebview.api.new_lesson) $("#newlesson").classList.remove("hidden"); });
+window.addEventListener("pywebviewready", () => {
+  if (window.pywebview.api.new_lesson) $("#newlesson").classList.remove("hidden");
+  if (window.pywebview.api.reveal) $("#lessonfiles").classList.remove("hidden");
+});
 $("#newlesson").onclick = () => window.pywebview.api.new_lesson();
+$("#lessonfiles").onclick = () => window.pywebview.api.reveal();
 document.addEventListener("click", e => { if (!e.target.closest("#settings-help")) $("#settings-help").classList.add("hidden"); });
 
 function toggleStar(id) {
@@ -941,11 +987,11 @@ const subStarts = L.chapters.flatMap(ch => (ch.subs || []).map(s => s.card)).sor
 v.addEventListener("timeupdate", () => {
   const t = v.currentTime, ci = cardAt(t);
   if (ci !== current) {
-    document.getElementById("t" + current)?.classList.remove("active");
+    tEl(current)?.classList.remove("active");
     current = ci;
     if (ci >= 0) {
       if (!expanded.has(ci)) { expanded.add(ci); refreshCard(ci); }
-      document.getElementById("t" + ci)?.classList.add("active");
+      tEl(ci)?.classList.add("active");
       const k = cardChapter[ci], c = cards[ci];
       markChapter(k);
       const sub = subStarts[find(subStarts, ci, x => x)];
@@ -968,15 +1014,15 @@ document.addEventListener("keydown", e => {
   const typing = e.target.matches("input, textarea, select");
   if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); window.exitVideoFull(); if (typing) e.target.blur(); return; }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
-  const vis = cards.filter(c => c.kind !== "break" && !document.getElementById("t" + c.id)?.classList.contains("hidden")).map(c => c.id);
-  const pos = vis.indexOf(current);
+  const vis = cards.filter(c => c.kind !== "break" && lead[c.id] === c.id && !document.getElementById("t" + c.id)?.classList.contains("hidden")).map(c => c.id);
+  const pos = vis.indexOf(lead[current] ?? current);
   switch (e.key) {
     case "/": e.preventDefault(); $("#q").focus(); $("#q").select(); break;
     case "j": if (vis.length) goCard(vis[Math.min(pos + 1, vis.length - 1)]); break;
     case "k": if (vis.length) goCard(vis[Math.max(pos - 1, 0)]); break;
     case " ": if (L.media) { e.preventDefault(); v.paused ? v.play() : v.pause(); } break;
-    case "s": if (current >= 0) toggleStar(current); break;
-    case "n": if (current >= 0) { e.preventDefault(); openNote(current); } break;
+    case "s": if (current >= 0) toggleStar(lead[current]); break;
+    case "n": if (current >= 0) { e.preventDefault(); openNote(lead[current]); } break;
     case "a": e.preventDefault(); $("#askq").focus(); break;
     case "[": toggleLane("left"); break;
     case "]": toggleLane("right"); break;

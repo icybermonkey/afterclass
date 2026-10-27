@@ -27,6 +27,7 @@ from . import APP_NAME, DISPLAY_NAME, OLD_NAME, __version__, ui
 
 BUNDLE_ID = f"ch.{APP_NAME}.app"
 SCHEME = APP_NAME  # afterclass://open?folder=/path/to/lesson
+LESSON_TYPE = f"ch.{APP_NAME}.lesson"  # a lesson folder named <name>.afterclass: one icon in Finder, opens here
 OLD_HELPER = f"Contents/Helpers/Open in {APP_NAME}.app"  # handled links before the app did itself
 BUNDLES = (f"{DISPLAY_NAME}.app", f"{APP_NAME}.app")  # the app, and its name before AfterClass
 LSREGISTER = ("/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework"
@@ -113,6 +114,21 @@ def build(app_dir, command=None, python=None):
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
         "CFBundleURLTypes": [{"CFBundleURLName": f"{DISPLAY_NAME} lesson", "CFBundleURLSchemes": [SCHEME, OLD_NAME]}],
+        "UTExportedTypeDeclarations": [{
+            "UTTypeIdentifier": LESSON_TYPE,
+            "UTTypeDescription": f"{DISPLAY_NAME} lesson",
+            "UTTypeConformsTo": ["com.apple.package", "public.composite-content"],
+            "UTTypeIconFile": APP_NAME,
+            "UTTypeTagSpecification": {"public.filename-extension": [APP_NAME]},
+        }],
+        "CFBundleDocumentTypes": [{
+            "CFBundleTypeName": f"{DISPLAY_NAME} lesson",
+            "CFBundleTypeRole": "Editor",
+            "LSHandlerRank": "Owner",
+            "LSTypeIsPackage": True,
+            "LSItemContentTypes": [LESSON_TYPE],
+            "CFBundleTypeIconFile": APP_NAME,
+        }],
     }
     with (contents / "Info.plist").open("wb") as f:
         plistlib.dump(info, f)
