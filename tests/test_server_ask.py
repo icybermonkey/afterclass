@@ -268,3 +268,64 @@ def test_afterclass_links():
     for bad in ("https://open?folder=/x", "afterclass://run?folder=/x", "afterclass://open?folder=x", "afterclass://open"):
         with pytest.raises(server.AfterclassError):
             server.folder_from_url(bad)
+
+
+def test_local_server_start_and_stop_endpoints(lesson_folder, monkeypatch):
+    from afterclass import setup_ai
+
+    _folder, base = lesson_folder
+    seen = []
+    monkeypatch.setattr(setup_ai, "start_server", lambda app=None: seen.append(("start", app)) or {"ok": True, "message": "up"})
+    monkeypatch.setattr(setup_ai, "stop_server", lambda app: seen.append(("stop", app)) or {"ok": True, "message": "down"})
+    status, body, _ = call(base + "/api/local/start", "POST", {})
+    assert status == 200 and json.loads(body)["message"] == "up" and "providers" in json.loads(body)
+    assert call(base + "/api/local/stop", "POST", {"app": "ollama"})[0] == 200
+    assert seen == [("start", None), ("stop", "ollama")]
+    assert call(base + "/api/local/start", "POST", {}, headers={"Origin": "https://evil.example"})[0] == 403
+    assert "local_apps" in json.loads(call(base + "/api/state")[1])
+
+
+def test_an_old_lesson_page_is_rebuilt_from_the_current_template(lesson_folder):
+    from afterclass.steps import render
+
+    folder, base = lesson_folder
+    page = call(base + "/index.html")[1].decode()  # make_server refreshed the "<html>ok</html>" page
+    assert 'id="vctl"' in page and "Test lesson" in page and page == (folder / "index.html").read_text()
+    (folder / "notes").mkdir()
+    (folder / "notes" / "notes.json").write_text('{"notes": {"1": "remember me"}}')
+    assert render.refresh(folder) and "remember me" in (folder / "index.html").read_text()
+    assert not render.refresh(folder)  # nothing changed: not written again
+
+
+def test_stop_a_running_answer_of_the_local_model(lesson_folder, monkeypatch):
+    """The Ask box's Stop: the server closes the connection to LM Studio and answers {cancelled}."""
+    from afterclass.ai import local
+
+    _folder, base = lesson_folder
+    started, released = threading.Event(), threading.Event()
+
+    class Slow(BaseHTTPRequestHandler):
+        def log_message(self, *a):
+            pass
+
+        def do_POST(self):
+            self.rfile.read(int(self.headers["Content-Length"]))
+            started.set()
+            released.wait(10)  # a model that takes "forever"
+
+    llm = HTTPServer(("127.0.0.1", 0), Slow)
+    threading.Thread(target=llm.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{llm.server_address[1]}"
+    monkeypatch.setattr(local.LocalProvider, "server", lambda self: {"name": "LM Studio", "url": url, "kind": "openai", "models": ["m"]})
+    config.set_value("ask_provider", "local")
+    out = {}
+    t = threading.Thread(target=lambda: out.update(r=call(base + "/api/ask", "POST", {"id": "q1", "question": "virtual machines?"})))
+    t.start()
+    assert started.wait(5)
+    assert json.loads(call(base + "/api/ask/cancel", "POST", {"id": "q1"})[1]) == {"stopped": True}
+    t.join(5)
+    released.set()
+    llm.shutdown()
+    assert not t.is_alive() and json.loads(out["r"][1]) == {"cancelled": True}
+    assert json.loads(call(base + "/api/ask/cancel", "POST", {"id": "q1"})[1]) == {"stopped": False}  # already over
+    assert json.loads(call(base + "/api/state")[1])["chat"] == []  # a stopped question isn't kept

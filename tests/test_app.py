@@ -7,6 +7,12 @@ import pytest
 from afterclass import gui, macapp
 
 
+@pytest.fixture(autouse=True)
+def own_config(tmp_path, monkeypatch):
+    """app.json (recent lessons) goes to tmp, not the real config folder."""
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "config" / "config.toml"))
+
+
 def form(**kw):
     return {"video": "/x/SPCS lesson 1.mp4", "out_dir": "/x/out", "language": "en", "ai": "auto", "speakers": True, **kw}
 
@@ -61,7 +67,7 @@ class FakeWindow:
 
         class Events:
             def __init__(self):
-                self.closed, self.loaded = Hook(), Hook()
+                self.closed, self.loaded, self.shown = Hook(), Hook(), Hook()
 
         self.events = Events()
 
@@ -194,3 +200,103 @@ def test_recommendation_uses_this_mac():
     tight = {**m2pro, "free_gb": 12}  # not enough disk for the big ones: recommend one that fits
     assert setup_ai.recommend(32, "lmstudio", tight)[0] == "google/gemma-4-12b-qat"
     assert "⚠ only 12 GB free disk" in setup_ai.choices(32, "lmstudio", tight)[0][2]
+
+
+def test_opened_lessons_are_remembered_most_recent_first(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "running_url", lambda folder: None)
+    windows = gui.Windows(gui.Api(), webview=FakeWebview())
+    a, b = lesson(tmp_path, "A"), lesson(tmp_path, "B")
+    for folder in (a, b, a):
+        windows.show(folder).events.closed.fire()
+    assert [r["path"] for r in gui.recent_lessons()] == [str(a.resolve()), str(b.resolve())]
+    (b / "index.html").unlink()  # gone: no longer listed
+    assert [r["title"] for r in gui.Api().recent()] == ["Lesson one"]
+
+
+def test_startup_opens_the_most_recent_lesson_else_the_new_lesson_window(tmp_path, monkeypatch):
+    monkeypatch.setattr(gui, "running_url", lambda folder: None)
+    monkeypatch.setattr(gui.time, "sleep", lambda s: None)
+    windows = gui.Windows(gui.Api(), webview=FakeWebview())
+    windows.new_lesson()
+    windows.startup()
+    assert windows.main_shown and not windows.pages
+    gui.remember_lesson(lesson(tmp_path).resolve())
+    windows = gui.Windows(gui.Api(), webview=FakeWebview())
+    windows.new_lesson()
+    windows.startup()
+    assert not windows.main_shown and list(windows.pages) == [(tmp_path / "L1").resolve()]
+
+
+class FakeLocal:
+    """LM Studio that starts (and loads a model) when asked: detect / lms / subprocess.run stand-ins."""
+
+    def __init__(self, monkeypatch, models=("gemma",), jit=True):
+        from afterclass import setup_ai
+
+        self.running, self.loaded, self.calls = False, [], []
+        self.models, self.jit = list(models), jit
+        monkeypatch.setattr(setup_ai, "lms_bin", lambda: "/bin/lms")
+        monkeypatch.setattr(setup_ai.shutil, "which", lambda name: None)
+        monkeypatch.setattr(setup_ai, "detect", self.detect)
+        monkeypatch.setattr(setup_ai, "installed_models", lambda app: [(m, 5) for m in self.models])
+        monkeypatch.setattr(setup_ai.subprocess, "run", self.run)
+        monkeypatch.setattr(setup_ai.time, "sleep", lambda s: None)
+
+    def detect(self, url="auto"):
+        shown = self.models if self.jit else self.loaded
+        return [{"name": "LM Studio", "url": "http://localhost:1234", "kind": "openai", "models": shown}] if self.running else []
+
+    def run(self, cmd, **kw):
+        self.calls.append(cmd[1:])
+        if cmd[1:3] == ["server", "start"]:
+            self.running = True
+        if cmd[1:3] == ["server", "stop"]:
+            self.running = False
+        if cmd[1] == "load":
+            self.loaded.append(cmd[2])
+
+
+def test_start_and_stop_the_local_server(monkeypatch):
+    from afterclass import setup_ai
+
+    lms = FakeLocal(monkeypatch)
+    assert setup_ai.apps_brief()[0] == {"app": "lmstudio", "name": "LM Studio", "installed": True, "running": False}
+    r = setup_ai.start_server()
+    assert r["ok"] and r["app"] == "lmstudio" and lms.calls == [["server", "start"]]
+    assert setup_ai.start_server()["ok"] and len(lms.calls) == 1  # already running: nothing started again
+    assert setup_ai.stop_server("lmstudio")["ok"] and not lms.running
+    with pytest.raises(ValueError):
+        setup_ai.stop_server("nope")
+
+
+def test_start_loads_a_model_when_lm_studio_has_none_ready(monkeypatch):
+    from afterclass import setup_ai
+
+    lms = FakeLocal(monkeypatch, jit=False)
+    assert setup_ai.start_server()["ok"] and lms.loaded == ["gemma"]
+    lms = FakeLocal(monkeypatch, models=())
+    r = setup_ai.start_server()
+    assert not r["ok"] and "no model" in r["message"]
+
+
+def test_nothing_installed_and_autostart_off(monkeypatch):
+    from afterclass import setup_ai
+
+    monkeypatch.setattr(setup_ai, "lms_bin", lambda: None)
+    monkeypatch.setattr(setup_ai.shutil, "which", lambda name: None)
+    monkeypatch.setattr(setup_ai, "detect", lambda url="auto": [])
+    assert not setup_ai.start_server()["ok"]
+    monkeypatch.setattr(setup_ai.threading, "Thread", lambda **kw: pytest.fail("autostart is off"))
+    setup_ai.autostart()
+
+
+def test_the_video_fallback_makes_the_window_fullscreen():
+    class Window:
+        toggled = 0
+
+        def toggle_fullscreen(self):
+            self.toggled += 1
+
+    window, web = Window(), FakeWebview()
+    web.active_window = lambda: window
+    assert gui.PageApi(gui.Windows(gui.Api(), webview=web)).fullscreen() and window.toggled == 1

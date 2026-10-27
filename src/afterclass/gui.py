@@ -21,7 +21,8 @@ from .ui import AfterclassError
 
 VIDEO_EXT = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"}
 DECK_EXT = {".pdf", ".pptx", ".ppt", ".odp", ".key"}
-STATE_FILE = "app.json"  # remembers the last output folder, next to config.toml
+STATE_FILE = "app.json"  # remembers the last output folder and recent lessons, next to config.toml
+RECENT_MAX = 12
 AI_CHOICES = ("off", "auto", "local", "claude-code", "claude")
 
 
@@ -79,6 +80,25 @@ def _save_state(**kw):
     path = _state_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(state))
+
+
+def remember_lesson(folder):
+    """Put a lesson folder first in the recent list."""
+    folder = str(folder)
+    recent = [f for f in _load_state().get("recent", []) if f != folder]
+    _save_state(recent=[folder, *recent][:RECENT_MAX])
+
+
+def recent_lessons():
+    """The recent lessons that still exist, most recent first: [{path, name, title}]."""
+    out = []
+    for f in _load_state().get("recent", []):
+        try:
+            folder = lesson_folder(f)
+        except AfterclassError:
+            continue
+        out.append({"path": str(folder), "name": folder.name, "title": _title(folder)})
+    return out
 
 
 def _kind(path):
@@ -167,6 +187,8 @@ class Api:
         code = self._proc.wait()
         if self._state == "running":
             self._state = "done" if code == 0 else "failed"
+            if code == 0:
+                remember_lesson(self._out)
         self._finished = time.time()
 
     def poll(self, since=0):
@@ -201,6 +223,19 @@ class Api:
         self._windows.show(None)
         return True
 
+    # --- recent lessons -------------------------------------------------------------
+
+    def recent(self):
+        return recent_lessons()
+
+    def open_recent(self, path):
+        self._windows.show(path)
+        return True
+
+    def open_other(self):
+        self._windows.choose_lesson()
+        return True
+
 
 class PageApi:
     """window.pywebview.api.* of a lesson or settings window: what the browser would do with window.open."""
@@ -212,9 +247,20 @@ class PageApi:
         self._windows.show(None)
         return True
 
+    def new_lesson(self):
+        self._windows.show_main()
+        return True
+
     def open_external(self, url):
         if str(url).startswith(("http://", "https://")):
             subprocess.run(["open", url])
+        return True
+
+    def fullscreen(self):
+        """The page's video fallback when WebKit's fullscreen is off: the active window goes fullscreen."""
+        window = self._windows.webview.active_window()
+        if window is not None:
+            window.toggle_fullscreen()
         return True
 
 
@@ -273,6 +319,9 @@ class Windows:
             window = self.webview.create_window(_title(key), url, js_api=PageApi(self), width=1280, height=820,
                                                 min_size=(720, 480), background_color="#151517", text_select=True)
             self.pages[key] = (window, httpd)
+        if key is not None:
+            remember_lesson(key)
+        window.events.shown += lambda: _allow_fullscreen(window)
         window.events.closed += lambda: self._page_closed(key)
         return window
 
@@ -312,10 +361,19 @@ class Windows:
         def later(fn, *args):  # menu actions must not block the UI thread
             return lambda: threading.Thread(target=fn, args=args, daemon=True).start()
 
+        recent = [MenuAction(r["title"], later(self.show, r["path"])) for r in recent_lessons()[:8]]
         return [Menu("File", [MenuAction("New Lesson", later(self.show_main)),
                               MenuAction("Open Lesson…", later(self.choose_lesson)),
+                              *([Menu("Open Recent", recent)] if recent else []),
+                              MenuSeparator(),
+                              MenuAction("Reload Page", later(self.reload)),
                               MenuSeparator(),
                               MenuAction("Settings", later(self.show, None))])]
+
+    def reload(self):
+        window = self.webview.active_window()
+        if window is not None:
+            window.evaluate_js("location.reload()")
 
     def listen_for_links(self):
         """afterclass:// links (Info.plist CFBundleURLTypes) arrive as Apple Events: open them here."""
@@ -337,11 +395,16 @@ class Windows:
             self._link_handler, "handle:withReply:", GET_URL, GET_URL)
 
     def startup(self):
-        """Show the new-lesson window, unless the app was started by a link (then only that lesson)."""
+        """Open the most recent lesson (else the new-lesson window), unless the app was started by a link
+        (then only that lesson)."""
         time.sleep(0.6)
+        _add_shortcuts()
         with self.lock:
             opened = bool(self.pages)
-        if not opened:
+        if opened:
+            return
+        recent = recent_lessons()
+        if not recent or self.show(recent[0]["path"]) is None:
             self.show_main()
 
 
@@ -366,6 +429,48 @@ def _page():
     from .steps.render import icon_uri
 
     return files(APP_NAME).joinpath("web/new.html").read_text(encoding="utf-8").replace("__ICON__", icon_uri())
+
+
+SHORTCUTS = {"New Lesson": "n", "Open Lesson…": "o", "Reload Page": "r", "Settings": ","}
+
+
+def _add_shortcuts():
+    """⌘N, ⌘O, ⌘R, ⌘, for the File menu (pywebview's menu items take no shortcuts; best effort, macOS only)."""
+    try:
+        from AppKit import NSApplication
+        from PyObjCTools import AppHelper
+    except ImportError:
+        return
+
+    def apply():
+        for top in NSApplication.sharedApplication().mainMenu().itemArray():
+            if top.submenu() and top.submenu().title() == "File":
+                for item in top.submenu().itemArray():
+                    if item.title() in SHORTCUTS:
+                        item.setKeyEquivalent_(SHORTCUTS[item.title()])
+
+    AppHelper.callAfter(apply)
+
+
+def _allow_fullscreen(window):
+    """Let the video go fullscreen: WKWebView has element fullscreen off unless asked (best effort, macOS only)."""
+    try:
+        from PyObjCTools import AppHelper
+        from webview.platforms.cocoa import BrowserView
+    except ImportError:
+        return
+
+    def apply():
+        view = BrowserView.instances.get(window.uid)
+        if view is None:
+            return
+        prefs = view.webview.configuration().preferences()
+        if hasattr(prefs, "setElementFullscreenEnabled_"):  # macOS 12.3+
+            prefs.setElementFullscreenEnabled_(True)
+        else:
+            prefs.setValue_forKey_(True, "fullScreenEnabled")
+
+    AppHelper.callAfter(apply)
 
 
 def _brand_app():

@@ -47,6 +47,8 @@ button.primary { background: var(--accent); border-color: var(--accent); color: 
 .pill.warn { color: var(--warn); border-color: currentColor; }
 code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 1px 6px; font-size: 13px; }
 .cmd { display: flex; gap: 8px; align-items: center; margin: 6px 0; }
+.srvbtns { display: flex; gap: 8px; flex-basis: 100%; }
+.srvbtns:empty { display: none; }
 .cmd code { flex: 1; overflow-x: auto; white-space: nowrap; padding: 5px 8px; }
 ol { padding-left: 20px; margin: 8px 0; }
 ol li { margin: 4px 0; }
@@ -113,7 +115,7 @@ h2 .tag { margin-left: 8px; }
 "use strict";
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
-let S = null;
+let S = null, busy = "";
 try { const t = localStorage.getItem("afterclass:theme"); if (t && t !== "auto") document.documentElement.setAttribute("data-theme", t); } catch (e) {}
 
 async function api(method, path, body) {
@@ -130,7 +132,7 @@ const LABELS = {
   media: "Recording → lesson folder", deck_media: "Slides → lesson folder", notify: "Notify when ready", speakers: "Tell speakers apart", transcript_view: "Transcript view",
   ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for Ask", ask_model: "Model name for Ask",
   allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
-  local_llm_url: "Local AI server", local_llm_model: "Local model",
+  local_llm_url: "Local AI server", local_llm_model: "Local model", local_autostart: "Start it automatically",
 };
 const OPTION_TEXT = {
   copy: "copy (originals stay, folder is self-contained)", link: "link (saves space, originals must stay)", move: "move (originals go into the folder)",
@@ -194,11 +196,13 @@ function render() {
   $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "deck_media", "speakers", "notify", "transcript_view"].map(field).join("");
   $("#ai").innerHTML = ["ai_provider", "ai_model", "ask_provider", "ask_model", "allow_online", "allow_web"].map(field).join("");
   $("#providers").innerHTML = S.providers.map(p => `<span class="pill ${p.available ? "ok" : "no"}">${p.available ? "✔" : "✗"} ${esc(p.label)}${p.detail ? ": " + esc(p.detail) : ""} ${p.online ? ON : OFF}</span>`).join("");
-  $("#local").innerHTML = ["local_llm_url", "local_llm_model"].map(field).join("");
+  $("#local").innerHTML = ["local_autostart", "local_llm_url", "local_llm_model"].map(field).join("");
 
   const L = S.local, apps = L.apps;
   $("#localstatus").innerHTML = apps.map(a => pill(a.running, `${a.name}: ${!a.installed ? "not installed" : a.running ? "running" + (a.loaded.length ? " · " + a.loaded.join(", ") : "") : "installed, server off"}`, a.installed && !a.running)).join("")
-    + `<span class="pill no">${esc(L.mac.chip)} · ${L.ram_gb} GB memory · ${L.mac.free_gb} GB free disk</span>`;
+    + `<span class="pill no">${esc(L.mac.chip)} · ${L.ram_gb} GB memory · ${L.mac.free_gb} GB free disk</span>`
+    + `<div class="srvbtns">${apps.filter(a => a.installed).map(a => busy === a.app ? `<button disabled>${a.running ? "Stopping" : "Starting"} ${esc(a.name)}…</button>`
+      : a.running ? `<button data-stop="${a.app}">■ Stop ${esc(a.name)}</button>` : `<button class="primary" data-start="${a.app}">▶ Start ${esc(a.name)}</button>`).join("")}</div>`;
   const run = apps.filter(a => a.running);
   $("#pageask").innerHTML = !run.length ? "" : run.map(a => a.page_allowed
     ? `<p>${pill(true, `${a.name} allows Ask from lesson pages opened as files`)}</p>`
@@ -219,12 +223,12 @@ function render() {
     guide = `<p><b>Easiest:</b> run the guided setup in Terminal; it asks before every download or start:</p>${cmd("afterclass setup ai")}
       <p>Or step by step${lm && lm.installed ? " with LM Studio" : ol && ol.installed ? " with Ollama" : ""}:</p><ol>`;
     if (lm && lm.installed) {
-      guide += `<li>Start the server: ${cmd("lms server start")}</li>
+      guide += `<li>Start the server with the ▶ button above, or: ${cmd("lms server start")}</li>
         <li>${lm.models.length ? "Use an installed model or get" : "Get"} the one recommended for your ${esc(L.mac.chip)} (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("lms get " + L.recommended.lmstudio)}</li>
         <li>Load it with enough context for a whole lecture: ${cmd(`lms load ${lm.models[0] ? lm.models[0].name : L.recommended.lmstudio} --context-length 32768 -y`)}</li>
         <li>Models for your Mac, by family:${modelList(L.choices.lmstudio, L.recommended.lmstudio)}</li>`;
     } else if (ol && ol.installed) {
-      guide += `<li>Start Ollama: ${cmd("brew services start ollama")}</li>
+      guide += `<li>Start Ollama with the ▶ button above, or: ${cmd("brew services start ollama")}</li>
         <li>Get the recommended model (~${L.recommended.gb} GB, ${esc(L.recommended.why)}): ${cmd("ollama pull " + L.recommended.ollama)}</li>`;
     } else {
       guide += `<li>Install LM Studio from <a href="https://lmstudio.ai" target="_blank">lmstudio.ai</a> (easiest) or Ollama: ${cmd("brew install ollama")}</li>
@@ -252,6 +256,13 @@ document.addEventListener("change", async e => {
 document.addEventListener("click", async e => {
   const t = e.target;
   if (t.dataset.copy) { navigator.clipboard?.writeText(t.dataset.copy).then(() => toast("Copied")); }
+  if (t.dataset.start || t.dataset.stop) {
+    const app = t.dataset.start || t.dataset.stop;
+    busy = app; render();
+    try { const r = await api("POST", `/api/local/${t.dataset.start ? "start" : "stop"}`, { app }); toast(r.message, !r.ok); }
+    catch (err) { toast(err.message, true); }
+    busy = ""; await load();
+  }
   if (t.id === "recheck") { t.textContent = "Checking…"; await load(); toast("Updated"); }
   if (t.dataset.savekey) {
     const p = t.dataset.savekey, input = $("#key-" + p);

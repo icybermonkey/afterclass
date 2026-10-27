@@ -133,6 +133,7 @@ def model_options():
 
 def ask_payload(app, body):
     from . import ask
+    from .ai import cancel
     from .ai.registry import PROVIDERS, is_online, pick
 
     question = str(body.get("question", "")).strip()[:2000]
@@ -174,7 +175,11 @@ def ask_payload(app, body):
     # The model picked in the Ask box (ask_model) belongs to the provider picked there (ask_provider)
     model = (cfg["ask_model"] if provider and provider.name == cfg["ask_provider"] else "") or (
         provider.default_model if provider else "")
-    result = ask.answer(lesson, question, provider, model, t, "lesson" if mode == "search" else mode)
+    try:
+        with cancel.asking(str(body.get("id") or "")[:64]):
+            result = ask.answer(lesson, question, provider, model, t, "lesson" if mode == "search" else mode)
+    except cancel.Cancelled:
+        return {"cancelled": True}  # stopped from the page: nothing to keep in the chat
     result["mode"] = mode
     result["online"] = bool(provider and is_online(provider))
     entry = {"q": question, **{k: result.get(k) for k in ("answer", "main_time", "sources", "in_lesson", "provider",
@@ -331,7 +336,10 @@ class Handler(BaseHTTPRequestHandler):
             if path == "/api/who" and method == "GET":  # lets a second `afterclass open` reuse this server
                 return self._json({"app": APP_NAME, "folder": str(app.folder) if app.folder else None})
             if path == "/api/state" and method == "GET":
-                data = {"settings": config.load(), "providers": providers_status(), "server": True}
+                from .setup_ai import apps_brief
+
+                data = {"settings": config.load(), "providers": providers_status(), "local_apps": apps_brief(),
+                        "server": True}
                 if app.folder:
                     data["notes"] = read_json(app.notes_path, {})
                     data["chat"] = read_json(app.chat_path, [])
@@ -367,6 +375,19 @@ class Handler(BaseHTTPRequestHandler):
                         raise ValueError("empty key")
                     config.set_secret(provider, key)
                 return self._json(settings_payload())  # masked only, never the key itself
+            if path in ("/api/local/start", "/api/local/stop") and method == "POST":
+                from .setup_ai import start_server, stop_server
+
+                which = self._body().get("app") or None
+                result = start_server(which) if path.endswith("start") else stop_server(which)
+                from .ai.registry import PROVIDERS
+
+                PROVIDERS["local"]._checked = 0  # look again now, not in a few seconds
+                return self._json({**result, "providers": providers_status()})
+            if path == "/api/ask/cancel" and method == "POST":
+                from .ai.cancel import cancel
+
+                return self._json({"stopped": cancel(str(self._body().get("id") or ""))})
             if path == "/api/ask" and method == "POST" and app.folder:
                 return self._json(ask_payload(app, self._body()))
             return self._json({"error": "not found"}, 404)
@@ -390,6 +411,13 @@ def free_port(start=BASE_PORT, tries=50):
 
 
 def make_server(folder=None, port=None):
+    if folder is not None:
+        from .steps.render import refresh
+
+        try:
+            refresh(Path(folder))  # a lesson built by an older afterclass gets the current page
+        except (OSError, ValueError) as e:
+            ui.warn(f"kept the old page, couldn't refresh it: {e}")
     app = App(folder)
     handler = type("AfterclassHandler", (Handler,), {"app": app})
     try:
@@ -424,8 +452,11 @@ def lesson_folder(folder):
 
 def start_in_background(folder=None):
     """Serve on a daemon thread (the Mac app's windows). Returns (server, page URL)."""
+    from .setup_ai import autostart
+
     httpd = make_server(folder)
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    autostart()
     return httpd, f"http://127.0.0.1:{httpd.server_address[1]}/" + ("index.html" if folder else "")
 
 
@@ -444,6 +475,9 @@ def serve(folder=None, port=None, browser=True):
     ui.title(f"{APP_NAME} is serving {'the lesson ' + str(folder) if folder else 'the settings'}")
     ui.info(f"open: {url}")
     ui.explain("Only this Mac can reach it. Notes are saved in the lesson's notes/ folder. Ctrl+C to stop.")
+    from .setup_ai import autostart
+
+    autostart()
     if browser:
         subprocess.run(["open", url])
     try:

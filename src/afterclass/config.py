@@ -26,6 +26,7 @@ DEFAULTS = {
     "ask_model": "",  # empty = the provider's default (or the first loaded local model)
     "local_llm_url": "auto",  # auto = LM Studio, then Ollama; or an OpenAI-compatible base URL
     "local_llm_model": "",  # empty = the first loaded chat model
+    "local_autostart": False,  # start LM Studio's / Ollama's server when a lesson or the settings open
     "allow_online": "ask",  # off | ask | on: may Ask use an online model for questions beyond the lesson
     "allow_web": "ask",  # off | ask: may Ask search the web (always needs a click)
 }
@@ -70,6 +71,7 @@ HELP = {
     "ask_model": "Model name for Ask (empty = default; also set from the picker in the Ask box)",
     "local_llm_url": "Local AI server (auto = LM Studio, then Ollama)",
     "local_llm_model": "Local model (empty = the first loaded one)",
+    "local_autostart": "Start the local AI server (LM Studio or Ollama) when a lesson or the settings open",
     "allow_online": "Ask may use online Claude for questions beyond the lesson",
     "allow_web": "Ask may offer a web search (always needs your click)",
 }

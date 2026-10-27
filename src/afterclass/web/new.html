@@ -66,6 +66,15 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
   font-size: 11px; line-height: 1.45; white-space: pre-wrap; }
 .done { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .err { color: var(--bad); }
+.recent { margin-top: 0; margin-bottom: 14px; padding: 10px 16px; }
+.recent .head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
+.recent .head .btn { margin-left: auto; font-weight: 400; }
+.recent ul { list-style: none; margin: 0; padding: 0; max-height: 156px; overflow: auto; }
+.recent li button { display: flex; gap: 10px; align-items: baseline; width: 100%; text-align: left; border: 0; background: none;
+  border-radius: 6px; padding: 4px 6px; min-width: 0; }
+.recent li button:hover { background: var(--accent-soft); }
+.recent li .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.recent li .p { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; flex: 1; min-width: 0; }
 @media (max-width: 700px) { .drops { grid-template-columns: 1fr; } .field { grid-template-columns: 1fr; } .target { grid-column: 1; } }
 </style>
 </head>
@@ -75,6 +84,11 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
   <div><h1>New lesson</h1><p>Drop the recording (and the slides), choose where it goes, press Run.</p></div>
   <button class="gear" id="settings" title="Settings (models, defaults, keys)">⚙ Settings</button>
 </header>
+
+<div class="card recent" id="recent">
+  <div class="head">Recent lessons <button class="btn small" id="openother">Open other…</button></div>
+  <ul id="recentlist"></ul>
+</div>
 
 <div class="drops">
   <div class="drop" id="drop-video">
@@ -242,6 +256,20 @@ $("#cancel").onclick = () => api.cancel();
 $("#open").onclick = () => api.open_lesson();
 $("#reveal").onclick = () => api.reveal();
 $("#settings").onclick = () => api.settings();
+$("#openother").onclick = () => api.open_other();
+$("#recentlist").onclick = e => { const b = e.target.closest("[data-path]"); if (b) api.open_recent(b.dataset.path); };
+window.afterclassRecent = async () => {
+  const list = await api.recent(), ul = $("#recentlist");
+  ul.innerHTML = "";
+  for (const r of list) {
+    const b = document.createElement("button");
+    b.dataset.path = r.path; b.title = r.path;
+    b.innerHTML = `<span class="t"></span><span class="p"></span>`;
+    b.querySelector(".t").textContent = r.title; b.querySelector(".p").textContent = r.path;
+    const li = document.createElement("li"); li.append(b); ul.append(li);
+  }
+  if (!list.length) ul.innerHTML = `<li class="muted" style="font-size:12px;padding:2px 6px">None yet: your lessons show up here.</li>`;
+};
 $("#again").onclick = async () => { await api.reset(); $("#progress").classList.add("hidden"); setFile("video", null); setFile("deck", null); $("#name").value = ""; refresh(); };
 
 window.addEventListener("pywebviewready", async () => {
@@ -250,6 +278,8 @@ window.addEventListener("pywebviewready", async () => {
   $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").checked = d.speakers; $("#media").value = d.media; $("#deck_media").value = d.deck_media;
   form.out_dir = d.out_dir; $("#outdir").textContent = d.out_dir;
   refresh();
+  window.afterclassRecent();
+  window.addEventListener("focus", window.afterclassRecent);  // lessons opened meanwhile move to the top
   // reopened (File → New Lesson) while a lesson runs or has finished: show it again
   const p = await api.poll(0);
   if (p.state !== "idle") {

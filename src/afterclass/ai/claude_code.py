@@ -5,6 +5,7 @@ import shutil
 import subprocess
 
 from ..ui import AfterclassError
+from . import cancel
 from .base import Provider, Usage
 
 
@@ -33,7 +34,7 @@ class ClaudeCodeProvider(Provider):
         ]
         last = ""
         for _attempt in range(2):  # one retry on a failed or invalid answer
-            r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, timeout=1800)
+            r = _run(cmd, prompt)
             try:
                 out = json.loads(r.stdout)
             except json.JSONDecodeError:
@@ -52,3 +53,15 @@ class ClaudeCodeProvider(Provider):
             used_model = next(iter(out.get("modelUsage") or {}), model)
             return out["structured_output"], Usage(tokens_in, u.get("output_tokens", 0), None, used_model)
         raise AfterclassError(f"Claude Code did not return a result: {last}")
+
+
+def _run(cmd, prompt, timeout=1800):
+    """subprocess.run, but the Ask box's Stop kills the `claude` process."""
+    with subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True) as proc:
+        with cancel.abortable(proc.kill):
+            try:
+                out, err = proc.communicate(prompt, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                raise AfterclassError(f"Claude Code didn't answer within {timeout} s")
+    return subprocess.CompletedProcess(cmd, proc.returncode, out, err)

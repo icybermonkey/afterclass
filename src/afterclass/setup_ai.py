@@ -8,6 +8,7 @@ import shutil
 import urllib.request
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
@@ -148,6 +149,103 @@ def status():
                         "ollama": [{"name": n, "gb": g, "why": w} for n, g, w in choices(ram, "ollama", info)]}}
 
 
+# --- start / stop from the app ----------------------------------------------
+
+NAMES = {"lmstudio": "LM Studio", "ollama": "Ollama"}
+_started = {}  # app -> `ollama serve` process this afterclass started (stopped again by stop_server)
+_lock = threading.Lock()
+
+
+def apps_brief():
+    """Installed apps and whether their server runs, cheaply (no model listing): for the Ask box."""
+    running = {s["name"] for s in detect("auto")}
+    binaries = {"lmstudio": lms_bin(), "ollama": shutil.which("ollama")}
+    return [{"app": app, "name": name, "installed": bool(binaries[app]), "running": name in running}
+            for app, name in NAMES.items()]
+
+
+def preferred_app(apps=None):
+    """The app to start: the one local_llm_url points at, else LM Studio, else Ollama (if installed)."""
+    apps = apps or apps_brief()
+    url = config.load()["local_llm_url"]
+    order = ["ollama", "lmstudio"] if url.rstrip("/").endswith(":11434") else ["lmstudio", "ollama"]
+    return next((a for key in order for a in apps if a["app"] == key and a["installed"]), None)
+
+
+def _wait_for(name, seconds):
+    for _ in range(int(seconds * 2)):
+        found = next((s for s in detect("auto") if s["name"] == name), None)
+        if found:
+            return found
+        time.sleep(0.5)
+    return None
+
+
+def start_server(app=None, wait=30):
+    """Start LM Studio's or Ollama's server (and load a model if LM Studio has none ready).
+    Returns {ok, app, name, message}. Nothing is downloaded."""
+    with _lock:
+        apps = apps_brief()
+        chosen = next((a for a in apps if a["app"] == app), None) if app else preferred_app(apps)
+        if not chosen or not chosen["installed"]:
+            return {"ok": False, "app": app, "name": NAMES.get(app, "local AI"),
+                    "message": "no local AI app installed: get LM Studio (lmstudio.ai) or Ollama, or run `afterclass setup ai`"}
+        key, name = chosen["app"], chosen["name"]
+        if not chosen["running"]:
+            try:
+                if key == "lmstudio":
+                    subprocess.run([lms_bin(), "server", "start"], capture_output=True, timeout=wait)
+                elif shutil.which("brew"):
+                    subprocess.run(["brew", "services", "start", "ollama"], capture_output=True, timeout=wait)
+                else:
+                    _started[key] = subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL,
+                                                     stderr=subprocess.DEVNULL, start_new_session=True)
+            except (OSError, subprocess.TimeoutExpired) as e:
+                return {"ok": False, "app": key, "name": name, "message": f"couldn't start {name}: {e}"}
+        srv = _wait_for(name, wait)
+        if not srv:
+            return {"ok": False, "app": key, "name": name, "message": f"{name} didn't start within {wait} s"}
+        if not srv["models"] and key == "lmstudio":  # server without a model (just-in-time loading off): load one
+            models = [n for n, _ in installed_models(key)]
+            model = config.load()["local_llm_model"] or (models[0] if models else "")
+            if model:
+                subprocess.run([lms_bin(), "load", model, "--context-length", str(CONTEXT), "-y"],
+                               capture_output=True, timeout=600)
+                srv = _wait_for(name, 2) or srv
+        if not srv["models"]:
+            return {"ok": False, "app": key, "name": name,
+                    "message": f"{name} is running but has no model yet: run `afterclass setup ai` to get one"}
+        return {"ok": True, "app": key, "name": name, "message": f"{name} is running · {srv['models'][0]}"}
+
+
+def stop_server(app):
+    """Stop LM Studio's or Ollama's server. Returns {ok, app, name, message}."""
+    name = NAMES.get(app)
+    if not name:
+        raise ValueError(f"unknown app {app}")
+    with _lock:
+        if app == "lmstudio" and lms_bin():
+            subprocess.run([lms_bin(), "server", "stop"], capture_output=True, timeout=30)
+        elif app == "ollama":
+            proc = _started.pop(app, None)
+            if proc:
+                proc.terminate()
+            elif shutil.which("brew"):
+                subprocess.run(["brew", "services", "stop", "ollama"], capture_output=True, timeout=30)
+        for _ in range(10):
+            if not any(s["name"] == name for s in detect("auto")):
+                return {"ok": True, "app": app, "name": name, "message": f"{name} stopped"}
+            time.sleep(0.5)
+    return {"ok": False, "app": app, "name": name, "message": f"{name} is still running (quit it in the app)"}
+
+
+def autostart():
+    """`local_autostart` on: start the local model server in the background if none runs."""
+    cfg = config.load()
+    if cfg["local_autostart"] and not detect(cfg["local_llm_url"]):
+        threading.Thread(target=start_server, daemon=True).start()
+
+
 # --- the wizard ------------------------------------------------------------
 
 
@@ -236,10 +334,7 @@ def wizard():
         else:
             subprocess.Popen(["ollama", "serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                              start_new_session=True)
-        for _ in range(20):
-            if any(s["name"] == app["name"] for s in detect("auto")):
-                break
-            time.sleep(0.5)
+        _wait_for(app["name"], 10)
         steps.end("started")
     else:
         ui.info("start it later with: " + ("lms server start" if app["app"] == "lmstudio" else "brew services start ollama"))

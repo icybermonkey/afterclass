@@ -1,12 +1,15 @@
 """Local LLM (offline): LM Studio or Ollama on this Mac. No key, nothing leaves the machine."""
 
+import http.client
 import json
+import socket
 import time
-import urllib.error
+import urllib.parse
 import urllib.request
 
 from ..config import load as load_config
 from ..ui import AfterclassError
+from . import cancel
 from .base import Provider, Usage
 
 SERVERS = [
@@ -22,15 +25,25 @@ def _get(url, timeout=1.5):
 
 
 def _post(url, body, timeout=1800):
-    req = urllib.request.Request(url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+    """POST JSON, wait for the answer. The Ask box's Stop closes the connection, which also makes LM Studio
+    and Ollama stop generating."""
+    u = urllib.parse.urlsplit(url)
+    conn = http.client.HTTPConnection(u.hostname, u.port, timeout=timeout)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as r:
-            return json.loads(r.read())
-    except urllib.error.HTTPError as e:
-        detail = e.read().decode(errors="replace")[:300]
-        raise AfterclassError(f"local model server error {e.code}: {detail}")
-    except urllib.error.URLError as e:
-        raise AfterclassError(f"local model server not reachable ({e.reason}). Start it, or run `afterclass setup ai`.")
+        conn.connect()
+        with cancel.abortable(lambda: conn.sock and conn.sock.shutdown(socket.SHUT_RDWR)):
+            conn.request("POST", u.path, body=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+            r = conn.getresponse()
+            data = r.read()
+    except cancel.Cancelled:
+        raise
+    except OSError as e:
+        raise AfterclassError(f"local model server not reachable ({e}). Start it, or run `afterclass setup ai`.")
+    finally:
+        conn.close()
+    if r.status >= 400:
+        raise AfterclassError(f"local model server error {r.status}: {data.decode(errors='replace')[:300]}")
+    return json.loads(data)
 
 
 def _is_chat_model(model_id):

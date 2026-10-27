@@ -192,3 +192,30 @@ def test_glossary_duplicates_and_short_chapters_are_merged():
     ai_step.apply(les, AiResult.model_validate(data), {"provider": "t", "model": "m"})
     assert [g["term"] for g in les.ai["glossary"]] == ["Opaque Predicates", "Control Flow Flattening (CFF)"]
     assert [c.title for c in les.chapters] == ["B"]  # "A" lasted 10 s and merged into the next chapter
+
+
+def test_stop_kills_a_running_claude_code(tmp_path, monkeypatch):
+    import threading
+    import time
+
+    from afterclass.ai import cancel
+
+    fake = tmp_path / "claude"
+    fake.write_text("#!/bin/sh\nexec sleep 30\n")
+    fake.chmod(fake.stat().st_mode | stat.S_IEXEC)
+    monkeypatch.setenv("PATH", f"{tmp_path}{os.pathsep}{os.environ['PATH']}")
+    out = {}
+
+    def ask():
+        with cancel.asking("q1"):
+            try:
+                ClaudeCodeProvider().run("sys", "prompt", json_schema(), "opus")
+            except cancel.Cancelled:
+                out["stopped"] = time.time()
+
+    t = threading.Thread(target=ask)
+    t.start()
+    time.sleep(0.5)
+    assert cancel.cancel("q1")
+    t.join(5)
+    assert not t.is_alive() and "stopped" in out

@@ -137,16 +137,26 @@ body.dragging video { pointer-events: none; }
 #stage { display: flex; flex-direction: column; overflow: hidden; padding: 16px 16px 0; gap: 10px; }
 #player { flex: none; }
 #player video { width: 100%; max-height: var(--vidh, calc(100vh - 290px)); background: #000; border-radius: 10px; display: block; }
-#now { font-size: 13px; color: var(--muted); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-#ask { flex: 1; min-height: 150px; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 8px; }
+#vctl { display: flex; align-items: center; gap: 6px; margin-top: 6px; }
+#now { flex: 1; min-width: 0; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#vctl .btn, #speed { font-size: 12px; height: 26px; padding: 0 8px; }
+#speed { font: inherit; font-size: 12px; color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+#cc.on { color: var(--accent); border-color: var(--accent); font-weight: 600; }
+/* fullscreen fallback (WebKit fullscreen off): the video fills the window */
+body.videofull #player { position: fixed; inset: 0; z-index: 50; background: #000; display: flex; flex-direction: column; padding: 8px; }
+body.videofull #player video { flex: 1; min-height: 0; max-height: none; border-radius: 0; }
+body.videofull #vctl { color: #ccc; }
+#ask { flex: 1; min-height: 150px; container-type: inline-size; display: flex; flex-direction: column; border-top: 1px solid var(--line); padding-top: 8px; }
 #askbar { display: flex; justify-content: flex-end; margin-bottom: 4px; }
 #clearchat { font-size: 12px; padding: 1px 8px; color: var(--muted); }
 #clearchat:hover { color: var(--fg); }
 #clearchat.sure { color: var(--bad); border-color: var(--bad); }
 #asklog { flex: 1; min-height: 0; overflow: auto; display: flex; flex-direction: column; gap: 10px; padding-bottom: 8px; }
 #askform { flex: none; display: flex; gap: 8px; align-items: flex-end; padding-bottom: 12px; }
-#askq { flex: 1; min-height: 38px; max-height: 120px; resize: none; font: inherit; color: var(--fg); background: var(--panel);
-  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+#askq { flex: 1; min-width: 0; min-height: 38px; max-height: 120px; resize: none; font: inherit; font-size: 14px; line-height: 1.45; color: var(--fg);
+  background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+/* the hint stays on one line (cut with …) instead of wrapping out of the one-row box */
+#askq::placeholder { font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #askform .btn { height: 38px; }
 #addai-wrap { position: relative; }
 #addai { height: 38px; padding: 0 10px; font-size: 16px; color: var(--muted); }
@@ -165,6 +175,13 @@ body.dragging video { pointer-events: none; }
   border: 1px solid var(--line); border-radius: 10px; padding: 0 6px; }
 #askwho { font-size: 12px; color: var(--muted); padding-bottom: 6px; }
 #askwho .line { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+#askwho .line .btn { font-size: 12px; padding: 1px 10px; }
+/* narrow Ask column (small screen, wide side panes): smaller text and model picker */
+@container (max-width: 640px) {
+  #askq { font-size: 13px; }
+  #askmodel { max-width: 150px; font-size: 11px; }
+  #askwho { font-size: 11px; }
+}
 .askhelp { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); margin-bottom: 4px; }
 .askhelp .line + .line { margin-top: 6px; }
 .askhelp .opt { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; gap: 6px; align-items: center; margin-top: 6px; }
@@ -184,7 +201,8 @@ body.dragging video { pointer-events: none; }
 .qa .by { font-size: 11px; color: var(--faint); margin-top: 3px; display: flex; gap: 6px; align-items: center; }
 .qa .more-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
 .qa .err { color: var(--bad); }
-.thinking { color: var(--muted); font-style: italic; }
+.thinking { color: var(--muted); font-style: italic; display: flex; align-items: center; gap: 8px; }
+.thinking .stopask { font-style: normal; font-size: 12px; padding: 1px 10px; color: var(--bad); border-color: var(--bad); }
 .btn { border: 1px solid var(--line); border-radius: 8px; padding: 3px 12px; font-size: 13px; background: var(--panel); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 
@@ -318,6 +336,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
     <button id="toggleLeft" class="lane" title="Show/hide chapters ( [ )">◧</button>
     <button id="toggleRight" class="lane" title="Show/hide transcript ( ] )">◨</button>
     <button id="theme" title="Theme">◐</button>
+    <button id="newlesson" class="hidden" title="New lesson, recent lessons">＋ New</button>
     <button id="settings" title="Settings">⚙</button>
   </div>
 </header>
@@ -326,7 +345,11 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   <nav class="pane" id="chapters"></nav>
   <div class="gutter l" data-side="left" title="Drag to resize · double-click to reset"></div>
   <section class="pane" id="stage">
-    <div id="player"><video id="v" controls preload="metadata"></video><div id="now"></div></div>
+    <div id="player"><video id="v" controls preload="metadata"></video>
+      <div id="vctl"><div id="now"></div>
+        <button type="button" class="btn" id="cc" title="Subtitles on/off ( c )">CC</button>
+        <select id="speed" title="Playback speed ( &lt; / &gt; )"><option value="0.5">0.5×</option><option value="0.75">0.75×</option><option value="1" selected>1×</option><option value="1.25">1.25×</option><option value="1.5">1.5×</option><option value="1.75">1.75×</option><option value="2">2×</option></select>
+        <button type="button" class="btn" id="fullscreen" title="Fullscreen ( f, or double-click the video )">⛶</button></div></div>
     <div class="gutter h" data-side="ask" title="Drag to resize · double-click to reset"></div>
     <section id="ask">
       <div id="askbar" class="hidden"><button type="button" class="btn" id="clearchat" title="Remove all questions and answers of this lesson">Clear chat</button></div>
@@ -377,8 +400,8 @@ try {  // notes and view settings this browser saved under the earlier name (lec
   Object.keys(localStorage).filter(k => k.startsWith("lecap:")).forEach(k => { const n = "afterclass" + k.slice(5); if (lsGet(n) === null) lsSet(n, lsGet(k)); });
 } catch (e) {}
 const SERVER = location.protocol.startsWith("http");
-const api = async (method, path, body) => {
-  const r = await fetch(path, { method, headers: { "X-Afterclass": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
+const api = async (method, path, body, signal) => {
+  const r = await fetch(path, { method, signal, headers: { "X-Afterclass": "1", "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
   const d = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(d.error || r.statusText);
   return d;
@@ -488,6 +511,59 @@ $("#title").addEventListener("blur", () => {
 });
 const v = $("#v");
 if (L.media) v.src = L.media; else $("#player").classList.add("hidden");
+
+/* ---------- player: subtitles, speed, fullscreen ---------- */
+{
+  // subtitles from the transcript, as a WebVTT track (no file needed, works from file:// too)
+  const ts = t => new Date(Math.max(0, t) * 1000).toISOString().slice(11, 23);
+  const many = (L.speakers || []).length > 1, speakerName = id => (L.speakers.find(s => s.id === id) || {}).label || id;
+  const segs = L.cards.flatMap(c => c.segments).filter(s => s.text && s.text.trim()).sort((a, b) => a.start - b.start);
+  const vtt = "WEBVTT\n\n" + segs.map((s, i) => {
+    const end = Math.max(s.start + 0.5, Math.min(s.end ?? s.start + 4, segs[i + 1] ? segs[i + 1].start : Infinity));
+    const who = many && s.speaker && (i === 0 || segs[i - 1].speaker !== s.speaker) ? `${speakerName(s.speaker)}: ` : "";
+    return `${ts(s.start)} --> ${ts(end)}\n${(who + s.text.trim()).replace(/-->/g, "→")}`;
+  }).join("\n\n");
+  const track = document.createElement("track");
+  Object.assign(track, { kind: "subtitles", label: "Transcript", srclang: L.language || "en",
+    src: URL.createObjectURL(new Blob([vtt], { type: "text/vtt" })) });
+  if (L.media && segs.length) v.append(track); else $("#cc").classList.add("hidden");
+  const ccOn = () => v.textTracks[0] && v.textTracks[0].mode === "showing";
+  const setCC = on => {
+    if (!v.textTracks[0]) return;
+    v.textTracks[0].mode = on ? "showing" : "hidden";
+    $("#cc").classList.toggle("on", on); lsSet("afterclass:cc", on ? "1" : "");
+  };
+  // the track's mode is only settable once it is attached; also follow the player's own CC menu
+  setTimeout(() => setCC(lsGet("afterclass:cc") === "1"), 0);
+  v.textTracks.addEventListener?.("change", () => $("#cc").classList.toggle("on", ccOn()));
+  $("#cc").onclick = () => { setCC(!ccOn()); toast(ccOn() ? "Subtitles on" : "Subtitles off"); };
+
+  // playback speed, remembered
+  const RATES = [...$("#speed").options].map(o => +o.value);
+  const setSpeed = (r, say) => {
+    r = RATES.includes(r) ? r : 1;
+    v.playbackRate = v.defaultPlaybackRate = r; $("#speed").value = String(r);
+    lsSet("afterclass:speed", String(r)); if (say) toast(`Speed ${r}×`);
+  };
+  setSpeed(+(lsGet("afterclass:speed") || 1));
+  v.addEventListener("loadedmetadata", () => { v.playbackRate = +$("#speed").value; });
+  $("#speed").onchange = e => setSpeed(+e.target.value);
+  window.stepSpeed = dir => setSpeed(RATES[Math.max(0, Math.min(RATES.length - 1, RATES.indexOf(+$("#speed").value) + dir))], true);
+
+  // fullscreen: WebKit's own if allowed, else the video fills the window (and the Mac app's window goes fullscreen)
+  window.toggleFullscreen = () => {
+    if (document.fullscreenElement || document.webkitFullscreenElement) { (document.exitFullscreen || document.webkitExitFullscreen).call(document); return; }
+    if (document.body.classList.contains("videofull")) { exitVideoFull(); return; }
+    if (document.fullscreenEnabled && v.requestFullscreen) { v.requestFullscreen().catch(videoFull); return; }
+    if (document.webkitFullscreenEnabled && v.webkitRequestFullscreen) { v.webkitRequestFullscreen(); return; }
+    videoFull();
+  };
+  const appFull = () => window.pywebview && window.pywebview.api.fullscreen && window.pywebview.api.fullscreen();
+  function videoFull() { document.body.classList.add("videofull"); appFull(); }
+  window.exitVideoFull = () => { if (document.body.classList.contains("videofull")) { document.body.classList.remove("videofull"); appFull(); } };
+  $("#fullscreen").onclick = () => window.toggleFullscreen();
+  v.addEventListener("dblclick", e => { e.preventDefault(); window.toggleFullscreen(); });
+}
 const cards = L.cards;
 const chapterAt = {};
 L.chapters.forEach((ch, i) => { chapterAt[ch.card] = i; });
@@ -800,6 +876,9 @@ async function openSettings() {
   $("#settings-help").classList.toggle("hidden");
 }
 $("#settings").onclick = e => { e.stopPropagation(); openSettings(); };
+/* in the Mac app: its new-lesson window (with the recent lessons) */
+window.addEventListener("pywebviewready", () => { if (window.pywebview.api.new_lesson) $("#newlesson").classList.remove("hidden"); });
+$("#newlesson").onclick = () => window.pywebview.api.new_lesson();
 document.addEventListener("click", e => { if (!e.target.closest("#settings-help")) $("#settings-help").classList.add("hidden"); });
 
 function toggleStar(id) {
@@ -886,8 +965,8 @@ v.addEventListener("timeupdate", () => {
 
 /* ---------- keyboard ---------- */
 document.addEventListener("keydown", e => {
-  const typing = e.target.matches("input, textarea");
-  if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); if (typing) e.target.blur(); return; }
+  const typing = e.target.matches("input, textarea, select");
+  if (e.key === "Escape") { $("#lightbox").classList.add("hidden"); window.exitVideoFull(); if (typing) e.target.blur(); return; }
   if (typing || e.metaKey || e.ctrlKey || e.altKey) return;
   const vis = cards.filter(c => c.kind !== "break" && !document.getElementById("t" + c.id)?.classList.contains("hidden")).map(c => c.id);
   const pos = vis.indexOf(current);
@@ -901,6 +980,10 @@ document.addEventListener("keydown", e => {
     case "a": e.preventDefault(); $("#askq").focus(); break;
     case "[": toggleLane("left"); break;
     case "]": toggleLane("right"); break;
+    case "c": if (L.media) $("#cc").click(); break;
+    case "f": if (L.media) window.toggleFullscreen(); break;
+    case "<": case ",": if (L.media) window.stepSpeed(-1); break;
+    case ">": case ".": if (L.media) window.stepSpeed(1); break;
   }
 });
 
@@ -971,7 +1054,7 @@ async function detectDirect() {
   }
   direct = null; directState = "none";
 }
-async function askDirect(q) {
+async function askDirect(q, signal) {
   const t = L.media ? v.currentTime : null;
   let hits = searchIndex(q, 8);
   const first = firstMention(q, searchIndex(q, 20));
@@ -981,7 +1064,7 @@ async function askDirect(q) {
   let prompt = `Lecture: ${title}\nChapters:\n${L.chapters.map(c => "- " + c.title).join("\n")}\n\nPassages:\n${lines.join("\n")}\n\nQuestion: ${q}`;
   if (first && WANTS_START.test(q)) prompt += `\n(Search hint: the topic first appears at ${Math.round(first.t)}s = ${fmt(first.t)}.)`;
   if (t !== null) prompt += `\n(The student is watching ${fmt(t)}. Use that only if the question says 'this', 'here' or 'now'.)`;
-  const r = await fetch(direct.base + "/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({
+  const r = await fetch(direct.base + "/v1/chat/completions", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({
     model: direct.model, temperature: 0.2, messages: [{ role: "system", content: ASKCFG.system }, { role: "user", content: prompt }],
     response_format: { type: "json_schema", json_schema: { name: "result", strict: true, schema: ASKCFG.schema } } }) });
   if (!r.ok) throw new Error(`${direct.name}: ${r.status} ${(await r.text()).slice(0, 200)}`);
@@ -995,8 +1078,16 @@ async function askDirect(q) {
     provider: `${direct.name} (direct)`, model: direct.model, online: false, mode: "lesson" };
 }
 
-let settings = null, providers = [];
+let settings = null, providers = [], localApps = [], starting = false;
 const copyBtn = cmd => `<code>${esc(cmd)}</code> <button class="btn" data-copy="${esc(cmd)}">Copy</button>`;
+// an installed LM Studio / Ollama that isn't running: start it from here, whatever answers now
+function startLocalBtn(local) {
+  if (local && local.available) return settings && settings.ask_provider !== "local"
+    ? ` <button class="btn" id="uselocal" title="Answer with ${esc(local.detail)} (offline, nothing leaves this Mac)">▶ Use ${esc(local.detail.split(" · ")[0])}</button>` : "";
+  // not running, or running without a model ready: the server's start also loads one
+  const app = localApps.find(a => a.running) || localApps.find(a => a.installed);
+  return app ? ` <button class="btn" id="startlocal" data-app="${app.app}" title="Start ${esc(app.name)} and answer with it (offline)" ${starting ? "disabled" : ""}>${starting ? `Starting ${esc(app.name)}…` : `▶ Start ${esc(app.name)}`}</button>` : "";
+}
 function askWho() {
   const local = providers.find(p => p.name === "local");
   let h;
@@ -1017,11 +1108,14 @@ function askWho() {
   }
   else if (settings && settings.ask_provider && settings.ask_provider !== "auto") {
     const online = settings.ask_provider !== "local";
-    h = `<div class="line">${tagHTML(online)} answers by ${esc(settings.ask_provider === "local" ? "local model" : settings.ask_provider)}${settings.ask_model ? " · " + esc(settings.ask_model) : ""}</div>`;
+    h = `<div class="line">${tagHTML(online)} answers by ${esc(settings.ask_provider === "local" ? "local model" : settings.ask_provider)}${settings.ask_model ? " · " + esc(settings.ask_model) : ""}${startLocalBtn(local)}</div>`;
   }
   else if (local && local.available) h = `${tagHTML(false)} answers by ${esc(local.detail)}`;
-  else if (settings && settings.allow_online !== "off") h = `${tagHTML(true)} no local model running: answers by Claude (asks first) · ⚙ to set up a local model`;
-  else h = `${tagHTML(false)} no model available, only search`;
+  else {
+    const start = startLocalBtn(local);
+    if (settings && settings.allow_online !== "off") h = `<div class="line">${tagHTML(true)} no local model running: answers by Claude (asks first)${start || " · ⚙ to set up a local model"}</div>`;
+    else h = `<div class="line">${tagHTML(false)} no model available, only search${start}</div>`;
+  }
   $("#askwho").innerHTML = h;
 }
 function answerHTML(r, q, secs) {
@@ -1065,16 +1159,20 @@ $("#clearchat").onclick = async () => {
 async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
   box = box || addQA(q);
   const t0 = Date.now();
+  // ■ Stop: drop the request, and (afterclass open) tell the server to stop the model too
+  const stop = new AbortController(), id = Math.random().toString(36).slice(2);
+  const stopped = () => { box.innerHTML = `<p class="muted">Stopped after ${Math.round((Date.now() - t0) / 1000)} s.</p>`; };
+  box.stopAsk = () => { stop.abort(); if (SERVER && serverOK) api("POST", "/api/ask/cancel", { id }).catch(() => {}); };
   const thinking = () => {
-    box.innerHTML = `<p class="thinking">Thinking… <span>0</span> s</p>`;
+    box.innerHTML = `<p class="thinking">Thinking… <span>0</span> s <button type="button" class="btn stopask" title="Stop this answer">■ Stop</button></p>`;
     return setInterval(() => { const s = box.querySelector(".thinking span"); if (s) s.textContent = Math.round((Date.now() - t0) / 1000); }, 1000);
   };
   if (!SERVER || !serverOK) {  // opened as a file: use a local model directly if it allows it
     if (directState !== "ok") { await detectDirect(); askWho(); }
     if (directState === "ok") {
       const tick = thinking();
-      try { box.innerHTML = answerHTML(await askDirect(q), q, Math.round((Date.now() - t0) / 1000)); }
-      catch (err) { box.innerHTML = answerHTML({ error: err.message }, q); }
+      try { box.innerHTML = answerHTML(await askDirect(q, stop.signal), q, Math.round((Date.now() - t0) / 1000)); }
+      catch (err) { if (stop.signal.aborted) stopped(); else box.innerHTML = answerHTML({ error: err.message }, q); }
       finally { clearInterval(tick); box.scrollIntoView({ block: "nearest" }); }
       return;
     }
@@ -1085,7 +1183,8 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
   }
   const tick = thinking();
   try {
-    const r = await api("POST", "/api/ask", { question: q, mode, t: L.media ? v.currentTime : null, confirm_online: confirmOnline });
+    const r = await api("POST", "/api/ask", { id, question: q, mode, t: L.media ? v.currentTime : null, confirm_online: confirmOnline }, stop.signal);
+    if (r.cancelled) { stopped(); return; }
     if (r.needs_confirm) {
       box.innerHTML = `<p>No local model is running. Send this question with lesson excerpts to <b>${esc(r.label)}</b> ${tagHTML(true)}?</p>
         <div class="more-btns"><button class="btn primary" data-confirm="1">Send online</button><button class="btn" data-confirm="0">Search only</button></div>`;
@@ -1094,7 +1193,7 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
     }
     box.innerHTML = answerHTML(r, q, Math.round((Date.now() - t0) / 1000));
   } catch (err) {
-    box.innerHTML = answerHTML({ error: err.message }, q);
+    if (stop.signal.aborted) stopped(); else box.innerHTML = answerHTML({ error: err.message }, q);
   } finally {
     clearInterval(tick);
     box.scrollIntoView({ block: "nearest" });
@@ -1103,6 +1202,9 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
 document.addEventListener("click", e => {
   const c = e.target.closest("[data-copy]");
   if (c) navigator.clipboard?.writeText(c.dataset.copy).then(() => toast("Copied: paste it in Terminal"), () => toast(c.dataset.copy));
+  if (e.target.id === "startlocal") startLocal(e.target.dataset.app);
+  if (e.target.id === "uselocal") useLocal().then(() => toast("Ask uses the local model"), err => toast(err.message));
+  if (e.target.closest(".stopask")) e.target.closest(".qa .a").stopAsk?.();
   if (e.target.id === "recheck") { e.target.textContent = "Checking…"; detectDirect().then(() => { askWho(); loadModels(); toast(directState === "ok" ? `Connected to ${direct.name}` : "Still not reachable"); }); }
 });
 /* model picker in the Ask box: afterclass open = global setting (offline + online); file page = models of the local server */
@@ -1182,6 +1284,25 @@ function readHash() {
 window.addEventListener("hashchange", readHash);
 let pendingCard = -1;  // a deep-linked card to scroll to again once the transcript is re-drawn
 
+// the local model answers from now on (the picker can switch back)
+async function useLocal() {
+  await api("PUT", "/api/settings", { ask_provider: "local", ask_model: "" });
+  settings = { ...settings, ask_provider: "local", ask_model: "" };
+  askWho(); loadModels();
+}
+async function startLocal(app) {
+  starting = true; askWho();
+  try {
+    const r = await api("POST", "/api/local/start", { app });
+    providers = r.providers || providers;
+    toast(r.message);
+    const s = await api("GET", "/api/state");
+    providers = s.providers || providers; localApps = s.local_apps || localApps;
+    if (r.ok && settings.ask_provider !== "local" && settings.ask_provider !== "auto") await useLocal();  // answer with it
+  } catch (e) { toast(`Couldn't start it: ${e.message}`); }
+  starting = false; askWho(); loadModels();
+}
+
 /* ---------- start ---------- */
 renderChapters();
 markChapter(0);
@@ -1192,7 +1313,7 @@ if (!SERVER) detectDirect().then(() => { askWho(); loadModels(); });
 if (SERVER) {
   api("GET", "/api/state").then(s => {
     setSync(true);
-    settings = s.settings; providers = s.providers || [];
+    settings = s.settings; providers = s.providers || []; localApps = s.local_apps || [];
     const merged = mergeNotes(s.notes || {}, store);
     const changed = JSON.stringify(merged) !== JSON.stringify(s.notes || {});
     store = merged;
