@@ -66,7 +66,7 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
   font-size: 11px; line-height: 1.45; white-space: pre-wrap; }
 .done { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
 .err { color: var(--bad); }
-.recent { margin-top: 0; margin-bottom: 14px; padding: 10px 16px; }
+.recent { padding: 10px 16px; }
 .recent .head { display: flex; align-items: center; gap: 8px; font-weight: 600; font-size: 13px; margin-bottom: 4px; }
 .recent .head .btn { margin-left: auto; font-weight: 400; }
 .recent ul { list-style: none; margin: 0; padding: 0; max-height: 156px; overflow: auto; }
@@ -84,11 +84,6 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
   <div><h1>New lesson</h1><p>Drop the recording (and the slides), choose where it goes, press Run.</p></div>
   <button class="gear" id="settings" title="Settings (models, defaults, keys)">⚙ Settings</button>
 </header>
-
-<div class="card recent" id="recent">
-  <div class="head">Recent lessons <button class="btn small" id="openother">Open other…</button></div>
-  <ul id="recentlist"></ul>
-</div>
 
 <div class="drops">
   <div class="drop" id="drop-video">
@@ -149,6 +144,11 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
   </div>
   <div class="done" id="running"><button class="btn" id="cancel">Cancel</button></div>
   <details class="log"><summary>Details</summary><pre id="log"></pre></details>
+</div>
+
+<div class="card recent" id="recent">
+  <div class="head">Recent lessons <button class="btn small" id="openother">Open other…</button></div>
+  <ul id="recentlist"></ul>
 </div>
 
 <script>
