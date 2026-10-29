@@ -753,7 +753,7 @@ function gotoHit(dir) {
   hitIndex = (hitIndex + dir + marks.length) % marks.length;
   marks.forEach(m => m.style.outline = "");
   marks[hitIndex].style.outline = "2px solid var(--accent)";
-  marks[hitIndex].scrollIntoView({ block: "center", behavior: "smooth" });
+  paneScroll(marks[hitIndex], "center");
   $("#count").textContent = $("#count").textContent.replace(/^(\d+ cards · )(?:\d+\/)?/, `$1${hitIndex + 1}/`);
 }
 let qTimer;
@@ -817,12 +817,28 @@ function revealCard(id) {
 function goCard(id, play = true) { revealCard(id); showTab("transcript"); scrollToCard(id, true); seek(cards[id].start, play); }
 let userScroll = 0;
 ["wheel", "touchmove"].forEach(ev => ["#chapters", "#tab-transcript"].forEach(s => $(s).addEventListener(ev, () => userScroll = Date.now(), { passive: true })));
+// scrollIntoView also scrolls the page (overflow: hidden still scrolls) and pushes the top bar out of the window
+function paneScroll(el, block = "nearest", smooth = true) {
+  if (!el) return;
+  let box = el.parentElement;
+  while (box && box !== document.body && !/(auto|scroll)/.test(getComputedStyle(box).overflowY)) box = box.parentElement;
+  if (!box || box === document.body) return el.scrollIntoView({ block, behavior: smooth ? "smooth" : "auto" });
+  const e = el.getBoundingClientRect(), b = box.getBoundingClientRect(), off = e.top - b.top;
+  let top = box.scrollTop;
+  if (block === "start") top += off;
+  else if (block === "center") top += off - (b.height - e.height) / 2;
+  else if (off < 0) top += off;
+  else if (e.bottom > b.bottom) top += Math.min(off, e.bottom - b.bottom);
+  box.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
+}
+// the wide layout never scrolls the page itself; undo it if anything still does
+addEventListener("scroll", () => { if (scrollY && matchMedia("(min-width: 981px)").matches) scrollTo(0, 0); });
 function scrollToCard(id, force) {
   if (!force && (!$("#follow").checked || Date.now() - userScroll < 6000)) return;
   const tc = tEl(id);
-  if (tc && !$("#tab-transcript").classList.contains("hidden")) tc.scrollIntoView({ block: "start", behavior: "smooth" });
+  if (tc && !$("#tab-transcript").classList.contains("hidden")) paneScroll(tc, "start");
   const k = cardChapter[id];
-  document.getElementById("ch" + k)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  paneScroll(document.getElementById("ch" + k));
 }
 document.addEventListener("click", e => {
   const t = e.target;
@@ -1181,7 +1197,7 @@ function addQA(q) {
   $("#askbar").classList.remove("hidden");
   $("#asklog").insertAdjacentHTML("beforeend", `<div class="qa"><div class="q">${esc(q)}</div><div class="a"></div></div>`);
   const a = $("#asklog").lastElementChild.querySelector(".a");
-  a.scrollIntoView({ block: "nearest" });
+  paneScroll(a, "nearest", false);
   return a;
 }
 // Clear chat: a second click within 3 s confirms (no browser dialog)
@@ -1219,7 +1235,7 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
       const tick = thinking();
       try { box.innerHTML = answerHTML(await askDirect(q, stop.signal), q, Math.round((Date.now() - t0) / 1000)); }
       catch (err) { if (stop.signal.aborted) stopped(); else box.innerHTML = answerHTML({ error: err.message }, q); }
-      finally { clearInterval(tick); box.scrollIntoView({ block: "nearest" }); }
+      finally { clearInterval(tick); paneScroll(box, "nearest", false); }
       return;
     }
     const hits = searchIndex(q), first = firstMention(q, searchIndex(q, 20));
@@ -1242,7 +1258,7 @@ async function ask(q, mode = "lesson", confirmOnline = false, box = null) {
     if (stop.signal.aborted) stopped(); else box.innerHTML = answerHTML({ error: err.message }, q);
   } finally {
     clearInterval(tick);
-    box.scrollIntoView({ block: "nearest" });
+    paneScroll(box, "nearest", false);
   }
 }
 document.addEventListener("click", e => {
