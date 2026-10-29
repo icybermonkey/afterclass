@@ -827,16 +827,24 @@ function paneScroll(el, block = "nearest", smooth = true) {
   let top = box.scrollTop;
   if (block === "start") top += off;
   else if (block === "center") top += off - (b.height - e.height) / 2;
+  // "keep": leave it alone inside the upper-middle band, else bring it a third down (no jitter line by line)
+  else if (block === "keep") { if (off >= b.height * .15 && e.bottom - b.top <= b.height * .7) return; top += off - b.height / 3; }
   else if (off < 0) top += off;
   else if (e.bottom > b.bottom) top += Math.min(off, e.bottom - b.bottom);
   box.scrollTo({ top, behavior: smooth ? "smooth" : "auto" });
 }
 // the wide layout never scrolls the page itself; undo it if anything still does
 addEventListener("scroll", () => { if (scrollY && matchMedia("(min-width: 981px)").matches) scrollTo(0, 0); });
-function scrollToCard(id, force) {
-  if (!force && (!$("#follow").checked || Date.now() - userScroll < 6000)) return;
+const following = () => $("#follow").checked && Date.now() - userScroll >= 6000;
+const transcriptShown = () => !$("#tab-transcript").classList.contains("hidden");
+function scrollToCard(id, force, seg) {
+  if (!force && !following()) return;
   const tc = tEl(id);
-  if (tc && !$("#tab-transcript").classList.contains("hidden")) paneScroll(tc, "start");
+  if (tc && transcriptShown()) {
+    // a line far down a long card (a seek into its middle) wins over the card's start
+    if (seg && seg.getBoundingClientRect().bottom - tc.getBoundingClientRect().top > $("#tab-transcript").clientHeight * .7) paneScroll(seg, "keep");
+    else paneScroll(tc, "start");
+  }
   const k = cardChapter[id];
   paneScroll(document.getElementById("ch" + k));
 }
@@ -1001,8 +1009,8 @@ const find = (arr, t, key) => { let lo = 0, hi = arr.length - 1, r = -1; while (
 const cardAt = t => find(cardStarts, t, x => x);
 const subStarts = L.chapters.flatMap(ch => (ch.subs || []).map(s => s.card)).sort((a, b) => a - b);
 v.addEventListener("timeupdate", () => {
-  const t = v.currentTime, ci = cardAt(t);
-  if (ci !== current) {
+  const t = v.currentTime, ci = cardAt(t), cardChanged = ci !== current;
+  if (cardChanged) {
     tEl(current)?.classList.remove("active");
     current = ci;
     if (ci >= 0) {
@@ -1014,7 +1022,6 @@ v.addEventListener("timeupdate", () => {
       $$(".subs button.on").forEach(b => b.classList.remove("on"));
       if (sub !== undefined && cardChapter[sub] === k) document.getElementById("s" + sub)?.classList.add("on");
       $("#now").textContent = [L.chapters[k]?.title, cardTitle(c)].filter(Boolean).join(" › ");
-      scrollToCard(ci, false);
     }
   }
   let el = null;
@@ -1022,7 +1029,12 @@ v.addEventListener("timeupdate", () => {
     const segs = cards[ci].segments, j = find(segs, t, s => s.start);
     if (j >= 0 && t <= segs[j].end + 1) el = $(`#t${ci} .seg[data-j="${j}"]`);
   }
-  if (el !== activeSeg) { activeSeg?.classList.remove("now"); activeSeg = el; el?.classList.add("now"); }
+  if (cardChanged && ci >= 0) scrollToCard(ci, false, el);
+  if (el !== activeSeg) {
+    activeSeg?.classList.remove("now"); activeSeg = el; el?.classList.add("now");
+    // follow the spoken line through cards taller than the pane
+    if (el && !cardChanged && following() && transcriptShown()) paneScroll(el, "keep");
+  }
 });
 
 /* ---------- keyboard ---------- */
