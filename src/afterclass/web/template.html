@@ -607,9 +607,9 @@ function decorate(text, withTerms) {
 /* ---------- left: chapters (one picture each, text subchapters) ---------- */
 function renderChapters() {
   $("#chapters").innerHTML = L.chapters.map((ch, k) => {
-    const subs = (ch.subs || []).map(s => `<li><button data-card="${s.card}" id="s${s.card}"><time>${fmt(cards[s.card].start)}</time><span>${esc(s.title)}</span></button></li>`).join("");
+    const subs = (ch.subs || []).map(s => `<li><button data-card="${esc(s.card)}" id="s${esc(s.card)}"><time>${fmt(cards[s.card].start)}</time><span>${esc(s.title)}</span></button></li>`).join("");
     return `<div class="chap" id="ch${k}" data-ch="${k}">
-      <button class="head" data-card="${ch.card}">${ch.image ? `<img src="${esc(ch.image)}" loading="lazy" alt="">` : `<span class="noimg"></span>`}
+      <button class="head" data-card="${esc(ch.card)}">${ch.image ? `<img src="${esc(ch.image)}" loading="lazy" alt="">` : `<span class="noimg"></span>`}
         <span><div class="ct">${esc(ch.title)}</div><div class="tm">${fmt(cards[ch.card].start)}</div></span></button>
       ${subs ? `<ul class="subs">${subs}</ul>` : ""}</div>`;
   }).join("");
@@ -623,7 +623,7 @@ function paragraphsOf(c) {
   c.segments.forEach((s, j) => { if (!out.length || s.para) out.push({ start: s.start, speaker: s.speaker, segs: [] }); out[out.length - 1].segs.push(j); });
   return out;
 }
-const segHTML = (c, j, other = false) => `<span class="seg${other ? " other" : ""}" data-c="${c.id}" data-j="${j}" data-t="${c.segments[j].start}">${decorate(c.segments[j].text, true)}</span>`;
+const segHTML = (c, j, other = false) => `<span class="seg${other ? " other" : ""}" data-c="${esc(c.id)}" data-j="${j}" data-t="${esc(c.segments[j].start)}">${decorate(c.segments[j].text, true)}</span>`;
 function transcriptBody(c) {
   const group = groupOf[c.id];
   if (group) return `<p class="nospeech">no speech · ${group.length} shots, ${fmt(c.start)}–${fmt(cards[group[group.length - 1]].end)}</p>`;
@@ -644,24 +644,24 @@ function transcriptBody(c) {
     const other = multiSpeaker && p.speaker && p.speaker !== "A";
     const showWho = multiSpeaker && p.speaker !== prev && (prev !== null || other);
     prev = p.speaker;
-    return `<p class="para ${other ? "other" : ""}"><span class="ptime" data-t="${p.start}">${fmt(p.start)}</span>${showWho ? `<span class="who">${esc(speakerName(p.speaker))}</span>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
-  }).join("") + (limit < paras.length ? `<button class="more" data-more="${c.id}">show all ${paras.length} paragraphs</button>` : "");
+    return `<p class="para ${other ? "other" : ""}"><span class="ptime" data-t="${esc(p.start)}">${fmt(p.start)}</span>${showWho ? `<span class="who">${esc(speakerName(p.speaker))}</span>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
+  }).join("") + (limit < paras.length ? `<button class="more" data-more="${esc(c.id)}">show all ${paras.length} paragraphs</button>` : "");
 }
 function tcardHTML(c) {
   const img = c.deck_image || c.image;
   const swap = c.deck_image && c.image ? `<button class="swap" data-alt="${esc(c.image)}" title="Slide ⇄ video frame">⇄</button>` : "";
   const pdf = L.deck && c.deck_page ? `<a href="${esc(L.deck)}#page=${c.deck_page}" target="_blank" class="kind">PDF p.${c.deck_page}</a>` : "";
   const note = store.notes[c.id];
-  return `<article class="tcard" id="t${c.id}" data-id="${c.id}" data-kind="${c.kind}">
+  return `<article class="tcard" id="t${esc(c.id)}" data-id="${esc(c.id)}" data-kind="${esc(c.kind)}">
     <div class="th"><div class="pic">${img ? `<img src="${esc(img)}" loading="lazy" alt="">${swap}` : ""}</div>
       <div class="info"><div class="ctitle">${decorate(cardTitle(c))}</div>
-        <div class="meta"><button class="time" data-t="${c.start ?? 0}">${fmt(c.start)}</button>
-          <span class="kind">${c.kind === "other" ? "" : c.kind}</span>${pdf}
+        <div class="meta"><button class="time" data-t="${esc(c.start ?? 0)}">${fmt(c.start)}</button>
+          <span class="kind">${c.kind === "other" ? "" : esc(c.kind)}</span>${pdf}
           <span class="acts"><button class="star${store.stars[c.id] ? " on" : ""}" title="Star (s)">${store.stars[c.id] ? "★" : "☆"}</button>
             <button class="notebtn" title="Note (n)">✎</button><button class="link" title="Copy link to this moment"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg></button></span>
           ${c.quick_title && c.title && c.title.toLowerCase() !== c.quick_title.toLowerCase() ? `<span class="slidelabel">slide: ${decorate(c.title)}</span>` : ""}</div></div></div>
     <div class="body">${transcriptBody(c)}</div><div class="slidehit hidden"></div>
-    <textarea class="note ${note ? "" : "hidden"}" data-id="${c.id}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
+    <textarea class="note ${note ? "" : "hidden"}" data-id="${esc(c.id)}" placeholder="Your note…">${esc(note || "")}</textarea></article>`;
 }
 let activeSeg = null;
 /* Back-to-back cards without speech (a live demo cut into many short shots) show as one card. That includes
@@ -790,13 +790,13 @@ function renderOverview() {
   items.forEach((c, i) => {
     const k = cardChapter[c.id];
     if (k !== lastCh) { h += `<div class="ov-ch">${esc(L.chapters[k]?.title || "")}</div>`; lastCh = k; }
-    h += `<div class="ov-item ${i % 2 ? "" : "alt"}" data-card="${c.id}" title="Jump to ${fmt(c.start)}">
+    h += `<div class="ov-item ${i % 2 ? "" : "alt"}" data-card="${esc(c.id)}" title="Jump to ${fmt(c.start)}">
       <div class="oh">${store.stars[c.id] ? `<span class="st">★</span>` : ""}<b>${esc(cardTitle(c))}</b><span class="time">${fmt(c.start)}</span></div>
       ${store.notes[c.id] ? `<div class="nt">${esc(store.notes[c.id])}</div>` : ""}</div>`;
   });
   h += `</details><details class="sec" data-sec="glossary" ${open("glossary")}><summary><h2>Glossary <span class="n">${glossary.length}</span></h2></summary>`;
   h += glossary.length ? glossary.map(g => `<details class="gl"><summary>${esc(g.term)}</summary><p>${esc(g.definition)}
-      ${cards[g.card] ? ` <button class="jump" data-card="${g.card}">→ ${fmt(cards[g.card].start)}</button>` : ""}</p></details>`).join("")
+      ${cards[g.card] ? ` <button class="jump" data-card="${esc(g.card)}">→ ${fmt(cards[g.card].start)}</button>` : ""}</p></details>`).join("")
     : `<p class="muted">Build the lesson with <code>--ai</code> (local model or Claude) to get a glossary.</p>`;
   $("#tab-overview").innerHTML = h + `</details>`;
   $$("#tab-overview details.sec").forEach(d => d.addEventListener("toggle", () => lsSet("afterclass:ov:" + d.dataset.sec, d.open ? "open" : "closed")));
@@ -1196,9 +1196,9 @@ function answerHTML(r, q, secs) {
   if (r.error) return `<p class="err">${esc(r.error)}</p>`;
   let h = r.answer ? r.answer.split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join("")
     : `<p class="muted">${r.provider === null && r.mode !== "search" ? "No AI model available, so here is the best match from the transcript:" : "Best match from the transcript:"}</p>`;
-  if (r.main_time !== null && r.main_time !== undefined) h += `<button class="main" data-seek="${r.main_time}">▶ ${fmt(r.main_time)}</button>`;
+  if (r.main_time !== null && r.main_time !== undefined) h += `<button class="main" data-seek="${esc(r.main_time)}">▶ ${fmt(r.main_time)}</button>`;
   const src = r.sources || [];
-  if (src.length) h += `<details><summary>Sources (${src.length})</summary>${src.map(s => `<div><button data-seek="${s.t}">${fmt(s.t)}</button>${esc(s.text || "")}</div>`).join("")}</details>`;
+  if (src.length) h += `<details><summary>Sources (${src.length})</summary>${src.map(s => `<div><button data-seek="${esc(s.t)}">${fmt(s.t)}</button>${esc(s.text || "")}</div>`).join("")}</details>`;
   const offerOnline = SERVER && serverOK && settings && settings.allow_online !== "off" && r.in_lesson === false && r.mode !== "general" && r.mode !== "web";
   if (offerOnline) h += `<div class="more-btns"><button class="btn" data-online="general" data-q="${esc(q)}">Answer with general knowledge ${tagHTML(true)}</button>
       ${settings.allow_web !== "off" ? `<button class="btn" data-online="web" data-q="${esc(q)}">Search the web ${tagHTML(true)}</button>` : ""}</div>`;

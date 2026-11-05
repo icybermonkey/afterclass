@@ -197,5 +197,8 @@ If the repo lives in iCloud Drive, keep the virtualenv out of sync: `mkdir .venv
 ## Notes
 
 - mlx-whisper runs on Apple Silicon only. Other platforms would need a different transcriber (e.g. faster-whisper) behind `steps/transcribe.py`.
-- PyMuPDF is AGPL-licensed. Keep that in mind when choosing this project's license.
 - Generated lesson folders can contain webcam frames of classmates. Share the tool, not the lessons.
+
+## License
+
+AfterClass is licensed under the [GNU AGPL v3.0 or later](LICENSE). It uses PyMuPDF, which is AGPL as well.

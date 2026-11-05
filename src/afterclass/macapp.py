@@ -164,7 +164,7 @@ def main(argv):
     app = target_dir() / f"{DISPLAY_NAME}.app"
     build(app, command, python)
     register(app)
-    os.system(f"touch '{app}'")  # make Finder pick up the icon
+    subprocess.run(["touch", str(app)], check=False)  # make Finder pick up the icon
     ui.ok(f"installed {app}")
     ui.info(f"Lesson pages opened as a file get an \"Open in {DISPLAY_NAME}\" button ({SCHEME}:// links).")
     ui.info(f"Open it from Launchpad/Spotlight (\"{DISPLAY_NAME}\") or Finder. It runs `{APP_NAME} app` with {python}")
