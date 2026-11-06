@@ -182,6 +182,7 @@ afterclass <video> <output-folder> [options]
 
 afterclass app               a window: drop the video (+ slides), pick the output folder, Run
 afterclass install-app       AfterClass.app in /Applications (opens `afterclass app`); --remove deletes it
+afterclass enrich <folder> [--ai PROVIDER]   AI extras for a lesson you already built (only the AI step runs)
 afterclass open <folder>     the page with notes saved in the folder, Ask and settings (local server, this Mac only)
 afterclass settings          global settings in the browser
 afterclass setup ai          guided local AI setup
@@ -197,6 +198,7 @@ Timing for a 2.5 h lecture on an M2 Pro: transcript ~5 min, speakers ~25 s, slid
 
 Without AI you get the transcript, slides, search and notes, plus chapters *if the slides have section pages*.
 `--ai` (a local model or Claude) adds **chapter names for every lesson**, a **quick title for every part**, a **summary** and a **glossary**.
+Forgot it? `afterclass enrich lesson-01/ --ai claude-code` adds them later without redoing anything else.
 Ask always needs a model: local (offline, `afterclass setup ai`) or Claude (online, only text is sent).
 
 **Ask without `afterclass open`** (when you just double-click `index.html`): the page talks to LM Studio or Ollama directly

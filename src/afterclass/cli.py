@@ -18,7 +18,7 @@ def build_parser():
         prog=APP_NAME,
         description="Turn a lecture recording into a searchable study page: index.html + subfolders.",
         epilog=(f"Also: `{APP_NAME} app` (window to start a lesson), `{APP_NAME} install-app` ({DISPLAY_NAME}.app in /Applications), "
-                f"`{APP_NAME} open <folder>`, `{APP_NAME} convert`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
+                f"`{APP_NAME} open <folder>`, `{APP_NAME} enrich <folder>` (AI extras later), `{APP_NAME} convert`, `{APP_NAME} settings`, `{APP_NAME} setup ai`, `{APP_NAME} auth --help`."),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     p.add_argument("input", type=Path, help="lecture video (.mp4, .mov, …)")
@@ -75,6 +75,8 @@ def main(argv=None):
             return app_main(argv[1:])
         if argv and argv[0] == "convert":
             return convert_main(argv[1:])
+        if argv and argv[0] == "enrich":
+            return enrich_main(argv[1:])
         if argv and argv[0] == "install-app":
             from .macapp import main as install_main
             return install_main(argv[1:])
@@ -238,6 +240,57 @@ def convert_main(argv):
                 raise AfterclassError("it is open: close its window first")
             ui.ok(f"{folder.name} → {convert_lesson(folder).name}")
         except (AfterclassError, OSError) as e:
+            ui.warn(f"{folder}: {e}")
+            failed += 1
+    return 1 if failed else 0
+
+
+def enrich_args(folder, a):
+    """The build arguments of an existing lesson (from data/lesson.json) with the AI step switched on."""
+    import json
+
+    folder = folder.expanduser()
+    lesson_json = folder / "data" / "lesson.json"
+    if not lesson_json.exists():
+        raise AfterclassError(f"{folder} is not a {APP_NAME} lesson folder (no data/lesson.json)")
+    lesson = json.loads(lesson_json.read_text(encoding="utf-8"))
+    argv = [str(folder / lesson["media"]), str(folder), "--title", lesson["title"], "-l", lesson["language"],
+            "--ai", a.ai]
+    if lesson.get("deck"):
+        argv += ["--deck", str(folder / lesson["deck"])]
+    if not (folder / "data" / "speakers.json").exists():
+        argv.append("--no-speakers")  # built without speakers: don't start telling them apart now
+    if a.ai_model:
+        argv += ["--ai-model", a.ai_model]
+    if a.yes:
+        argv.append("-y")
+    if a.redo:
+        argv += ["--redo", "ai"]
+    if a.open:
+        argv.append("--open")
+    return build_parser().parse_args(argv)
+
+
+def enrich_main(argv):
+    p = argparse.ArgumentParser(prog=f"{APP_NAME} enrich",
+                                description="Add the AI extras (chapter names, part titles, summary, glossary) to lessons "
+                                            "you already built. Only the AI step runs; your notes/ are kept.")
+    p.add_argument("folders", nargs="+", type=Path, help="lesson folders")
+    p.add_argument("--ai", nargs="?", const="default", default="default", metavar="PROVIDER",
+                   help="local, claude-code (subscription) or claude (API key); default: local first")
+    p.add_argument("--ai-model", metavar="MODEL", help="model for the AI step (default: provider's best)")
+    p.add_argument("-y", "--yes", action="store_true", help="don't ask before paid AI calls")
+    p.add_argument("--redo", action="store_true", help="ask the AI again even if data/ai.json exists")
+    p.add_argument("--open", action="store_true", help="open the page with notes, Ask and settings when done")
+    a = p.parse_args(argv)
+
+    failed = 0
+    for folder in a.folders:
+        try:
+            run(enrich_args(folder, a))
+        except AfterclassError as e:
+            if len(a.folders) == 1:
+                raise
             ui.warn(f"{folder}: {e}")
             failed += 1
     return 1 if failed else 0
