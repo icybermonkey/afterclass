@@ -77,3 +77,45 @@ def test_short_or_ambiguous_voices_are_not_named(tmp_path):
     three, segs, emb = lesson(tmp_path / "three", rng, {"a": a}, "a" * 8)
     assert voices.recognize(segs, [s["speaker"] for s in segs], emb) == {}  # too close to call
     assert voices.forget() == [] and not (tmp_path / "config" / "voices.json").exists()
+
+
+def test_a_speaker_can_be_picked_from_the_known_people(tmp_path):
+    from afterclass import server
+
+    rng = np.random.default_rng(4)
+    people = {c: rng.standard_normal(192) for c in "ab"}
+    one, *_ = lesson(tmp_path / "one", rng, people, "aaaabbbb" * 2)
+    two, segs, _ = lesson(tmp_path / "two", rng, {"a": people["b"]}, "a" * 8)  # Lena talks in lesson two
+    app = server.App(two)
+    starts = [s["start"] for s in segs]
+    assert server.speakers_payload(app, "known", {"starts": starts}) == {"enabled": False, "people": []}  # off
+    turn_on()
+    voices.learn(one, {"speakers": {"A": "Mia", "B": "Lena"}})
+    got = server.speakers_payload(app, "known", {"starts": starts})["people"]
+    assert [p["name"] for p in got] == ["Lena", "Mia"] and got[0]["likely"] and not got[1]["likely"]
+    # without fingerprints (an old lesson): everyone, by name
+    assert [p["name"] for p in voices.ranked([])] == ["Lena", "Mia"]
+
+
+def test_rename_a_known_person_in_all_their_lessons(tmp_path):
+    turn_on()
+    rng = np.random.default_rng(6)
+    people = {c: rng.standard_normal(192) for c in "ab"}
+    folders = []
+    for name, order in (("one", "aaaaabbbbb"), ("two", "bbbbbaaaaa")):
+        folder, *_ = lesson(tmp_path / name, rng, people, order)
+        (folder / "notes").mkdir()
+        notes = {"stars": {"1": True}, "speakers": {"A": "huber", "B": "Mia"}}
+        (folder / "notes" / "notes.json").write_text(json.dumps(notes))
+        voices.learn(folder, notes)
+        folders.append(folder)
+    voices.learn(tmp_path / "two", {"speakers": {"A": "Huber", "B": "Mia"}})  # same person, other spelling
+    assert voices.lessons_of("HUBER", exclude=folders[0]) == [str(folders[1].resolve())]
+    changed = voices.rename("Huber", "Prof. Huber")
+    assert sorted(changed) == sorted(str(f.resolve()) for f in folders)
+    assert voices.people() == [{"name": "Mia", "lessons": 2}, {"name": "Prof. Huber", "lessons": 2}]
+    for f in folders:
+        notes = json.loads((f / "notes" / "notes.json").read_text())
+        assert notes == {"stars": {"1": True}, "speakers": {"A": "Prof. Huber", "B": "Mia"}}  # the rest untouched
+    voices.rename("Mia", "prof. huber")  # into an existing person: joined
+    assert voices.people() == [{"name": "Prof. Huber", "lessons": 2}]

@@ -92,17 +92,38 @@ def learn(folder, notes):
     return done
 
 
+def _voices(exclude=None):
+    """{name: voice}: each person's lessons weighted by their seconds of speech, without the excluded lesson."""
+    import numpy as np
+
+    exclude = str(Path(exclude).resolve()) if exclude else None
+    out = {}
+    for name, person in _load().items():
+        ls = [x for f, x in person.get("lessons", {}).items() if f != exclude]
+        if ls:
+            out[name] = _unit(np.sum([np.asarray(x["emb"]) * x["seconds"] for x in ls], axis=0))
+    return out
+
+
+def ranked(embeddings, exclude=None):
+    """The known people, the most similar to these fingerprints (one speaker's sentences) first:
+    [{name, sim, likely}]. likely = close enough that recognition would have named them."""
+    import numpy as np
+
+    people = _voices(exclude)
+    if not people or not embeddings:
+        return [{"name": n, "sim": None, "likely": False} for n in sorted(people, key=str.casefold)]
+    v = _unit(np.mean(embeddings, axis=0))
+    sims = sorted(((float(v @ p), n) for n, p in people.items()), reverse=True)
+    return [{"name": n, "sim": round(s, 2), "likely": s >= speakers.KNOWN_SIM} for s, n in sims]
+
+
 def recognize(segments, labels, embeddings, exclude=None):
     """{label: name} for the speakers of a lesson that sound like a known person (each person at most once).
     `exclude` is the lesson's own folder: its entries don't count as evidence for itself."""
     import numpy as np
 
-    exclude = str(Path(exclude).resolve()) if exclude else None
-    people = {}
-    for name, person in _load().items():
-        ls = [x for f, x in person.get("lessons", {}).items() if f != exclude]
-        if ls:
-            people[name] = _unit(np.sum([np.asarray(x["emb"]) * x["seconds"] for x in ls], axis=0))
+    people = _voices(exclude)
     if not people:
         return {}
     per = {}
@@ -127,6 +148,50 @@ def recognize(segments, labels, embeddings, exclude=None):
             out[lab] = name
             taken.add(name)
     return out
+
+
+def lessons_of(name, exclude=None):
+    """The other lesson folders where a known person was named."""
+    exclude = str(Path(exclude).resolve()) if exclude else None
+    lib = _load()
+    return [f for f in lib.get(_find(lib, name), {}).get("lessons", {}) if f != exclude]
+
+
+def rename(old, new):
+    """Rename a known person everywhere: in the library (joining an existing person of the new name) and in the
+    speaker names of every lesson they were named in. Returns the lesson folders changed."""
+    from .server import atomic_write
+    from .steps import render
+
+    new = new.strip()
+    lib = _load()
+    old = _find(lib, old)
+    if not new or old not in lib:
+        return []
+    person = lib.pop(old)
+    target = _find(lib, new)
+    lib.setdefault(target, {"lessons": {}})["lessons"].update(person.get("lessons", {}))
+    _save(lib)
+    changed = []
+    for folder in map(Path, person.get("lessons", {})):
+        path = folder / "notes" / "notes.json"
+        try:
+            notes = json.loads(path.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            continue  # moved or deleted: the library still has the voice
+        names = notes.get("speakers") or {}
+        hits = [sid for sid, n in names.items() if isinstance(n, str) and n.strip().casefold() == old.casefold()]
+        if not hits:
+            continue
+        for sid in hits:
+            names[sid] = target
+        atomic_write(path, json.dumps(notes, ensure_ascii=False, indent=1))
+        try:
+            render.refresh(folder)  # the page carries the notes, also when opened as a file
+        except Exception:  # an unreadable lesson must not stop the rest; its notes are already right
+            pass
+        changed.append(str(folder))
+    return changed
 
 
 def people():

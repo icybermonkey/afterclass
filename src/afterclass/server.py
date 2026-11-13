@@ -144,7 +144,7 @@ def model_options():
 
 
 def speakers_payload(app, action, body):
-    """Speaker fixes that need the voice fingerprints: similar sentences, split one speaker, regroup all.
+    """Speaker fixes that need the voice fingerprints: similar sentences, split one speaker, regroup all, known people.
     The page saves the outcome itself (PUT /api/notes); only regroup writes, because it relabels the lesson."""
     from .steps import speakers
 
@@ -155,6 +155,17 @@ def speakers_payload(app, action, body):
         with app.lock:
             return {"speakers": speakers.regroup(app.folder, mode, n if mode == "discussion" else None)}
     starts = [float(x) for x in body.get("starts") or [] if isinstance(x, (int, float))]
+    if action == "known":  # the known people (opt-in), the ones who sound like these sentences first
+        from . import voices as known
+
+        if not known.enabled():
+            return {"enabled": False, "people": []}
+        try:
+            voices = speakers.load_voices(app.folder)
+        except AfterclassError:
+            voices = {}
+        embs = [voices[k] for k in map(speakers.key, starts) if k in voices]
+        return {"enabled": True, "people": known.ranked(embs, exclude=app.folder)}
     voices = speakers.load_voices(app.folder)
     if action == "similar":
         candidates = [float(x) for x in body.get("candidates") or [] if isinstance(x, (int, float))]
@@ -401,6 +412,17 @@ class Handler(BaseHTTPRequestHandler):
                     cfg[k] = config.coerce(k, v)
                 config.save(cfg)
                 return self._json(settings_payload())
+            if path == "/api/voices/rename" and method == "POST":  # a known person, in all their lessons
+                from . import voices
+
+                body = self._body()
+                old, new = str(body.get("old") or "").strip(), str(body.get("new") or "").strip()[:60]
+                if body.get("dry_run"):
+                    return self._json({"lessons": len(voices.lessons_of(old, exclude=app.folder)) if old else 0})
+                if not old or not new:
+                    raise ValueError("old and new name needed")
+                with app.lock:
+                    return self._json({"lessons": voices.rename(old, new)})
             if path == "/api/voices/forget" and method == "POST":
                 from . import voices
 

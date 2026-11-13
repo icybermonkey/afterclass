@@ -276,6 +276,8 @@ button.who:hover, button.whoin:hover { background: var(--accent-soft); }
 #spkpop .plist label, #spkpop .psim { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 1.4; }
 #spkpop .psim { margin-top: 8px; color: var(--muted); }
 #spkpop .phint { font-size: 11px; color: var(--muted); margin: 4px 0; }
+#spkpop .pchip.likely { border-color: var(--accent); }
+#spkpop .pchip small { color: var(--muted); font-size: 10px; }
 #spkpop .pitem { display: block; width: 100%; text-align: left; padding: 5px 6px; border-radius: 6px; }
 #spkpop .pitem:hover:not(:disabled) { background: var(--accent-soft); }
 #spkpop .pitem:disabled { opacity: .5; cursor: default; }
@@ -455,19 +457,19 @@ const api = async (method, path, body, signal) => {
   return d;
 };
 let toastTimer;
-function toast(msg, undo) {
+function toast(msg, undo, action) {  // undo: a function; action: [label, function], e.g. a follow-up offer
   const t = $("#toast");
   t.textContent = msg;
-  if (undo) {
+  for (const [label, run] of [undo && ["Undo", undo], action].filter(Boolean)) {
     const b = document.createElement("button");
-    b.textContent = "Undo";
-    b.onclick = () => { undo(); t.classList.remove("show"); };
+    b.textContent = label;
+    b.onclick = () => { run(); t.classList.remove("show"); };
     t.append(" · ", b);
   }
-  t.classList.toggle("undo", !!undo);
+  t.classList.toggle("undo", !!(undo || action));
   t.classList.add("show");
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => t.classList.remove("show"), undo ? 7000 : 1800);
+  toastTimer = setTimeout(() => t.classList.remove("show"), undo || action ? 7000 : 1800);
 }
 const tagHTML = online => online ? `<span class="tag on">online</span>` : `<span class="tag off">offline</span>`;
 
@@ -896,8 +898,22 @@ function speakerMenu(btn) {
     <button class="pitem" data-act="rename" data-id="${esc(id)}">Rename</button>
     <button class="pitem" data-act="focus" data-id="${esc(id)}">${focusSpeaker === id ? "Show everyone again" : "Show only where this person talks"}</button>
     ${others.length ? `<div class="psub">Same person as…</div><div class="pchips">${others.map(x => chip(x, "merge")).join("")}</div>` : ""}
-    <button class="pitem" data-act="split" data-id="${esc(id)}" ${serverOK ? "" : `disabled title="${needsServer}"`}>Split in two<small>${serverOK ? "These are two people: the voices decide who is who" : needsServer}</small></button>`,
+    <button class="pitem" data-act="split" data-id="${esc(id)}" ${serverOK ? "" : `disabled title="${needsServer}"`}>Split in two<small>${serverOK ? "These are two people: the voices decide who is who" : needsServer}</small></button>
+    <div id="pknown"></div>`,
     { kind: "menu", id });
+  if (serverOK) knownPeople(id);
+}
+/* known voices (opt-in, saved across lessons): pick who this speaker is; the closest voices come first */
+async function knownPeople(id) {
+  let r;
+  try { r = await api("POST", "/api/speakers/known", { starts: allSegs.filter(s => who(s) === id).map(s => s.start) }); }
+  catch (e) { return; }
+  const box = $("#pknown");
+  if (!box || !popState || popState.id !== id || !r.enabled || !r.people.length) return;
+  box.innerHTML = `<div class="psub">Known person…</div><div class="pchips">${r.people.map(p =>
+    `<button class="pchip${p.likely ? " likely" : ""}" data-act="known" data-id="${esc(id)}" data-name="${esc(p.name)}"
+      title="${p.sim === null ? "" : `Voice similarity ${p.sim}${p.likely ? ": probably them" : ""}`}">${esc(p.name)}${p.likely ? " <small>sounds like</small>" : ""}</button>`).join("")}</div>
+    <div class="phint">Saved from your other lessons. Picking one names this speaker and adds this lesson to their voice.</div>`;
 }
 function mergeInto(id, target) {
   if (merged(target) === id) return;  // would go round in a circle
@@ -974,15 +990,32 @@ $("#speakers").addEventListener("focusout", e => {
   const r = e.target.closest("[data-rename]");
   if (!r) return;
   r.contentEditable = "false";
-  const id = r.dataset.rename, val = r.textContent.replace(/\s+/g, " ").trim().slice(0, 60), before = speakerName(id);
+  const typed = r.textContent;
+  r.textContent = speakerName(r.dataset.rename);  // the list is redrawn with the outcome (or stays on a merge)
+  setName(r.dataset.rename, typed);
+});
+function setName(id, raw) {
+  const val = raw.replace(/\s+/g, " ").trim().slice(0, 60), before = speakerName(id);
   // the name of someone else in the list: they are the same person
   const same = val && speakerIds.find(x => x !== id && speakerName(x).toLowerCase() === val.toLowerCase());
-  if (same) { r.textContent = before; mergeInto(id, same); return; }
+  if (same) { mergeInto(id, same); return; }
   if (val && val !== builtName(id)) store.speakers[id] = val; else delete store.speakers[id];
   if (speakerName(id) === before) { renderSpeakers(); return; }
   commitSpeakers();
   toast(store.speakers[id] ? "Speaker renamed" : "Speaker name reset");
-});
+  if (store.speakers[id] && serverOK) offerRenameEverywhere(before, store.speakers[id]);
+}
+/* the old name was a known person (named in other lessons too): offer to rename them there as well.
+   Not automatic: renaming here may also just correct a wrong pick. */
+async function offerRenameEverywhere(old, name) {
+  let r;
+  try { r = await api("POST", "/api/voices/rename", { old, new: name, dry_run: true }); } catch (e) { return; }
+  if (!r.lessons) return;
+  toast(`Speaker renamed`, null, [`Rename “${old}” in ${r.lessons} other lesson${r.lessons > 1 ? "s" : ""} too`, async () => {
+    try { const done = await api("POST", "/api/voices/rename", { old, new: name }); toast(`“${old}” is now “${name}” in ${done.lessons.length} other lesson${done.lessons.length === 1 ? "" : "s"}`); }
+    catch (e) { toast("Rename: " + e.message); }
+  }]);
+}
 $("#spkpop").addEventListener("click", e => {
   const b = e.target.closest("[data-act]");
   e.stopPropagation();
@@ -993,6 +1026,7 @@ $("#spkpop").addEventListener("click", e => {
     if (picked.length) reassign(picked, id); else toast("Tick at least one sentence");
   }
   if (act === "merge") mergeInto(popState.id, id);
+  if (act === "known") { hidePop(); setName(id, b.dataset.name); }
   if (act === "split") splitSpeaker(id);
   if (act === "focus") { hidePop(); focusSpeaker = focusSpeaker === id ? null : id; renderSpeakers(); renderTranscript(); }
   if (act === "rename") { hidePop(); const r = $(`#speakers [data-rename="${id}"]`); if (r) startRename(r); }
