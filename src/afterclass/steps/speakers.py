@@ -23,6 +23,9 @@ MIN_OTHER_SECONDS = 4.0  # an "other" voice with less speech in total is folded 
 LECTURER_CLUSTER_SIM = 0.32  # (calibrated on a real lecture: lecturer groups 0.33-0.39, students <= 0.31) a whole "other" group this close to the lecturer is the lecturer (other mic/noise)
 DISCUSSION_MERGE_SIM = 0.33  # discussion: voice groups whose centroids are closer than this are one person (from the lecture calibration above; --num-speakers is more reliable)
 ISLAND_MAX = 2.0  # discussion: a single segment this short between two of the same voice takes their label
+KNOWN_SIM = 0.55  # known voices: a speaker's average voice this close to a person named in another lesson is them (to calibrate)
+KNOWN_MARGIN = 0.05  # … and this much closer than to the next known person
+KNOWN_MIN_SECONDS = 20.0  # speech needed to remember or recognize a voice
 
 MODES = ("lecture", "discussion", "off")
 
@@ -234,6 +237,23 @@ def summary(segments, labels, mode="lecture"):
             for k, v in sorted(minutes.items())]
 
 
+def with_known(folder, summary, segments, labels, emb=None):
+    """The summary with known people's names as labels ({"known": true}), when the setting `remember_voices` is
+    on. `emb` defaults to the lesson's stored fingerprints."""
+    from .. import voices
+
+    if not voices.enabled():
+        return summary
+    if emb is None:
+        try:
+            stored = load_voices(folder)
+        except AfterclassError:
+            return summary
+        emb = [stored.get(key(s["start"])) for s in segments]
+    names = voices.recognize(segments, labels, emb, exclude=folder)
+    return [{**s, "label": names[s["id"]], "known": True} if s["id"] in names else s for s in summary]
+
+
 # --- corrections from the page ---------------------------------------------
 # The build's labels stay in data/; what the student corrects on the page lives in notes/notes.json:
 # speakers {id: name}, speaker_fix {"<start>": id} (one sentence), speaker_merge {id: other id}.
@@ -354,10 +374,11 @@ def regroup(folder, mode, n=None):
     for c, nc in zip(lesson["cards"], cards):
         for s, ns in zip(c["segments"], nc.segments):
             s["para"] = ns.para
-    lesson["speakers"] = summary(segs, labels, mode)
+    built = summary(segs, labels, mode)
+    lesson["speakers"] = with_known(folder, built, segs, labels, emb)
     lesson["speaker_mode"] = mode
     (folder / "data" / "speakers.json").write_text(json.dumps({"starts": [s["start"] for s in segs], "labels": labels,
-                                                               "summary": lesson["speakers"], "mode": mode, "n": n}))
+                                                               "summary": built, "mode": mode, "n": n}))
     lesson_path.write_text(json.dumps(lesson, ensure_ascii=False, indent=1), encoding="utf-8")
 
     # First the notes, then the page: the page embeds the notes

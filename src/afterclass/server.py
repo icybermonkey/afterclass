@@ -96,6 +96,7 @@ def providers_status():
 
 def settings_payload():
     from .config import CHOICES, DEFAULTS, HELP, KEY_ENV, SUGGESTIONS, get_secret, mask
+    from . import voices
     from .setup_ai import status
 
     keys = {}
@@ -103,8 +104,18 @@ def settings_payload():
         value, source = get_secret(provider)
         keys[provider] = {"set": bool(value), "masked": mask(value) if value else "", "source": source or ""}
     return {"values": config.load(), "defaults": DEFAULTS, "choices": CHOICES, "help": HELP, "keys": keys,
-            "suggestions": SUGGESTIONS,
+            "suggestions": SUGGESTIONS, "voices": voices.people(),
             "local": status(), "providers": providers_status(), "config_path": str(config.config_path())}
+
+
+def learn_voices(folder, notes):
+    """Known voices (opt-in): remember the people named on the page. Never fails the notes save."""
+    from . import voices
+
+    try:
+        voices.learn(folder, notes)
+    except (AfterclassError, OSError, ValueError, KeyError) as e:
+        ui.warn(f"known voices: {e}")
 
 
 ONLINE_MODELS = {  # what the Ask box offers for Claude; local models come from LM Studio / Ollama
@@ -374,6 +385,7 @@ class Handler(BaseHTTPRequestHandler):
                 notes = clean_notes(self._body())
                 with app.lock:
                     atomic_write(app.notes_path, json.dumps(notes, ensure_ascii=False, indent=1))
+                    learn_voices(app.folder, notes)
                 return self._json({"ok": True})
             if path == "/api/chat" and method == "DELETE" and app.folder:
                 with app.lock:
@@ -388,6 +400,12 @@ class Handler(BaseHTTPRequestHandler):
                 for k, v in self._body().items():
                     cfg[k] = config.coerce(k, v)
                 config.save(cfg)
+                return self._json(settings_payload())
+            if path == "/api/voices/forget" and method == "POST":
+                from . import voices
+
+                name = self._body().get("name")
+                voices.forget(str(name) if name else None)  # no name: everyone
                 return self._json(settings_payload())
             if path.startswith("/api/keys/") and method in ("POST", "DELETE"):
                 provider = path.rsplit("/", 1)[-1]

@@ -129,8 +129,10 @@ def test_similar_finds_the_rest_of_a_mixed_in_voice():
     assert sorted(found) == sorted(speakers.key(t) for t, c in zip(starts, order) if c == "y" and t not in moved)
 
 
-def test_split_and_regroup(tmp_path):
+def test_split_and_regroup(tmp_path, monkeypatch):
     import json
+
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(tmp_path / "config" / "config.toml"))  # not this Mac's known voices
 
     rng = np.random.default_rng(7)
     a, b = rng.standard_normal(192), rng.standard_normal(192)

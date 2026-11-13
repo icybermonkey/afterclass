@@ -23,6 +23,7 @@ VIDEO_EXT = {".mp4", ".mov", ".m4v", ".mkv", ".webm", ".avi"}
 DECK_EXT = {".pdf", ".pptx", ".ppt", ".odp", ".key"}
 STATE_FILE = "app.json"  # remembers the last output folder and recent lessons, next to config.toml
 RECENT_MAX = 12
+OUT_DIRS_MAX = 5  # recent output folders, offered as one-click choices
 LESSON_EXT = ".afterclass"  # a lesson folder with this suffix is a document of the app (one icon in Finder)
 AI_CHOICES = ("off", "auto", "local", "claude-code", "claude")
 
@@ -124,6 +125,32 @@ def remember_lesson(folder):
     _save_state(recent=[folder, *recent][:RECENT_MAX])
 
 
+def remember_out_dir(path):
+    """Put an output folder first in the recent folders (and keep it as the default for the next lesson)."""
+    path = str(path)
+    dirs = [d for d in _load_state().get("out_dirs", []) if d != path]
+    _save_state(out_dirs=[path, *dirs][:OUT_DIRS_MAX], out_dir=path)
+
+
+def forget_out_dir(path):
+    state = _load_state()
+    dirs = [d for d in state.get("out_dirs", []) if d != str(path)]
+    _save_state(out_dirs=dirs, **({"out_dir": None} if state.get("out_dir") == str(path) else {}))
+
+
+def recent_out_dirs():
+    """The recent output folders that still exist, most recent first: [{path, label}]. The label is the folder's
+    name, or parent/name when two have the same name."""
+    state = _load_state()
+    dirs = list(state.get("out_dirs", []))
+    if state.get("out_dir") and state["out_dir"] not in dirs:
+        dirs.append(state["out_dir"])  # remembered before the recent folders existed
+    paths = [Path(d) for d in dirs if Path(d).is_dir()][:OUT_DIRS_MAX]
+    names = [p.name for p in paths]
+    return [{"path": str(p), "label": f"{p.parent.name}/{p.name}" if names.count(p.name) > 1 else p.name or str(p)}
+            for p in paths]
+
+
 def recent_lessons():
     """The recent lessons that still exist, most recent first: [{path, name, title}]."""
     out = []
@@ -168,7 +195,11 @@ class Api:
         last = _load_state().get("out_dir")
         return {"language": cfg["language"], "ai": "auto", "speakers": cfg["speakers"], "media": cfg["media"], "deck_media": cfg["deck_media"],
                 "out_dir": last if last and Path(last).is_dir() else str(Path.home() / "Documents"),
-                "app": APP_NAME}
+                "out_dirs": recent_out_dirs(), "app": APP_NAME}
+
+    def forget_out_dir(self, path):
+        forget_out_dir(path)
+        return recent_out_dirs()
 
     def choose(self, kind):
         import webview
@@ -207,7 +238,7 @@ class Api:
             args, out = build_args(form)
         except ValueError as e:
             return {"error": str(e)}
-        _save_state(out_dir=form["out_dir"])
+        remember_out_dir(form["out_dir"])
         self._lines, self._out, self._state = [], out, "running"
         self._started, self._finished = time.time(), 0.0
         env = {**os.environ, "PYTHONUNBUFFERED": "1", "NO_COLOR": "1"}

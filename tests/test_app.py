@@ -218,6 +218,25 @@ def test_opened_lessons_are_remembered_most_recent_first(tmp_path, monkeypatch):
     assert [r["title"] for r in gui.Api().recent()] == ["Lesson one"]
 
 
+def test_recent_output_folders(tmp_path):
+    dirs = [tmp_path / n for n in ("Physics", "Maths", "Art", "Music", "Latin", "Chemistry")]
+    for d in dirs:
+        d.mkdir()
+    gui._save_state(out_dir=str(dirs[0]))  # the single folder remembered before: still offered
+    assert [d["label"] for d in gui.recent_out_dirs()] == ["Physics"]
+    for d in dirs[1:] + [dirs[2]]:
+        gui.remember_out_dir(d)
+    assert [d["label"] for d in gui.recent_out_dirs()] == ["Art", "Chemistry", "Latin", "Music", "Maths"]  # 5, most recent first
+    assert gui.Api().defaults()["out_dir"] == str(dirs[2])
+    dirs[5].rmdir()  # gone: no longer offered
+    assert "Chemistry" not in [d["label"] for d in gui.recent_out_dirs()]
+    twin = tmp_path / "2026" / "Art"
+    twin.mkdir(parents=True)
+    gui.remember_out_dir(twin)
+    assert [d["label"] for d in gui.recent_out_dirs()][:2] == ["2026/Art", f"{tmp_path.name}/Art"]  # same name: with parent
+    assert str(twin) not in [d["path"] for d in gui.Api().forget_out_dir(str(twin))]
+
+
 def test_startup_opens_the_most_recent_lesson_else_the_new_lesson_window(tmp_path, monkeypatch):
     monkeypatch.setattr(gui, "running_url", lambda folder: None)
     monkeypatch.setattr(gui.time, "sleep", lambda s: None)

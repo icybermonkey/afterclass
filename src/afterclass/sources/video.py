@@ -217,7 +217,7 @@ class VideoSource(Source):
                 s["speaker"] = lab
             steps.skip("Tell speakers apart", ", ".join(f"{x['label']} {x['minutes']} min" for x in cached["summary"])
                        + " (cached)")
-            return cached["summary"]
+            return speakers.with_known(ctx.out, cached["summary"], segments, cached["labels"])
         how = ("the main voice is the lecturer; other voices become Speaker B, C, …" if mode == "lecture" else
                "discussion: every voice is equal and becomes Speaker A, B, C, … in order of their first words")
         steps.begin("Tell speakers apart", "Experimental, offline: a voice fingerprint per sentence (SpeechBrain "
@@ -248,6 +248,7 @@ class VideoSource(Source):
             s["speaker"] = lab
         sp_json.write_text(json.dumps({"starts": starts, "labels": labels, "summary": summary, "mode": mode, "n": n}))
         changes = sum(1 for x, y in zip(labels, labels[1:]) if x != y)
+        summary = speakers.with_known(ctx.out, summary, segments, labels, emb)  # people named in other lessons
         steps.end(", ".join(f"{x['label']} {x['minutes']} min" for x in summary) + f"; {changes} speaker changes")
         return summary
 

@@ -18,6 +18,7 @@ DEFAULTS = {
     "media": "move",  # recording: copy | link | move (default move: no second copy of a big video)
     "deck_media": "copy",  # slides: copy | link | move
     "speakers": "lecture",  # lecture (one main voice) | discussion (team work, equal voices) | off
+    "remember_voices": False,  # opt-in: remember voices of people named on a page, recognize them in later lessons
     "notify": True,  # macOS notification when a lesson is ready (or failed)
     "transcript_view": "paragraphs",  # paragraphs | blocks
     "ai_provider": "auto",  # auto = local LLM if running, else claude with a key, else claude-code
@@ -64,6 +65,8 @@ HELP = {
     "media": "The recording (mp4, mov…): copy it into the lesson folder, link to the original, or move it",
     "deck_media": "The slides (pdf, pptx): copy them into the lesson folder, link to the original, or move them",
     "speakers": "Tell speakers apart (offline): lecture = one main speaker, discussion = team work with equal voices",
+    "remember_voices": "Opt-in. When you name a speaker on a lesson page, their voice is remembered on this Mac and "
+                       "recognized in later lessons. Turning it off keeps what was remembered: use Forget below",
     "notify": "Show a macOS notification when a lesson is ready (or failed)",
     "transcript_view": "Default transcript view on the page",
     "ai_provider": "Model for the --ai study extras",

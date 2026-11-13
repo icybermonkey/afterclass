@@ -48,6 +48,16 @@ header .gear { margin-left: auto; border: 1px solid var(--line); background: var
 .path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: var(--bg); border: 1px solid var(--line);
   border-radius: 8px; padding: 5px 8px; overflow-x: auto; white-space: nowrap; }
 .target { font-size: 12px; color: var(--muted); grid-column: 2 / 4; margin-top: -2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; grid-column: 2 / 4; margin-top: -4px; }
+.chips:empty { display: none; }
+.chip { display: inline-flex; align-items: center; gap: 4px; max-width: 220px; border: 1px solid var(--line); background: var(--bg);
+  border-radius: 99px; padding: 1px 4px 1px 10px; font-size: 12px; }
+.chip:hover { border-color: var(--accent); }
+.chip.on { border-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.chip .l { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chip .x { color: var(--muted); border-radius: 99px; width: 16px; text-align: center; line-height: 16px; visibility: hidden; }
+.chip:hover .x { visibility: visible; }
+.chip .x:hover { background: var(--line); color: var(--fg); }
 .opts { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding-top: 8px; }
 .opts label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
 .opts select { width: auto; }
@@ -76,7 +86,7 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
 .recent li button:hover { background: var(--accent-soft); }
 .recent li .t { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .recent li .p { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; direction: rtl; text-align: left; flex: 1; min-width: 0; }
-@media (max-width: 700px) { .drops { grid-template-columns: 1fr; } .field { grid-template-columns: 1fr; } .target { grid-column: 1; } }
+@media (max-width: 700px) { .drops { grid-template-columns: 1fr; } .field { grid-template-columns: 1fr; } .target, .chips { grid-column: 1; } }
 </style>
 </head>
 <body>
@@ -114,7 +124,8 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
 </div>
 
 <div class="card">
-  <div class="field"><label>Output folder</label><div class="path" id="outdir"></div><button class="btn small" data-choose="folder">Choose…</button></div>
+  <div class="field"><label>Output folder</label><div class="path" id="outdir"></div><button class="btn small" data-choose="folder">Choose…</button>
+    <div class="chips" id="outdirs" title="Recent output folders"></div></div>
   <div class="field"><label>Lesson name</label><input type="text" id="name" placeholder="from the file name"><span></span>
     <div class="target" id="target"></div></div>
   <div class="opts">
@@ -163,7 +174,11 @@ let api = null, next = 0, timer = null;
 const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
 function setFile(kind, info) {
-  if (kind === "folder") { form.out_dir = info ? info.path : ""; $("#outdir").textContent = form.out_dir || "—"; return refresh(); }
+  if (kind === "folder") {
+    form.out_dir = info ? info.path : ""; $("#outdir").textContent = form.out_dir || "—";
+    document.querySelectorAll("#outdirs .chip").forEach(c => c.classList.toggle("on", c.dataset.path === form.out_dir));
+    return refresh();
+  }
   form[kind] = info ? info.path : "";
   const box = $("#drop-" + kind);
   box.classList.toggle("set", !!info);
@@ -250,6 +265,7 @@ async function poll() {
     if (p.state === "done") {
       $("#step").textContent = "✔ Done"; $("#detail").textContent = p.out; $("#fill").style.width = "100%";
       $("#done").classList.remove("hidden");
+      renderOutDirs((await api.defaults()).out_dirs || []);
     } else {
       const err = $("#log").textContent.split("\n").reverse().find(l => /^Error:|error/i.test(l.trim()));
       $("#step").innerHTML = p.state === "cancelled" ? "Cancelled" : `<span class="err">Failed</span>`;
@@ -263,6 +279,24 @@ $("#open").onclick = () => api.open_lesson();
 $("#reveal").onclick = () => api.reveal();
 $("#settings").onclick = () => api.settings();
 $("#openother").onclick = () => api.open_other();
+// recent output folders: one click instead of the folder dialog
+function renderOutDirs(list) {
+  const box = $("#outdirs");
+  box.innerHTML = "";
+  for (const d of list) {
+    const b = document.createElement("button");
+    b.className = "chip" + (d.path === form.out_dir ? " on" : ""); b.dataset.path = d.path; b.title = d.path;
+    b.innerHTML = `<span class="l"></span><span class="x" title="Remove from this list">×</span>`;
+    b.querySelector(".l").textContent = d.label;
+    box.append(b);
+  }
+}
+$("#outdirs").onclick = async e => {
+  const b = e.target.closest(".chip");
+  if (!b) return;
+  if (e.target.closest(".x")) return renderOutDirs(await api.forget_out_dir(b.dataset.path));
+  setFile("folder", { path: b.dataset.path });
+};
 $("#recentlist").onclick = e => { const b = e.target.closest("[data-path]"); if (b) api.open_recent(b.dataset.path); };
 window.afterclassRecent = async () => {
   const list = await api.recent(), ul = $("#recentlist");
@@ -283,6 +317,7 @@ window.addEventListener("pywebviewready", async () => {
   const d = await api.defaults();
   $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").value = d.speakers; $("#media").value = d.media; $("#deck_media").value = d.deck_media;
   form.out_dir = d.out_dir; $("#outdir").textContent = d.out_dir;
+  renderOutDirs(d.out_dirs || []);
   refresh();
   window.afterclassRecent();
   window.addEventListener("focus", window.afterclassRecent);  // lessons opened meanwhile move to the top

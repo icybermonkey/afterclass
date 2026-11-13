@@ -65,6 +65,9 @@ audience, are indented and marked.
 - **Speakers** (above the transcript): click a name to rename it (subtitles follow), a dot to show only where
   that person talks. Wrong person? Click the speaker label on a paragraph and pick who said it; similar sentences
   move along. **▾** merges or splits people, **Regroup…** starts over with the right number of people.
+- **Known voices** (opt-in, off by default: Settings → "Recognize known voices"): people you name on a page are
+  recognized in later lessons. Only a voice fingerprint per person is kept, in `voices.json` next to the settings,
+  on this Mac. Turning it off stops using it; **Forget** in the settings deletes it.
 
 <br clear="right">
 

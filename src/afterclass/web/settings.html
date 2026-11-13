@@ -72,6 +72,10 @@ ul.models li button { font-size: 11px; padding: 0 6px; }
 .tag.on { color: var(--warn); background: color-mix(in srgb, var(--warn) 16%, transparent); }
 h2 .tag { margin-left: 8px; }
 .row label .tag { margin-left: 6px; }
+.voices { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 0 0 10px; }
+.voices .pill { display: inline-flex; gap: 6px; align-items: center; color: var(--fg); }
+.voices .pill button { border: 0; background: none; padding: 0 2px; color: var(--muted); }
+.voices .pill button:hover { color: var(--bad); }
 @media (max-width: 640px) { .row { grid-template-columns: 1fr; } }
 </style>
 </head>
@@ -84,6 +88,7 @@ h2 .tag { margin-left: 8px; }
     <h2>Lessons <span class="tag off">offline · on this Mac</span></h2>
     <p class="hint">Defaults for new runs of <code>afterclass &lt;video&gt; &lt;folder&gt;</code>. A flag on the command line always wins.</p>
     <div id="general"></div>
+    <div id="voices"></div>
   </section>
 
   <section>
@@ -129,7 +134,7 @@ function toast(msg, bad) { const t = $("#toast"); t.textContent = msg; t.classNa
 
 const LABELS = {
   language: "Spoken language", threshold: "Slide change sensitivity", whisper_model: "Speech-to-text model",
-  media: "Recording → lesson folder", deck_media: "Slides → lesson folder", notify: "Notify when ready", speakers: "Tell speakers apart", transcript_view: "Transcript view",
+  media: "Recording → lesson folder", deck_media: "Slides → lesson folder", notify: "Notify when ready", speakers: "Tell speakers apart", remember_voices: "Recognize known voices", transcript_view: "Transcript view",
   ai_provider: "Model for study extras (--ai)", ai_model: "Model name for --ai", ask_provider: "Model for Ask", ask_model: "Model name for Ask",
   allow_online: "Online answers beyond the lesson", allow_web: "Web search in Ask",
   local_llm_url: "Local AI server", local_llm_model: "Local model", local_autostart: "Start it automatically",
@@ -194,7 +199,10 @@ function pill(ok, text, warn) { return `<span class="pill ${ok ? "ok" : warn ? "
 
 function render() {
   $("#path").textContent = S.config_path;
-  $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "deck_media", "speakers", "notify", "transcript_view"].map(field).join("");
+  $("#general").innerHTML = ["language", "threshold", "whisper_model", "media", "deck_media", "speakers", "remember_voices", "notify", "transcript_view"].map(field).join("");
+  $("#voices").innerHTML = !S.voices.length ? "" : `<div class="voices"><span class="muted" style="font-size:13px">Known voices${S.values.remember_voices ? "" : " (not used while off)"}:</span>`
+    + S.voices.map(v => `<span class="pill" title="from ${v.lessons} lesson${v.lessons === 1 ? "" : "s"}">${esc(v.name)}<button data-forget="${esc(v.name)}" title="Forget ${esc(v.name)}">×</button></span>`).join("")
+    + `<button data-forget="" data-all="1">Forget all</button></div>`;
   $("#ai").innerHTML = ["ai_provider", "ai_model", "ask_provider", "ask_model", "allow_online", "allow_web"].map(field).join("");
   $("#providers").innerHTML = S.providers.map(p => `<span class="pill ${p.available ? "ok" : "no"}">${p.available ? "✔" : "✗"} ${esc(p.label)}${p.detail ? ": " + esc(p.detail) : ""} ${p.online ? ON : OFF}</span>`).join("");
   $("#local").innerHTML = ["local_autostart", "local_llm_url", "local_llm_model"].map(field).join("");
@@ -263,6 +271,10 @@ document.addEventListener("click", async e => {
     try { const r = await api("POST", `/api/local/${t.dataset.start ? "start" : "stop"}`, { app }); toast(r.message, !r.ok); }
     catch (err) { toast(err.message, true); }
     busy = ""; await load();
+  }
+  if (t.dataset.forget !== undefined) {
+    try { S = await api("POST", "/api/voices/forget", t.dataset.all ? {} : { name: t.dataset.forget }); render(); toast("Forgotten"); }
+    catch (err) { toast(err.message, true); }
   }
   if (t.id === "recheck") { t.textContent = "Checking…"; await load(); toast("Updated"); }
   if (t.dataset.savekey) {
