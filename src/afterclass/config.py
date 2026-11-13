@@ -17,7 +17,7 @@ DEFAULTS = {
     "whisper_model": "mlx-community/whisper-large-v3-turbo",
     "media": "move",  # recording: copy | link | move (default move: no second copy of a big video)
     "deck_media": "copy",  # slides: copy | link | move
-    "speakers": True,  # tell lecturer and other speakers apart
+    "speakers": "lecture",  # lecture (one main voice) | discussion (team work, equal voices) | off
     "notify": True,  # macOS notification when a lesson is ready (or failed)
     "transcript_view": "paragraphs",  # paragraphs | blocks
     "ai_provider": "auto",  # auto = local LLM if running, else claude with a key, else claude-code
@@ -34,6 +34,7 @@ DEFAULTS = {
 CHOICES = {
     "media": ("copy", "link", "move"),
     "deck_media": ("copy", "link", "move"),
+    "speakers": ("lecture", "discussion", "off"),
     "transcript_view": ("paragraphs", "blocks"),
     "ai_provider": ("auto", "local", "claude", "claude-code"),
     "ask_provider": ("auto", "local", "claude", "claude-code"),
@@ -62,7 +63,7 @@ HELP = {
     "whisper_model": "Speech-to-text model (mlx-whisper)",
     "media": "The recording (mp4, mov…): copy it into the lesson folder, link to the original, or move it",
     "deck_media": "The slides (pdf, pptx): copy them into the lesson folder, link to the original, or move them",
-    "speakers": "Tell the lecturer and other speakers apart (offline)",
+    "speakers": "Tell speakers apart (offline): lecture = one main speaker, discussion = team work with equal voices",
     "notify": "Show a macOS notification when a lesson is ready (or failed)",
     "transcript_view": "Default transcript view on the page",
     "ai_provider": "Model for the --ai study extras",
@@ -99,6 +100,8 @@ def load():
             for k, v in tomllib.load(f).items():
                 if k in DEFAULTS:
                     cfg[k] = v
+    if isinstance(cfg["speakers"], bool):  # before the speaker modes: true/false
+        cfg["speakers"] = "lecture" if cfg["speakers"] else "off"
     return cfg
 
 
@@ -120,6 +123,8 @@ def coerce(key, raw):
         value = float(raw)
     else:
         value = str(raw).strip()
+    if key == "speakers" and value.lower() in ("true", "on", "yes", "1", "false", "no", "0"):
+        value = "lecture" if value.lower() in ("true", "on", "yes", "1") else "off"
     if key in CHOICES and value not in CHOICES[key]:
         raise ValueError(f"{key} must be one of: {', '.join(CHOICES[key])}")
     return value

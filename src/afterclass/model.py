@@ -14,7 +14,7 @@ class Segment:
     start: float
     end: float
     text: str
-    speaker: str = ""  # "A" = lecturer, "B", "C", … = others; "" = unknown
+    speaker: str = ""  # lecture: "A" = lecturer, "B", "C", … = others; discussion: all equal; "" = unknown
     para: bool = False  # starts a new paragraph
 
 
@@ -56,6 +56,7 @@ class Lesson:
     chapters: list[Chapter] = field(default_factory=list)
     silences: list[list[float]] = field(default_factory=list)
     speakers: list[dict] = field(default_factory=list)  # [{id, label, minutes}]
+    speaker_mode: str = "lecture"  # lecture (one main voice) | discussion (equal voices) | off
     transcript_view: str = "paragraphs"  # default view on the page
     ai: dict | None = None  # glossary, exam questions, summary, provider info
     stats: dict = field(default_factory=dict)

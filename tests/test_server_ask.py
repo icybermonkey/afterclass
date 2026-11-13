@@ -86,7 +86,8 @@ def test_notes_are_saved_atomically_in_the_folder(lesson_folder):
                                                        "title": "  My SPCS lesson  "})
     assert status == 200
     saved = json.loads((folder / "notes" / "notes.json").read_text())
-    assert saved == {"stars": {"2": True}, "notes": {"2": "VMs!"}, "speakers": {}, "title": "My SPCS lesson"}
+    assert saved == {"stars": {"2": True}, "notes": {"2": "VMs!"}, "speakers": {}, "speaker_fix": {}, "speaker_merge": {},
+                     "title": "My SPCS lesson"}
     assert not list((folder / "notes").glob(".*.tmp"))
 
 
@@ -329,3 +330,32 @@ def test_stop_a_running_answer_of_the_local_model(lesson_folder, monkeypatch):
     assert not t.is_alive() and json.loads(out["r"][1]) == {"cancelled": True}
     assert json.loads(call(base + "/api/ask/cancel", "POST", {"id": "q1"})[1]) == {"stopped": False}  # already over
     assert json.loads(call(base + "/api/state")[1])["chat"] == []  # a stopped question isn't kept
+
+
+def test_ask_uses_the_speaker_corrections_from_the_page():
+    lesson = lesson_dict()
+    lesson["speaker_corrections"] = {"speakers": {"C": "Mia"}, "speaker_fix": {"5.00": "C"}, "speaker_merge": {"B": "C"}}
+    items = [p for p in ask.passages(lesson) if p["kind"] == "speech"]
+    # 5.0 moved to C: its own passage now; B ("Is it fast?") was merged into C
+    assert [(p["t"], p["speaker"]) for p in items][:3] == [(1, "A"), (5, "C"), (61, "A")]
+    assert next(p for p in items if p["t"] == 125)["speaker"] == "C"
+    assert ask.speaker_label(lesson, "C") == "Mia" and ask.speaker_label(lesson, "A") == "Lecturer"
+
+
+def test_speaker_endpoints(lesson_folder):
+    import numpy as np
+
+    folder, base = lesson_folder
+    rng = np.random.default_rng(5)
+    x, y = rng.standard_normal(192), rng.standard_normal(192)
+    starts = [1, 5, 61, 121, 125, 181]
+    emb = [v / np.linalg.norm(v) for v in (x + 0.2 * rng.standard_normal(192) if i % 2 == 0 else y + 0.2 * rng.standard_normal(192)
+                                           for i in range(len(starts)))]
+    np.savez(folder / "data" / "voices.npz", starts=np.array(starts, float), ok=np.ones(len(starts), bool), emb=np.stack(emb))
+    status, body, _ = call(base + "/api/speakers/similar", "POST", {"starts": [5], "candidates": [1, 61, 121, 181]})
+    assert status == 200 and sorted(json.loads(body)["starts"]) == ["121.00", "181.00"]  # 5, 121, 181 are voice y
+    status, body, _ = call(base + "/api/speakers/split", "POST", {"starts": starts})
+    groups = json.loads(body)
+    assert status == 200 and sorted(map(sorted, (groups["keep"], groups["move"]))) == [["1.00", "125.00", "61.00"], ["121.00", "181.00", "5.00"]]
+    assert call(base + "/api/speakers/regroup", "POST", {"mode": "discussion", "n": 1})[0] == 400
+    assert call(base + "/api/speakers/nope", "POST", {})[0] == 400

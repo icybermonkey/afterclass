@@ -53,7 +53,7 @@ def test_enrich_rebuilds_with_lesson_settings(tmp_path, monkeypatch):
     a = seen[0]
     assert a.input == folder / "media" / "rec.mp4" and a.out == folder
     assert a.deck == folder / "media" / "slides.pdf"
-    assert (a.title, a.language, a.ai, a.speakers, a.redo) == ("SPCS - Lesson 2", "de", "default", None, None)
+    assert (a.title, a.language, a.ai, a.speakers, a.redo) == ("SPCS - Lesson 2", "de", "default", "lecture", None)
 
 
 def test_enrich_options(tmp_path, monkeypatch):
@@ -62,5 +62,38 @@ def test_enrich_options(tmp_path, monkeypatch):
     folder = _lesson(tmp_path, deck=False, speakers=False)
     assert cli.main(["enrich", str(folder), "--ai", "claude-code", "--ai-model", "sonnet", "--redo", "-y"]) == 0
     a = seen[0]
-    assert a.deck is None and a.speakers is False
+    assert a.deck is None and a.speakers == "off"
     assert (a.ai, a.ai_model, a.redo, a.yes) == ("claude-code", "sonnet", ["ai"], True)
+
+
+def test_speaker_flags():
+    p = cli.build_parser()
+    assert p.parse_args(["v.mp4", "out"]).speakers is None  # from the settings
+    assert p.parse_args(["v.mp4", "out", "--speakers"]).speakers == "lecture"
+    assert p.parse_args(["v.mp4", "out", "--no-speakers"]).speakers == "off"
+    a = p.parse_args(["v.mp4", "out", "--speakers", "discussion", "--num-speakers", "4"])
+    assert (a.speakers, a.num_speakers) == ("discussion", 4)
+
+
+def test_enrich_keeps_the_speaker_mode(tmp_path, monkeypatch):
+    import json
+
+    seen = []
+    monkeypatch.setattr(cli, "run", lambda args: seen.append(args) or 0)
+    folder = _lesson(tmp_path)
+    (folder / "data" / "speakers.json").write_text(json.dumps({"mode": "discussion", "n": 3, "labels": []}))
+    assert cli.main(["enrich", str(folder)]) == 0
+    assert (seen[0].speakers, seen[0].num_speakers) == ("discussion", 3)
+
+
+def test_old_speakers_setting_is_read_as_a_mode(tmp_path, monkeypatch):
+    from afterclass import config
+
+    path = tmp_path / "config.toml"
+    monkeypatch.setenv("AFTERCLASS_CONFIG", str(path))
+    path.write_text("speakers = false\n")
+    assert config.load()["speakers"] == "off"
+    path.write_text("speakers = true\n")
+    assert config.load()["speakers"] == "lecture"
+    assert config.coerce("speakers", "discussion") == "discussion"
+    assert config.coerce("speakers", "on") == "lecture"

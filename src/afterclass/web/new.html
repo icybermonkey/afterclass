@@ -51,6 +51,7 @@ header .gear { margin-left: auto; border: 1px solid var(--line); background: var
 .opts { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; padding-top: 8px; }
 .opts label { display: flex; gap: 6px; align-items: center; font-size: 13px; }
 .opts select { width: auto; }
+.opts input[type=number] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 4px 6px; }
 .tag { font-size: 10px; font-weight: 700; letter-spacing: .05em; border-radius: 4px; padding: 1px 5px; text-transform: uppercase; }
 .tag.off { color: var(--ok); background: var(--ok-soft); }
 .tag.on { color: var(--on); background: var(--on-soft); }
@@ -125,7 +126,10 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
       <option value="claude-code">Claude Code (subscription)</option><option value="claude">Claude API (pay per use)</option>
       <option value="off">Off</option></select> <span id="aitag"></span></label>
     <label id="costwrap" class="hidden"><input type="checkbox" id="cost"> I accept the API cost (≈ $0.35)</label>
-    <label><input type="checkbox" id="speakers" checked> Tell speakers apart</label>
+    <label title="Lecture: one main speaker, other voices (questions) are shown quieter. Discussion: team work or a meeting, every voice is equal and gets its own colour.">Speakers <select id="speakers">
+      <option value="lecture">Lecture (one main speaker)</option><option value="discussion">Discussion (team, equal voices)</option>
+      <option value="off">Don't tell apart</option></select></label>
+    <label id="numwrap" class="hidden" title="Optional: how many people talk. Makes telling them apart more reliable.">How many <input type="number" id="num_speakers" min="2" max="20" placeholder="auto" style="width:64px"></label>
   </div>
 </div>
 
@@ -154,7 +158,7 @@ details.log pre { max-height: 220px; overflow: auto; background: var(--bg); bord
 <script>
 "use strict";
 const $ = s => document.querySelector(s);
-const form = { video: "", deck: "", out_dir: "", name: "", language: "en", ai: "auto", accept_cost: false, speakers: true, media: "copy", deck_media: "copy" };
+const form = { video: "", deck: "", out_dir: "", name: "", language: "en", ai: "auto", accept_cost: false, speakers: "lecture", num_speakers: "", media: "copy", deck_media: "copy" };
 let api = null, next = 0, timer = null;
 const fmtTime = s => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -181,7 +185,9 @@ async function refresh() {
   form.language = $("#language").value;
   form.ai = $("#ai").value;
   form.accept_cost = $("#cost").checked;
-  form.speakers = $("#speakers").checked;
+  form.speakers = $("#speakers").value;
+  form.num_speakers = $("#num_speakers").value;
+  $("#numwrap").classList.toggle("hidden", form.speakers !== "discussion");
   form.media = $("#media").value;
   form.deck_media = $("#deck_media").value;
   $("#aitag").innerHTML = form.ai === "off" ? "" : ["auto", "local"].includes(form.ai) ? `<span class="tag off">offline</span>` : `<span class="tag on">online</span>`;
@@ -194,7 +200,7 @@ async function refresh() {
   $("#run").disabled = !ready;
   $("#msg").textContent = !form.video ? "" : !form.out_dir ? "Choose an output folder" : form.ai === "claude" && !form.accept_cost ? "Confirm the API cost, or pick another AI option" : "";
 }
-["#name", "#language", "#ai", "#cost", "#speakers", "#media", "#deck_media"].forEach(s => $(s).addEventListener(s === "#name" ? "input" : "change", refresh));
+["#name", "#language", "#ai", "#cost", "#speakers", "#num_speakers", "#media", "#deck_media"].forEach(s => $(s).addEventListener(s === "#name" ? "input" : "change", refresh));
 
 document.addEventListener("click", async e => {
   const c = e.target.closest("[data-choose]"), x = e.target.closest("[data-clear]");
@@ -275,7 +281,7 @@ $("#again").onclick = async () => { await api.reset(); $("#progress").classList.
 window.addEventListener("pywebviewready", async () => {
   api = window.pywebview.api;
   const d = await api.defaults();
-  $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").checked = d.speakers; $("#media").value = d.media; $("#deck_media").value = d.deck_media;
+  $("#language").value = d.language; $("#ai").value = d.ai; $("#speakers").value = d.speakers; $("#media").value = d.media; $("#deck_media").value = d.deck_media;
   form.out_dir = d.out_dir; $("#outdir").textContent = d.out_dir;
   refresh();
   window.afterclassRecent();

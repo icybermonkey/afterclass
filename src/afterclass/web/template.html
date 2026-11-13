@@ -12,6 +12,7 @@
   --demo: #7a4cc2; --break: #8a8a8f; --bad: #c0392b;
   --off: #1f8a4c; --off-soft: #e3f4ea; --on: #c25e00; --on-soft: #fdeedd;
   --note-bg: #fbf6e3; --note-edge: #e2cf86; --raster: #f4f4f1;
+  --spk0: #2f6fdb; --spk1: #c25e00; --spk2: #1f8a4c; --spk3: #7a4cc2; --spk4: #b8336a; --spk5: #0f7f86; --tint: 9%;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
@@ -20,6 +21,7 @@
     --demo: #b996f0; --break: #77777e; --bad: #ff7b6b;
     --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
     --note-bg: #2b2819; --note-edge: #6e6233; --raster: #26262b;
+    --spk0: #79a6ff; --spk1: #ff9f4a; --spk2: #4cc27f; --spk3: #b996f0; --spk4: #f07aa8; --spk5: #4cc9c9; --tint: 14%;
   }
 }
 :root[data-theme="dark"] {
@@ -28,6 +30,7 @@
   --demo: #b996f0; --break: #77777e; --bad: #ff7b6b;
   --off: #4cc27f; --off-soft: #16301f; --on: #ff9f4a; --on-soft: #3a2511;
   --note-bg: #2b2819; --note-edge: #6e6233; --raster: #26262b;
+  --spk0: #79a6ff; --spk1: #ff9f4a; --spk2: #4cc27f; --spk3: #b996f0; --spk4: #f07aa8; --spk5: #4cc9c9; --tint: 14%;
 }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; }
@@ -240,6 +243,46 @@ body.videofull #vctl { color: #ccc; }
 .para.other { color: var(--muted); font-size: 14px; border-left: 2px solid var(--line); padding-left: 10px; }
 .para.other .who, .whoin.other { font-style: italic; font-weight: 500; text-transform: none; letter-spacing: 0; }
 .seg.other { color: var(--muted); }
+/* Discussion: every voice equal, told apart by colour */
+.para.spk { border-left: 3px solid var(--spk); padding-left: 10px; }
+.who.spk, .whoin.spk { color: var(--spk); }
+/* A light shade of each voice's colour behind what they say (lecture: everyone but the lecturer) */
+.para.tint { background: color-mix(in srgb, var(--spk) var(--tint), transparent); border-left-color: var(--spk); border-radius: 0 6px 6px 0; padding: 2px 8px 2px 10px; }
+.seg.tint { background: color-mix(in srgb, var(--spk) var(--tint), transparent); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+.para.dim, .seg.dim { opacity: .35; }
+#speakers { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; padding: 8px 0 6px; font-size: 12px; color: var(--muted); }
+#speakers .sp { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; padding: 1px 8px 1px 4px; }
+#speakers .sp.on { border-color: var(--spk, var(--accent)); background: var(--accent-soft); }
+#speakers .dot { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; }
+#speakers .dot::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--spk, var(--muted)); }
+#speakers .name { color: var(--fg); font-weight: 600; cursor: text; outline: none; min-width: 2ch; }
+#speakers .name[contenteditable="true"] { background: var(--bg); border-radius: 4px; padding: 0 3px; }
+#speakers .min { font-variant-numeric: tabular-nums; }
+#speakers .menu { color: var(--muted); font-size: 11px; padding: 0 2px; }
+#speakers .regroup { font-size: 12px; color: var(--muted); border: 1px dashed var(--line); border-radius: 999px; padding: 1px 8px; }
+button.who, button.whoin { border-radius: 4px; }
+button.who:hover, button.whoin:hover { background: var(--accent-soft); }
+.who.ghost { visibility: hidden; }
+.para:hover .who.ghost { visibility: visible; opacity: .6; }
+#spkpop { position: fixed; z-index: 55; width: min(360px, calc(100vw - 16px)); max-height: 70vh; overflow: auto; background: var(--panel); color: var(--fg);
+  border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 28px rgba(0,0,0,.18); padding: 10px 12px; font-size: 13px; }
+#spkpop .pt { font-weight: 600; margin-bottom: 6px; }
+#spkpop .psub { font-size: 11px; color: var(--muted); margin: 8px 0 4px; text-transform: uppercase; letter-spacing: .04em; }
+#spkpop .pchips { display: flex; flex-wrap: wrap; gap: 4px; }
+#spkpop .pchip { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px 2px 6px; font-size: 12px; }
+#spkpop .pchip i { width: 8px; height: 8px; border-radius: 50%; background: var(--spk, var(--muted)); }
+#spkpop .pchip:hover, #spkpop .pchip.on { border-color: var(--spk, var(--accent)); background: var(--accent-soft); }
+#spkpop .plist { margin: 8px 0 2px; display: flex; flex-direction: column; gap: 3px; max-height: 220px; overflow: auto; }
+#spkpop .plist label, #spkpop .psim { display: flex; gap: 6px; align-items: flex-start; font-size: 12px; line-height: 1.4; }
+#spkpop .psim { margin-top: 8px; color: var(--muted); }
+#spkpop .phint { font-size: 11px; color: var(--muted); margin: 4px 0; }
+#spkpop .pitem { display: block; width: 100%; text-align: left; padding: 5px 6px; border-radius: 6px; }
+#spkpop .pitem:hover:not(:disabled) { background: var(--accent-soft); }
+#spkpop .pitem:disabled { opacity: .5; cursor: default; }
+#spkpop .pitem small { display: block; color: var(--muted); font-size: 11px; }
+#spkpop .prow { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin: 6px 0; }
+#spkpop select, #spkpop input[type=number] { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 2px 6px; }
+#spkpop input[type=number] { width: 70px; }
 .whoin { font-size: 11px; font-weight: 600; text-transform: uppercase; margin: 0 4px; color: var(--muted); }
 .seg { cursor: pointer; border-radius: 3px; }
 .seg:hover { background: var(--accent-soft); }
@@ -284,6 +327,8 @@ details.gl .jump { font-size: 12px; color: var(--accent); }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: var(--fg); color: var(--bg);
   padding: 6px 14px; border-radius: 8px; font-size: 14px; z-index: 60; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
+#toast.undo { pointer-events: auto; }
+#toast button { color: inherit; font: inherit; font-weight: 700; text-decoration: underline; }
 
 /* collapsible lanes: more room for the video */
 body.no-left #chapters, body.no-left .gutter.l, body.no-right #panel, body.no-right .gutter.r { display: none; }
@@ -373,7 +418,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
       <button role="tab" data-tab="overview" aria-selected="false">Overview</button>
       <span class="seg2" title="Transcript layout"><button data-view="paragraphs">¶ Paragraphs</button><button data-view="blocks">▤ Blocks</button></span>
     </div>
-    <div class="tab" id="tab-transcript"><div id="tx"></div><p id="empty" class="hidden">Nothing matches.</p></div>
+    <div class="tab" id="tab-transcript"><div id="speakers" class="hidden"></div><div id="tx"></div><p id="empty" class="hidden">Nothing matches.</p></div>
     <div class="tab hidden" id="tab-overview"></div>
   </section>
 </div>
@@ -383,6 +428,7 @@ body.no-left.no-right .layout { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
   <p class="muted">Or open this lesson with <code>afterclass open</code>: then ⚙, notes in the folder and Claude online all work directly.</p></div>
 <div id="lightbox" class="hidden"><img alt=""></div>
 <div id="toast"></div>
+<div id="spkpop" class="hidden" role="dialog"></div>
 
 <script id="lesson-data" type="application/json">/*LESSON_DATA*/</script>
 <script id="lesson-notes" type="application/json">/*NOTES_DATA*/</script>
@@ -408,14 +454,30 @@ const api = async (method, path, body, signal) => {
   if (!r.ok) throw new Error(d.error || r.statusText);
   return d;
 };
-function toast(msg) { const t = $("#toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1800); }
+let toastTimer;
+function toast(msg, undo) {
+  const t = $("#toast");
+  t.textContent = msg;
+  if (undo) {
+    const b = document.createElement("button");
+    b.textContent = "Undo";
+    b.onclick = () => { undo(); t.classList.remove("show"); };
+    t.append(" · ", b);
+  }
+  t.classList.toggle("undo", !!undo);
+  t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove("show"), undo ? 7000 : 1800);
+}
 const tagHTML = online => online ? `<span class="tag on">online</span>` : `<span class="tag off">offline</span>`;
 
 /* ---------- notes: lesson folder (afterclass open) + this browser ---------- */
 const KEY = "afterclass:" + L.id;
-let store = { stars: {}, notes: {}, speakers: {} };
+const SPEAKER_PARTS = ["speakers", "speaker_fix", "speaker_merge"];  // names, moved sentences, merged people
+let store = { stars: {}, notes: {}, speakers: {}, speaker_fix: {}, speaker_merge: {} };
 function mergeNotes(a, b) {
-  const out = { stars: { ...(a.stars || {}), ...(b.stars || {}) }, notes: { ...(a.notes || {}) }, speakers: { ...(a.speakers || {}), ...(b.speakers || {}) } };
+  const out = { stars: { ...(a.stars || {}), ...(b.stars || {}) }, notes: { ...(a.notes || {}) } };
+  SPEAKER_PARTS.forEach(k => { out[k] = { ...(a[k] || {}), ...(b[k] || {}) }; });
   for (const [k, v] of Object.entries(b.notes || {})) if (!out.notes[k] || v.length > out.notes[k].length) out.notes[k] = v;
   const t = b.title || a.title;
   if (t) out.title = t;
@@ -438,6 +500,37 @@ function setSync(on) {
   s.title = on ? "Notes are saved in the lesson's notes/ folder" : "Notes are kept in this browser. Open with `afterclass open <folder>` to save them in the folder.";
 }
 setSync(false);
+
+/* ---------- speakers: lecture (one main voice) or discussion (equal voices, one colour each) ---------- */
+const discussion = L.speaker_mode === "discussion";
+const builtIds = (L.speakers || []).map(s => s.id);
+const allSegs = L.cards.flatMap(c => c.segments);
+const fixKey = t => Number(t).toFixed(2);  // a sentence in speaker_fix (same as speakers.key in Python)
+const merged = id => { const seen = new Set(); while (store.speaker_merge[id] && !seen.has(id)) { seen.add(id); id = store.speaker_merge[id]; } return id; };
+const who = s => merged(store.speaker_fix[fixKey(s.start)] ?? s.speaker);  // the speaker after the page's corrections
+let speakerIds = [], speakerMinutes = {}, multiSpeaker = false;
+function countSpeakers() {  // who talks now (after moves and merges): built order first, then new people
+  speakerMinutes = {};
+  allSegs.forEach(s => { const id = who(s); if (id) speakerMinutes[id] = (speakerMinutes[id] || 0) + (s.end - s.start) / 60; });
+  const extra = Object.keys(speakerMinutes).filter(id => !builtIds.includes(id)).sort();
+  speakerIds = [...builtIds, ...extra].filter(id => speakerMinutes[id]);
+  multiSpeaker = speakerIds.length > 1;
+}
+countSpeakers();
+const nextId = () => {  // a letter nobody uses yet, for "+ New person" and splits
+  const used = new Set([...builtIds, ...Object.values(store.speaker_fix), ...Object.keys(store.speaker_merge), ...Object.keys(store.speakers)]);
+  return [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ"].find(x => !used.has(x)) || "Z";
+};
+const builtName = id => ((L.speakers || []).find(s => s.id === id) || {}).label
+  || (id === "A" && !discussion ? "Lecturer" : id ? "Speaker " + id : "");
+const speakerName = id => store.speakers[id] || builtName(id);  // renamed on the page wins
+const isOther = id => multiSpeaker && !discussion && id && id !== "A";  // lecture: questions etc., shown quieter
+const tinted = id => multiSpeaker && id && (discussion || id !== "A");  // lecture: the lecturer stays plain
+const spkStyle = id => {
+  const i = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".indexOf(id);  // by letter: colours stay put when people merge
+  return tinted(id) && i >= 0 ? ` style="--spk: var(--spk${i % 6})"` : "";
+};
+let focusSpeaker = null;  // clicked in the speaker list: only cards where this person talks, the others dimmed
 if (SERVER) $("#sync").textContent = "… connecting";
 
 /* ---------- opened as a file: what that means, and "Open in afterclass" (the Mac app handles afterclass:// links) ---------- */
@@ -531,17 +624,29 @@ if (L.media) v.src = L.media; else $("#player").classList.add("hidden");
 {
   // subtitles from the transcript, as a WebVTT track (no file needed, works from file:// too)
   const ts = t => new Date(Math.max(0, t) * 1000).toISOString().slice(11, 23);
-  const many = (L.speakers || []).length > 1, speakerName = id => (L.speakers.find(s => s.id === id) || {}).label || id;
-  const segs = L.cards.flatMap(c => c.segments).filter(s => s.text && s.text.trim()).sort((a, b) => a.start - b.start);
-  const vtt = "WEBVTT\n\n" + segs.map((s, i) => {
+  const segs = allSegs.filter(s => s.text && s.text.trim()).sort((a, b) => a.start - b.start);
+  const vtt = () => "WEBVTT\n\n" + segs.map((s, i) => {
     const end = Math.max(s.start + 0.5, Math.min(s.end ?? s.start + 4, segs[i + 1] ? segs[i + 1].start : Infinity));
-    const who = many && s.speaker && (i === 0 || segs[i - 1].speaker !== s.speaker) ? `${speakerName(s.speaker)}: ` : "";
-    return `${ts(s.start)} --> ${ts(end)}\n${(who + s.text.trim()).replace(/-->/g, "→")}`;
+    const name = multiSpeaker && who(s) && (i === 0 || who(segs[i - 1]) !== who(s)) ? `${speakerName(who(s))}: ` : "";
+    return `${ts(s.start)} --> ${ts(end)}\n${(name + s.text.trim()).replace(/-->/g, "→")}`;
   }).join("\n\n");
-  const track = document.createElement("track");
-  Object.assign(track, { kind: "subtitles", label: "Transcript", srclang: L.language || "en",
-    src: URL.createObjectURL(new Blob([vtt], { type: "text/vtt" })) });
-  if (L.media && segs.length) v.append(track); else $("#cc").classList.add("hidden");
+  const makeTrack = () => {
+    const track = document.createElement("track");
+    Object.assign(track, { kind: "subtitles", label: "Transcript", srclang: L.language || "en",
+      src: URL.createObjectURL(new Blob([vtt()], { type: "text/vtt" })) });
+    return track;
+  };
+  if (L.media && segs.length) v.append(makeTrack()); else $("#cc").classList.add("hidden");
+  // a renamed or corrected speaker shows in the subtitles at once: swap the track, keep it on if it was
+  window.refreshSubtitles = () => {
+    const old = v.querySelector("track");
+    if (!old) return;
+    const on = v.textTracks[0] && v.textTracks[0].mode === "showing";
+    URL.revokeObjectURL(old.src);
+    old.remove();
+    v.append(makeTrack());
+    v.textTracks[0].mode = on ? "showing" : "hidden";
+  };
   const ccOn = () => v.textTracks[0] && v.textTracks[0].mode === "showing";
   const setCC = on => {
     if (!v.textTracks[0]) return;
@@ -584,8 +689,6 @@ const chapterAt = {};
 L.chapters.forEach((ch, i) => { chapterAt[ch.card] = i; });
 const cardChapter = [];
 { let cur = 0; cards.forEach((c, i) => { if (chapterAt[c.id] !== undefined) cur = chapterAt[c.id]; cardChapter[i] = cur; }); }
-const speakerName = id => (L.speakers.find(s => s.id === id) || {}).label || (id === "A" ? "Lecturer" : id ? "Speaker " + id : "");
-const multiSpeaker = L.speakers.length > 1;
 const glossary = L.ai ? L.ai.glossary : [];
 const terms = [...new Set(glossary.map(g => g.term.replace(/\s*\(.*\)\s*$/, "").trim()).filter(t => t.length > 2))];
 const termRe = terms.length ? new RegExp("\\b(" + terms.sort((a, b) => b.length - a.length).map(t => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")\\b", "gi") : null;
@@ -620,10 +723,13 @@ function markChapter(k) { $$(".chap").forEach(d => d.classList.toggle("on", +d.d
 const expanded = new Set();
 function paragraphsOf(c) {
   const out = [];
-  c.segments.forEach((s, j) => { if (!out.length || s.para) out.push({ start: s.start, speaker: s.speaker, segs: [] }); out[out.length - 1].segs.push(j); });
+  c.segments.forEach((s, j) => {
+    if (!out.length || s.para || who(s) !== out[out.length - 1].speaker) out.push({ start: s.start, speaker: who(s), segs: [] });
+    out[out.length - 1].segs.push(j);
+  });
   return out;
 }
-const segHTML = (c, j, other = false) => `<span class="seg${other ? " other" : ""}" data-c="${esc(c.id)}" data-j="${j}" data-t="${esc(c.segments[j].start)}">${decorate(c.segments[j].text, true)}</span>`;
+const segHTML = (c, j, other = false, dim = false, style = "") => `<span class="seg${other ? " other" : ""}${style ? " tint" : ""}${dim ? " dim" : ""}"${style} data-c="${esc(c.id)}" data-j="${j}" data-t="${esc(c.segments[j].start)}">${decorate(c.segments[j].text, true)}</span>`;
 function transcriptBody(c) {
   const group = groupOf[c.id];
   if (group) return `<p class="nospeech">no speech · ${group.length} shots, ${fmt(c.start)}–${fmt(cards[group[group.length - 1]].end)}</p>`;
@@ -632,19 +738,26 @@ function transcriptBody(c) {
     let last = null;
     return `<p class="para">` + c.segments.map((s, j) => {
       let lab = "";
-      if (multiSpeaker && s.speaker !== last && (last !== null || s.speaker !== "A")) lab = `<span class="whoin ${s.speaker !== "A" ? "other" : ""}">${esc(speakerName(s.speaker))}:</span>`;
-      last = s.speaker;
-      return lab + segHTML(c, j, multiSpeaker && s.speaker && s.speaker !== "A");
+      const id = who(s);
+      if (multiSpeaker && id !== last && (last !== null || discussion || id !== "A")) {
+        let k = j;  // the run of this speaker: what "Who said this?" offers to move
+        while (k + 1 < c.segments.length && who(c.segments[k + 1]) === id) k++;
+        lab = `<button class="whoin ${isOther(id) ? "other" : discussion ? "spk" : ""}"${spkStyle(id)} data-who="${esc(c.id)}:${j}:${k}" title="Who said this?">${esc(speakerName(id))}:</button>`;
+      }
+      last = id;
+      return lab + segHTML(c, j, isOther(id), focusSpeaker && id !== focusSpeaker, spkStyle(id));
     }).join(" ") + `</p>`;
   }
   const paras = paragraphsOf(c);
-  const limit = expanded.has(c.id) || qterms.length || paras.length <= 3 ? paras.length : 2;
+  const limit = expanded.has(c.id) || qterms.length || focusSpeaker || paras.length <= 3 ? paras.length : 2;
   let prev = null;
   return paras.slice(0, limit).map(p => {
-    const other = multiSpeaker && p.speaker && p.speaker !== "A";
-    const showWho = multiSpeaker && p.speaker !== prev && (prev !== null || other);
+    const other = isOther(p.speaker), spk = multiSpeaker && discussion && p.speaker;
+    const showWho = multiSpeaker && p.speaker !== prev && (prev !== null || other || discussion);
     prev = p.speaker;
-    return `<p class="para ${other ? "other" : ""}"><span class="ptime" data-t="${esc(p.start)}">${fmt(p.start)}</span>${showWho ? `<span class="who">${esc(speakerName(p.speaker))}</span>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
+    const style = spkStyle(p.speaker);
+    const cls = [other && "other", spk && "spk", style && "tint", focusSpeaker && p.speaker !== focusSpeaker && "dim"].filter(Boolean).join(" ");
+    return `<p class="para ${cls}"${style}><span class="ptime" data-t="${esc(p.start)}">${fmt(p.start)}</span>${multiSpeaker || speakerIds.length ? `<button class="who${spk ? " spk" : ""}${showWho ? "" : " ghost"}" data-who="${esc(c.id)}:${p.segs[0]}:${p.segs[p.segs.length - 1]}" title="Who said this?">${esc(speakerName(p.speaker) || "Who?")}</button>` : ""}${p.segs.map(j => segHTML(c, j)).join(" ")}</p>`;
   }).join("") + (limit < paras.length ? `<button class="more" data-more="${esc(c.id)}">show all ${paras.length} paragraphs</button>` : "");
 }
 function tcardHTML(c) {
@@ -708,6 +821,185 @@ function renderTranscript() {
   activeSeg = null;
   applyFilter(false);
 }
+/* speaker list above the transcript: click a name to rename, the dot to show only that person, ▾ for more */
+function renderSpeakers() {
+  const box = $("#speakers");
+  box.classList.toggle("hidden", !speakerIds.length);
+  if (!speakerIds.length) return;
+  box.innerHTML = speakerIds.map(id => `<span class="sp${focusSpeaker === id ? " on" : ""}"${spkStyle(id)}>
+    <button class="dot" data-focus="${esc(id)}" title="${focusSpeaker === id ? "Show everyone again" : "Show only where this person talks"}"></button>
+    <span class="name" data-rename="${esc(id)}" title="Click to rename. Type another speaker's name to merge them.">${esc(speakerName(id))}</span>
+    <span class="min">${Math.round(speakerMinutes[id] * 10) / 10} min</span>
+    <button class="menu" data-menu="${esc(id)}" title="Merge, split, …">▾</button></span>`).join("")
+    + `<button class="regroup" id="regroup" title="Tell all voices apart again, e.g. with the right number of people">Regroup…</button>`;
+}
+const snapshot = () => { const s = JSON.stringify(SPEAKER_PARTS.map(k => store[k])); return () => { JSON.parse(s).forEach((v, i) => { store[SPEAKER_PARTS[i]] = v; }); commitSpeakers(); }; };
+function commitSpeakers() {  // after any speaker change: save, then show it everywhere
+  save();
+  countSpeakers();
+  if (focusSpeaker && !speakerIds.includes(focusSpeaker)) focusSpeaker = null;
+  renderSpeakers(); renderTranscript(); window.refreshSubtitles?.();
+  index = null;  // Ask's passages carry the speaker
+  if (current >= 0) scrollToCard(current, true);
+}
+function setFix(k, to) {  // a sentence (by key) now belongs to `to`; back to the build's label means no fix
+  const s = segByKey[k];
+  if (s && merged(s.speaker) === to) delete store.speaker_fix[k]; else store.speaker_fix[k] = to;
+}
+const segByKey = Object.fromEntries(allSegs.map(s => [fixKey(s.start), s]));
+const needsServer = "Needs the lesson opened with AfterClass (it uses the voice fingerprints)";
+
+/* one small popover for "Who said this?", a speaker's menu and Regroup */
+let popState = null;
+function showPop(anchor, html, state) {
+  const pop = $("#spkpop");
+  pop.innerHTML = html;
+  pop.classList.remove("hidden");
+  popState = state;
+  const r = anchor.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight;
+  pop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+  pop.style.top = (r.bottom + h + 8 > innerHeight ? Math.max(8, r.top - h - 4) : r.bottom + 4) + "px";
+}
+function hidePop() { $("#spkpop").classList.add("hidden"); popState = null; }
+const chip = (id, act, on = false) => `<button class="pchip${on ? " on" : ""}" data-act="${act}" data-id="${esc(id)}"${spkStyle(id)}><i></i>${esc(speakerName(id))}</button>`;
+
+function whoPopover(btn) {
+  const [cid, a, b] = btn.dataset.who.split(":").map(Number), c = cards[cid];
+  const segs = c.segments.slice(a, b + 1), now = who(segs[0]);
+  showPop(btn, `<div class="pt">Who said this?</div>
+    <div class="pchips">${speakerIds.map(id => chip(id, "to", id === now)).join("")}<button class="pchip" data-act="to" data-id="+">+ New person</button></div>
+    ${segs.length > 1 ? `<div class="plist">${segs.map((s, k) => `<label><input type="checkbox" data-k="${k}" checked><span>${esc(s.text.trim())}</span></label>`).join("")}</div>
+      <div class="phint">Untick the sentences that stay with ${esc(speakerName(now))}.</div>` : ""}
+    <label class="psim" title="${serverOK ? "Uses the voice fingerprints of the whole recording" : needsServer}"><input type="checkbox" id="psim" ${serverOK ? "checked" : "disabled"}> Also move sentences elsewhere that sound like these</label>`,
+    { kind: "who", segs });
+}
+async function reassign(segs, to) {
+  const undo = snapshot(), similar = $("#psim") && $("#psim").checked && serverOK;
+  if (to === "+") to = nextId();
+  const from = new Set(segs.map(who)), fixed = new Set(Object.keys(store.speaker_fix));
+  segs.forEach(s => setFix(fixKey(s.start), to));
+  hidePop();
+  let more = [];
+  if (similar) {
+    const candidates = allSegs.filter(s => from.has(who(s)) && !fixed.has(fixKey(s.start))).map(s => s.start);
+    try { more = (await api("POST", "/api/speakers/similar", { starts: segs.map(s => s.start), candidates })).starts; }
+    catch (e) { toast("Similar sentences: " + e.message); }
+    more.forEach(k => setFix(k, to));
+  }
+  commitSpeakers();
+  toast(`${segs.length} sentence${segs.length > 1 ? "s" : ""} → ${speakerName(to)}${more.length ? ` · ${more.length} similar too` : similar ? " · no similar ones found" : ""}`, undo);
+}
+
+function speakerMenu(btn) {
+  const id = btn.dataset.menu, others = speakerIds.filter(x => x !== id);
+  showPop(btn, `<div class="pt">${esc(speakerName(id))}</div>
+    <button class="pitem" data-act="rename" data-id="${esc(id)}">Rename</button>
+    <button class="pitem" data-act="focus" data-id="${esc(id)}">${focusSpeaker === id ? "Show everyone again" : "Show only where this person talks"}</button>
+    ${others.length ? `<div class="psub">Same person as…</div><div class="pchips">${others.map(x => chip(x, "merge")).join("")}</div>` : ""}
+    <button class="pitem" data-act="split" data-id="${esc(id)}" ${serverOK ? "" : `disabled title="${needsServer}"`}>Split in two<small>${serverOK ? "These are two people: the voices decide who is who" : needsServer}</small></button>`,
+    { kind: "menu", id });
+}
+function mergeInto(id, target) {
+  if (merged(target) === id) return;  // would go round in a circle
+  const undo = snapshot();
+  store.speaker_merge[id] = target;
+  hidePop(); commitSpeakers();
+  toast(`${speakerName(id) === speakerName(target) ? "Merged" : `${builtName(id)} is now ${speakerName(target)}`}`, undo);
+}
+async function splitSpeaker(id) {
+  hidePop();
+  const segs = allSegs.filter(s => who(s) === id);
+  toast("Listening for two voices…");
+  let r;
+  try { r = await api("POST", "/api/speakers/split", { starts: segs.map(s => s.start) }); }
+  catch (e) { toast("Split: " + e.message); return; }
+  if (!r.move.length) { toast("Couldn't hear two different voices here"); return; }
+  const undo = snapshot(), to = nextId();
+  r.move.forEach(k => setFix(k, to));
+  commitSpeakers();
+  toast(`${r.move.length} sentences → ${speakerName(to)} (rename it in the list)`, undo);
+}
+function regroupPopover(btn) {
+  const n = discussion ? speakerIds.length : "";
+  showPop(btn, `<div class="pt">Regroup all voices</div>
+    <label class="prow">Kind <select id="rgmode"><option value="discussion" ${discussion ? "selected" : ""}>Discussion (team, equal voices)</option>
+      <option value="lecture" ${discussion ? "" : "selected"}>Lecture (one main speaker)</option></select></label>
+    <label class="prow" id="rgnwrap">People <input type="number" id="rgn" min="2" max="20" value="${n}" placeholder="auto"></label>
+    <div class="phint">Starts over from the voice fingerprints, in a second. Names and corrections are cleared
+      (a copy stays in the lesson's notes/ folder).</div>
+    <button class="btn" data-act="regroup" ${serverOK ? "" : `disabled title="${needsServer}"`}>Regroup</button>${serverOK ? "" : `<div class="phint">${needsServer}.</div>`}`,
+    { kind: "regroup" });
+  const sync = () => $("#rgnwrap").classList.toggle("hidden", $("#rgmode").value !== "discussion");
+  $("#rgmode").onchange = sync; sync();
+}
+async function regroup() {
+  const mode = $("#rgmode").value, n = mode === "discussion" && $("#rgn").value ? +$("#rgn").value : null;
+  hidePop();
+  toast("Regrouping…");
+  clearTimeout(saveTimer);  // a pending save must not write the old corrections back
+  try { await api("POST", "/api/speakers/regroup", { mode, n }); }
+  catch (e) { toast("Regroup: " + e.message); save(); return; }
+  SPEAKER_PARTS.forEach(k => { store[k] = {}; });
+  lsSet(KEY, JSON.stringify(store));
+  location.reload();
+}
+
+$("#speakers").addEventListener("click", e => {
+  const f = e.target.closest("[data-focus]"), r = e.target.closest("[data-rename]"), m = e.target.closest("[data-menu]");
+  if (!m && !e.target.closest("#regroup")) hidePop();
+  if (f) {
+    focusSpeaker = focusSpeaker === f.dataset.focus ? null : f.dataset.focus;
+    renderSpeakers(); renderTranscript();
+    if (current >= 0) scrollToCard(current, true);
+  } else if (m) {
+    if (popState && popState.id === m.dataset.menu) hidePop(); else speakerMenu(m);
+  } else if (e.target.closest("#regroup")) {
+    if (popState && popState.kind === "regroup") hidePop(); else regroupPopover(e.target.closest("#regroup"));
+  } else if (r && !r.isContentEditable) startRename(r);
+  e.stopPropagation();
+});
+function startRename(r) {
+  r.contentEditable = "true";
+  r.focus();
+  document.getSelection().selectAllChildren(r);
+}
+$("#speakers").addEventListener("keydown", e => {
+  const r = e.target.closest("[data-rename]");
+  if (!r) return;
+  if (e.key === "Enter") { e.preventDefault(); r.blur(); }
+  if (e.key === "Escape") { r.textContent = speakerName(r.dataset.rename); r.blur(); }
+  e.stopPropagation();  // typing a name must not trigger the page's shortcuts
+});
+$("#speakers").addEventListener("focusout", e => {
+  const r = e.target.closest("[data-rename]");
+  if (!r) return;
+  r.contentEditable = "false";
+  const id = r.dataset.rename, val = r.textContent.replace(/\s+/g, " ").trim().slice(0, 60), before = speakerName(id);
+  // the name of someone else in the list: they are the same person
+  const same = val && speakerIds.find(x => x !== id && speakerName(x).toLowerCase() === val.toLowerCase());
+  if (same) { r.textContent = before; mergeInto(id, same); return; }
+  if (val && val !== builtName(id)) store.speakers[id] = val; else delete store.speakers[id];
+  if (speakerName(id) === before) { renderSpeakers(); return; }
+  commitSpeakers();
+  toast(store.speakers[id] ? "Speaker renamed" : "Speaker name reset");
+});
+$("#spkpop").addEventListener("click", e => {
+  const b = e.target.closest("[data-act]");
+  e.stopPropagation();
+  if (!b || !popState) return;
+  const id = b.dataset.id, act = b.dataset.act;
+  if (act === "to") {
+    const picked = popState.segs.filter((s, k) => { const box = $(`#spkpop input[data-k="${k}"]`); return !box || box.checked; });
+    if (picked.length) reassign(picked, id); else toast("Tick at least one sentence");
+  }
+  if (act === "merge") mergeInto(popState.id, id);
+  if (act === "split") splitSpeaker(id);
+  if (act === "focus") { hidePop(); focusSpeaker = focusSpeaker === id ? null : id; renderSpeakers(); renderTranscript(); }
+  if (act === "rename") { hidePop(); const r = $(`#speakers [data-rename="${id}"]`); if (r) startRename(r); }
+  if (act === "regroup") regroup();
+});
+document.addEventListener("click", e => { if (popState && !e.target.closest("#spkpop, [data-who]")) hidePop(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape" && popState) hidePop(); });
 function refreshCard(id) {
   id = lead[id] ?? id;
   const el = document.getElementById("t" + id);
@@ -723,6 +1015,7 @@ function applyFilter(rerender = true) {
   cards.forEach((c, idx) => {
     if (c.kind === "break" || lead[idx] !== idx) return;
     let ok = (kind === "all" || c.kind === kind) && (!starredOnly || store.stars[c.id]);
+    if (ok && focusSpeaker) ok = c.segments.some(s => who(s) === focusSpeaker);  // only where this person talks
     if (ok && qterms.length) ok = qterms.every(t => hay[idx].includes(t));
     if (rerender && ok) refreshCard(c.id);
     const tc = document.getElementById("t" + c.id);
@@ -733,7 +1026,7 @@ function applyFilter(rerender = true) {
     sh.classList.toggle("hidden", !hit);
     if (hit) sh.innerHTML = "Slide: " + decorate(snippet(c.text, qterms));
   });
-  const filtering = kind !== "all" || starredOnly || qterms.length;
+  const filtering = kind !== "all" || starredOnly || qterms.length || focusSpeaker;
   $$(".tbreak").forEach(b => b.classList.toggle("hidden", !!filtering));
   $("#empty").classList.toggle("hidden", shown > 0);
   const hits = $$("#tx mark").filter(m => !m.closest(".hidden")).length;
@@ -809,6 +1102,7 @@ function revealCard(id) {
   const tc = tEl(id);
   if (tc && tc.classList.contains("hidden")) {
     kind = "all"; starredOnly = false; q = ""; $("#q").value = "";
+    if (focusSpeaker) { focusSpeaker = null; renderSpeakers(); renderTranscript(); }
     $$(".chips [data-kind]").forEach(x => x.setAttribute("aria-pressed", x.dataset.kind === "all"));
     $("#starred").setAttribute("aria-pressed", false);
     applyFilter();
@@ -857,6 +1151,8 @@ document.addEventListener("click", e => {
   if (head) { goCard(+head.dataset.card); closeChapters(); return; }
   const sub = t.closest(".subs button");
   if (sub) { goCard(+sub.dataset.card); closeChapters(); return; }
+  const wb = t.closest("[data-who]");
+  if (wb) { if (popState && popState.btn === wb) hidePop(); else { whoPopover(wb); popState.btn = wb; } return; }
   const seg = t.closest(".seg");
   if (seg) { seek(+seg.dataset.t); return; }
   if (t.closest(".ptime")) { seek(+t.closest(".ptime").dataset.t); return; }
@@ -1133,9 +1429,9 @@ async function askDirect(q, signal) {
   let hits = searchIndex(q, 8);
   const first = firstMention(q, searchIndex(q, 20));
   if (t !== null) hits = hits.concat(index.items.filter(p => p.kind === "speech" && Math.abs(p.t - t) <= 60 && !hits.some(h => h.t === p.t && h.kind === p.kind)).slice(0, 3));
-  const label = p => p.kind === "slide" ? "SLIDE" : p.kind === "glossary" ? "GLOSSARY" : p.speaker ? (p.speaker === "A" ? "Lecturer" : "Speaker " + p.speaker) : "SPEECH";
+  const label = p => p.kind === "slide" ? "SLIDE" : p.kind === "glossary" ? "GLOSSARY" : p.speaker ? speakerName(p.speaker) : "SPEECH";
   const lines = hits.slice().sort((a, b) => a.t - b.t).map(p => `[${Math.round(p.t)}s = ${fmt(p.t)} | ${label(p)}] ${p.text}`);
-  let prompt = `Lecture: ${title}\nChapters:\n${L.chapters.map(c => "- " + c.title).join("\n")}\n\nPassages:\n${lines.join("\n")}\n\nQuestion: ${q}`;
+  let prompt = `${discussion ? "Discussion" : "Lecture"}: ${title}\nChapters:\n${L.chapters.map(c => "- " + c.title).join("\n")}\n\nPassages:\n${lines.join("\n")}\n\nQuestion: ${q}`;
   if (first && WANTS_START.test(q)) prompt += `\n(Search hint: the topic first appears at ${Math.round(first.t)}s = ${fmt(first.t)}.)`;
   if (t !== null) prompt += `\n(The student is watching ${fmt(t)}. Use that only if the question says 'this', 'here' or 'now'.)`;
   const r = await fetch(direct.base + "/v1/chat/completions", { method: "POST", signal, headers: { "Content-Type": "application/json" }, body: JSON.stringify({
@@ -1380,6 +1676,7 @@ async function startLocal(app) {
 /* ---------- start ---------- */
 renderChapters();
 markChapter(0);
+renderSpeakers();
 renderTranscript();
 readHash();
 askWho();
@@ -1394,6 +1691,7 @@ if (SERVER) {
     if (changed) save();
     // with afterclass, the current setting counts (the lesson keeps the one from when it was built); a clicked choice wins
     if (!lsGet("afterclass:view") && ["paragraphs", "blocks"].includes(settings.transcript_view)) view = settings.transcript_view;
+    renderSpeakers();
     renderTranscript();
     const target = current >= 0 ? current : pendingCard;
     if (target >= 0) scrollToCard(target, true);

@@ -45,11 +45,12 @@ def read_json(path, default):
 
 
 def clean_notes(data):
-    """Only the known shapes: {stars: {id: true}, notes: {id: text}, speakers: {id: name}, title?: text}."""
+    """Only the known shapes: {stars: {id: true}, notes: {id: text}, speakers: {id: name},
+    speaker_fix: {start: id}, speaker_merge: {id: id}, title?: text}."""
     if not isinstance(data, dict):
         raise ValueError("notes must be an object")
     out = {}
-    for key, kind in (("stars", bool), ("notes", str), ("speakers", str)):
+    for key, kind in (("stars", bool), ("notes", str), ("speakers", str), ("speaker_fix", str), ("speaker_merge", str)):
         part = data.get(key) or {}
         if not isinstance(part, dict):
             raise ValueError(f"{key} must be an object")
@@ -131,6 +132,30 @@ def model_options():
     return {"options": opts, "current": {"provider": cfg["ask_provider"], "model": cfg["ask_model"]}}
 
 
+def speakers_payload(app, action, body):
+    """Speaker fixes that need the voice fingerprints: similar sentences, split one speaker, regroup all.
+    The page saves the outcome itself (PUT /api/notes); only regroup writes, because it relabels the lesson."""
+    from .steps import speakers
+
+    if action == "regroup":
+        mode, n = body.get("mode"), body.get("n")
+        if n is not None and not (isinstance(n, int) and 2 <= n <= 20):
+            raise ValueError("number of people must be between 2 and 20")
+        with app.lock:
+            return {"speakers": speakers.regroup(app.folder, mode, n if mode == "discussion" else None)}
+    starts = [float(x) for x in body.get("starts") or [] if isinstance(x, (int, float))]
+    voices = speakers.load_voices(app.folder)
+    if action == "similar":
+        candidates = [float(x) for x in body.get("candidates") or [] if isinstance(x, (int, float))]
+        return {"starts": speakers.similar(voices, starts, candidates)}
+    if action == "split":
+        wanted = set(map(speakers.key, starts))
+        segs = [s for c in app.lesson()["cards"] for s in c["segments"] if speakers.key(s["start"]) in wanted]
+        keep, move = speakers.split(voices, segs)
+        return {"keep": keep, "move": move}
+    raise KeyError(f"unknown speaker action {action}")
+
+
 def ask_payload(app, body):
     from . import ask
     from .ai import cancel
@@ -145,7 +170,8 @@ def ask_payload(app, body):
     t = body.get("t")
     t = float(t) if isinstance(t, (int, float)) else None
     cfg = config.load()
-    lesson = app.lesson()
+    # speakers renamed and corrected on the page, so "what did Mia propose?" works
+    lesson = {**app.lesson(), "speaker_corrections": read_json(app.notes_path, {})}
 
     provider = None
     if mode == "search":
@@ -390,6 +416,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json({"stopped": cancel(str(self._body().get("id") or ""))})
             if path == "/api/ask" and method == "POST" and app.folder:
                 return self._json(ask_payload(app, self._body()))
+            if path.startswith("/api/speakers/") and method == "POST" and app.folder:
+                return self._json(speakers_payload(app, path.rsplit("/", 1)[-1], self._body()))
             return self._json({"error": "not found"}, 404)
         except PermissionError as e:
             return self._json({"error": str(e)}, 403)

@@ -8,6 +8,7 @@ from pydantic import ValidationError
 
 from ..ai.schema import AiResult, AiSummary, json_schema
 from ..model import Chapter
+from . import speakers
 from ..ui import AfterclassError, fmt_time, info
 
 LANG_NAMES = {"en": "English", "de": "German", "fr": "French", "it": "Italian", "es": "Spanish"}
@@ -16,6 +17,12 @@ SYSTEM = """You structure a recorded university lecture for students.
 You get the lecture as numbered cards in time order. Each card is one slide or screen and carries the
 slide text and what was said while it was shown. Base everything on this material only.
 Write in {language}. Keep technical terms as the lecturer uses them."""
+
+SYSTEM_DISCUSSION = """You structure a recorded team discussion (group work or a meeting with several equal
+speakers) for the students who took part. You get it as numbered cards in time order. Each card is one slide
+or screen and carries the slide text and what was said while it was shown; [Speaker X] marks who speaks.
+Base everything on this material only. Write in {language}. Keep technical terms as the speakers use them.
+Where the "lecture" is mentioned below, read "discussion"."""
 
 TASK = """Lesson: {title}
 Detected chapter hints ({hint_source}):
@@ -65,14 +72,26 @@ def card_lines(lesson, cards=None):
         lines.append((head + f"] {c.title}").rstrip())
         if c.text and c.kind == "slide":
             lines.append("SLIDE: " + " ".join(c.text.split())[:600])
-        speech = " ".join(s.text for s in c.segments)
+        if lesson.speaker_mode == "discussion":  # who says what matters here, with the page's corrections
+            corr = getattr(lesson, "_speaker_corr", None) or speakers.corrections({})
+            speech, last = [], None
+            for s in c.segments:
+                who = speakers.resolve(s.speaker, s.start, corr)
+                if who and who != last:
+                    speech.append(f"[{speakers.display_name(who, corr, lesson.speakers, 'discussion')}]")
+                last = who
+                speech.append(s.text)
+            speech = " ".join(speech)
+        else:
+            speech = " ".join(s.text for s in c.segments)
         if speech:
             lines.append("SPEECH: " + speech)
     return lines
 
 
 def _system(lesson):
-    return SYSTEM.format(language=LANG_NAMES.get(lesson.language, lesson.language))
+    system = SYSTEM_DISCUSSION if lesson.speaker_mode == "discussion" else SYSTEM
+    return system.format(language=LANG_NAMES.get(lesson.language, lesson.language))
 
 
 def build_prompt(lesson):

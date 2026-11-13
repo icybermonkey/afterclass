@@ -30,8 +30,12 @@ def build_parser():
     g.add_argument("-t", "--threshold", type=float, metavar="NUM", help="slide change sensitivity, higher = fewer cards (default 4)")
     g.add_argument("-m", "--model", metavar="MODEL", help="mlx-whisper model (default whisper-large-v3-turbo)")
     g.add_argument("-w", "--word-timestamps", action="store_true", help="word timestamps + hallucination filter (slower)")
-    g.add_argument("--speakers", action=argparse.BooleanOptionalAction, default=None,
-                   help="tell the lecturer and other speakers apart, offline (default from config: on)")
+    g.add_argument("--speakers", nargs="?", const="lecture", choices=("lecture", "discussion", "off"), metavar="MODE",
+                   help="tell speakers apart, offline. lecture: one main speaker, others shown quieter; discussion: "
+                        "team work, every voice equal (default from config: lecture)")
+    g.add_argument("--no-speakers", dest="speakers", action="store_const", const="off", help="don't tell speakers apart")
+    g.add_argument("--num-speakers", type=int, metavar="N",
+                   help="discussion: how many people talk (optional, makes telling them apart more reliable)")
     g = p.add_argument_group("AI extras")
     g.add_argument("--ai", nargs="?", const="default", metavar="PROVIDER",
                    help="chapters, summaries, tags, glossary, exam questions. PROVIDER: claude (API key) or "
@@ -258,8 +262,15 @@ def enrich_args(folder, a):
             "--ai", a.ai]
     if lesson.get("deck"):
         argv += ["--deck", str(folder / lesson["deck"])]
-    if not (folder / "data" / "speakers.json").exists():
+    sp_json = folder / "data" / "speakers.json"
+    if not sp_json.exists():
         argv.append("--no-speakers")  # built without speakers: don't start telling them apart now
+    else:  # keep the lesson's speaker mode (older lessons have none: lecture)
+        sp = json.loads(sp_json.read_text())
+        sp = sp if isinstance(sp, dict) else {}
+        argv += ["--speakers", sp.get("mode", "lecture")]
+        if sp.get("n"):
+            argv += ["--num-speakers", str(sp["n"])]
     if a.ai_model:
         argv += ["--ai-model", a.ai_model]
     if a.yes:

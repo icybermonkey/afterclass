@@ -62,6 +62,9 @@ audience, are indented and marked.
 - **⇄** on the picture switches between the slide and the real video frame; click the picture to enlarge it.
 - **¶ Paragraphs** splits each part at speaker changes and pauses, with a time per paragraph.
   **▤ Blocks** shows each part as one block of text.
+- **Speakers** (above the transcript): click a name to rename it (subtitles follow), a dot to show only where
+  that person talks. Wrong person? Click the speaker label on a paragraph and pick who said it; similar sentences
+  move along. **▾** merges or splits people, **Regroup…** starts over with the right number of people.
 
 <br clear="right">
 
@@ -170,7 +173,9 @@ afterclass <video> <output-folder> [options]
   -l LANG               spoken language (default en)
   -t NUM                slide-change sensitivity, higher = fewer cards (default 4)
   -w                    word timestamps + extra hallucination filter (slower)
-  --speakers / --no-speakers   tell speakers apart (default on)
+  --speakers [MODE]     tell speakers apart: lecture (one main speaker, default) or discussion
+                        (team work, every voice equal); --no-speakers to skip
+  --num-speakers N      discussion: how many people talk (optional, more reliable)
   --ai [PROVIDER]       chapter names + glossary: local, claude-code (subscription), claude (API key); default: local first
   --ai-model MODEL      e.g. claude-sonnet-5-5, sonnet for claude-code, or a local model name
   -y                    don't ask before paid API calls
@@ -246,7 +251,8 @@ Lectures on security topics can occasionally trip a model's safety filter. after
 
 1. **ffprobe** checks the input. **ffmpeg silencedetect** finds breaks, and cards are cut around them so breaks fold away.
 2. **mlx-whisper** (large-v3-turbo) transcribes on the GPU, with a filter for typical Whisper hallucinations.
-3. **SpeechBrain ECAPA** voice fingerprints (on the Apple GPU) separate the lecturer from other voices.
+3. **SpeechBrain ECAPA** voice fingerprints (on the Apple GPU) separate the lecturer from other voices, or, in
+   discussion mode, group equal voices into Speaker A, B, C… (kept in `data/voices.npz`, so switching the mode only regroups).
 4. **PySceneDetect** finds slide changes. **tesseract** reads each frame: titles, "Page X of N", section slides, and macOS menu bars (= live demo).
 5. With `--deck`, **PyMuPDF** reads the deck, and frames are matched to pages by page number or text similarity.
 6. Cards, paragraphs, chapters (picture + subchapters) and speakers go into `data/lesson.json`, which is embedded in `index.html`.

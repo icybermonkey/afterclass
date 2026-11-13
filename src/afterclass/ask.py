@@ -6,6 +6,7 @@ import re
 from collections import Counter
 
 from .ai.schema import AskAnswer, json_schema
+from .steps.speakers import corrections, display_name, resolve
 from .ui import AfterclassError, fmt_time
 
 STOP = set("""a an and are as at be but by can do does for from how i in is it its me my of on or so that the
@@ -50,15 +51,16 @@ def words(text):
 
 def passages(lesson):
     """Searchable pieces: transcript paragraphs, slide texts, glossary entries."""
+    corr = corrections(lesson.get("speaker_corrections") or {})
     out = []
     for c in lesson.get("cards", []):
         if c.get("kind") == "break":
             continue
         para = None
         for s in c.get("segments", []):
-            if para is None or s.get("para"):
-                para = {"kind": "speech", "card": c["id"], "t": s["start"], "speaker": s.get("speaker", ""),
-                        "text": s["text"]}
+            who = resolve(s.get("speaker", ""), s["start"], corr)
+            if para is None or s.get("para") or who != para["speaker"]:
+                para = {"kind": "speech", "card": c["id"], "t": s["start"], "speaker": who, "text": s["text"]}
                 out.append(para)
             else:
                 para["text"] += " " + s["text"]
@@ -119,6 +121,12 @@ def first_mention(index, query):
     return min(strong, key=lambda h: h["t"])
 
 
+def speaker_label(lesson, sid):
+    """The speaker's name: renamed on the page, else from the build, else Lecturer / Speaker X."""
+    corr = corrections(lesson.get("speaker_corrections") or {})
+    return display_name(sid, corr, lesson.get("speakers"), lesson.get("speaker_mode", "lecture"))
+
+
 def context_for(lesson, index, question, t=None, k=8):
     hits = index.search(question, k=k)
     if t is not None:  # what is on screen right now, for questions like "explain this"
@@ -126,11 +134,12 @@ def context_for(lesson, index, question, t=None, k=8):
         hits = hits + [p for p in near[:3] if p not in hits]
     lines = []
     for p in sorted(hits[:k + 6], key=lambda p: p["t"]):
-        who = {"A": "Lecturer"}.get(p.get("speaker"), f"Speaker {p.get('speaker')}" if p.get("speaker") else "")
+        who = speaker_label(lesson, p.get("speaker"))
         label = {"slide": "SLIDE", "glossary": "GLOSSARY"}.get(p["kind"], who or "SPEECH")
         lines.append(f"[{p['t']:.0f}s = {fmt_time(p['t'])} | {label}] {p['text']}")
     chapters = "\n".join(f"- {c['title']}" for c in lesson.get("chapters", []))
-    return hits, f"Lecture: {lesson.get('title')}\nChapters:\n{chapters}\n\nPassages:\n" + "\n".join(lines)
+    kind = "Discussion" if lesson.get("speaker_mode") == "discussion" else "Lecture"
+    return hits, f"{kind}: {lesson.get('title')}\nChapters:\n{chapters}\n\nPassages:\n" + "\n".join(lines)
 
 
 def answer(lesson, question, provider=None, model="", t=None, mode="lesson"):

@@ -8,6 +8,7 @@ import sys
 from .. import ui
 from ..model import Lesson
 from ..steps import analyze, deck, media, ocr, probe, render, scenes, silence, transcribe
+from ..steps.speakers import mode_of as speakers_mode
 from ..ui import AfterclassError, fmt_time, human_size
 from .base import Source
 
@@ -21,8 +22,8 @@ class VideoSource(Source):
         language = a.language or cfg["language"]
         threshold = a.threshold or cfg["threshold"]
         model = a.model or cfg["whisper_model"]
-        use_speakers = cfg["speakers"] if a.speakers is None else a.speakers
-        total = 8 + bool(a.deck) + bool(a.ai) + bool(use_speakers)
+        speaker_mode = speakers_mode(cfg["speakers"] if a.speakers is None else a.speakers)
+        total = 8 + bool(a.deck) + bool(a.ai) + (speaker_mode != "off")
         steps = ui.Steps(total)
         title = a.title or ctx.input.stem.replace("_", " ").replace("-", " ").strip()
 
@@ -83,8 +84,8 @@ class VideoSource(Source):
 
         # 5. Speakers (optional)
         speaker_list = []
-        if use_speakers:
-            speaker_list = self._speakers(ctx, steps, dest, segments, transcribed)
+        if speaker_mode != "off":
+            speaker_list = self._speakers(ctx, steps, dest, segments, transcribed, speaker_mode)
 
         # 5. Scenes
         csv_path = ctx.data / "scenes.csv"
@@ -154,7 +155,8 @@ class VideoSource(Source):
             title=title, source="video", duration=info["duration"],
             media=f"media/{dest.name}", deck=deck_rel, deck_pages=len(pages) if pages else None,
             language=language, cards=cards, chapters=chapters, silences=silences,
-            speakers=speaker_list, transcript_view=cfg["transcript_view"],
+            speakers=speaker_list, speaker_mode=speaker_mode if speaker_list else "off",
+            transcript_view=cfg["transcript_view"],
             stats={"transcript": report, "kinds": kinds, "chapter_source": source,
                    "frames": n_before, "deck_matched": len(matched)},
         )
@@ -200,36 +202,51 @@ class VideoSource(Source):
 
     # --- speakers ------------------------------------------------------------
 
-    def _speakers(self, ctx, steps, video, segments, transcribed):
+    def _speakers(self, ctx, steps, video, segments, transcribed, mode):
         """Label every cleaned segment with a speaker (in place). Returns the speaker summary."""
+        import numpy as np
+
         from ..steps import speakers
 
-        sp_json = ctx.data / "speakers.json"
+        n = getattr(ctx.args, "num_speakers", None) if mode == "discussion" else None
+        sp_json, voices = ctx.data / "speakers.json", ctx.data / "voices.npz"
         starts = [s["start"] for s in segments]
-        if not transcribed and ctx.cached("speakers", sp_json):
-            cached = json.loads(sp_json.read_text())
-            if cached.get("starts") == starts:
-                for s, lab in zip(segments, cached["labels"]):
-                    s["speaker"] = lab
-                steps.skip("Tell speakers apart", ", ".join(f"{x['label']} {x['minutes']} min" for x in cached["summary"])
-                           + " (cached)")
-                return cached["summary"]
+        cached = json.loads(sp_json.read_text()) if not transcribed and ctx.cached("speakers", sp_json) else {}
+        if cached.get("starts") == starts and cached.get("mode", "lecture") == mode and cached.get("n") == n:
+            for s, lab in zip(segments, cached["labels"]):
+                s["speaker"] = lab
+            steps.skip("Tell speakers apart", ", ".join(f"{x['label']} {x['minutes']} min" for x in cached["summary"])
+                       + " (cached)")
+            return cached["summary"]
+        how = ("the main voice is the lecturer; other voices become Speaker B, C, …" if mode == "lecture" else
+               "discussion: every voice is equal and becomes Speaker A, B, C, … in order of their first words")
         steps.begin("Tell speakers apart", "Experimental, offline: a voice fingerprint per sentence (SpeechBrain "
-                    "ECAPA). The main voice is the lecturer; other voices become Speaker B, C, …")
-        try:
-            audio = speakers.load_audio(video)
-            ui.info("computing voice fingerprints…")
-            emb = speakers.embed(audio, segments, progress=_progress_n("segments"))
-        except AfterclassError as e:
-            ctx.warnings.append(f"speaker detection skipped: {e}")
-            ui.warn(str(e))
-            steps.end()
-            return []
-        labels = speakers.assign(segments, emb)
-        summary = speakers.summary(segments, labels)
+                    f"ECAPA); {how}")
+        # The fingerprints are kept, so switching the mode later only regroups them
+        emb = None
+        if not transcribed and voices.exists() and not ctx.args.force:
+            stored = np.load(voices)
+            if stored["starts"].tolist() == starts:
+                emb = [e if ok else None for e, ok in zip(stored["emb"], stored["ok"])]
+                ui.info("voice fingerprints: cached")
+        if emb is None:
+            try:
+                audio = speakers.load_audio(video)
+                ui.info("computing voice fingerprints…")
+                emb = speakers.embed(audio, segments, progress=_progress_n("segments"))
+            except AfterclassError as e:
+                ctx.warnings.append(f"speaker detection skipped: {e}")
+                ui.warn(str(e))
+                steps.end()
+                return []
+            dim = next((len(e) for e in emb if e is not None), 1)
+            np.savez(voices, starts=np.array(starts), ok=np.array([e is not None for e in emb]),
+                     emb=np.stack([e if e is not None else np.zeros(dim, np.float32) for e in emb]) if emb else np.zeros((0, dim)))
+        labels = speakers.assign(segments, emb) if mode == "lecture" else speakers.assign_discussion(segments, emb, n)
+        summary = speakers.summary(segments, labels, mode)
         for s, lab in zip(segments, labels):
             s["speaker"] = lab
-        sp_json.write_text(json.dumps({"starts": starts, "labels": labels, "summary": summary}))
+        sp_json.write_text(json.dumps({"starts": starts, "labels": labels, "summary": summary, "mode": mode, "n": n}))
         changes = sum(1 for x, y in zip(labels, labels[1:]) if x != y)
         steps.end(", ".join(f"{x['label']} {x['minutes']} min" for x in summary) + f"; {changes} speaker changes")
         return summary
@@ -283,6 +300,9 @@ class VideoSource(Source):
                  else "online: only text is sent (transcript + slide text), no video or images")
         steps.begin("AI study extras", f"{provider.label} ({model or 'default model'}), {where}. "
                     "Chapter names and a glossary.")
+        from ..steps import speakers
+
+        lesson._speaker_corr = speakers.corrections(ctx.out)  # names and fixes from the page (notes/)
         system, prompt = ai_step.build_prompt(lesson)
         # Content fingerprint without card numbers: re-cut cards don't invalidate the AI result
         content = "\n".join(s.text for c in lesson.cards for s in c.segments) + "".join(c.text for c in lesson.cards)

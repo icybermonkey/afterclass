@@ -29,6 +29,11 @@ def test_form_becomes_the_normal_command_line():
     assert gui.build_args(form(ai="claude"))[0][-2:] == ["--ai", "claude"]  # no cost confirmation: asks/skips
     assert gui.build_args(form(ai="claude", accept_cost=True))[0][-3:] == ["--ai", "claude", "-y"]
     assert gui.build_args(form(ai="claude-code"))[0][-2:] == ["--ai", "claude-code"]
+    assert gui.build_args(form(speakers="lecture"))[0][-2:] == ["--speakers", "lecture"]
+    assert gui.build_args(form(speakers="discussion", num_speakers="4"))[0][-4:] == ["--speakers", "discussion", "--num-speakers", "4"]
+    assert gui.build_args(form(speakers="discussion", num_speakers=""))[0][-2:] == ["--speakers", "discussion"]
+    with pytest.raises(ValueError):
+        gui.build_args(form(speakers="discussion", num_speakers="1"))
 
 
 def test_app_bundle(tmp_path):

@@ -82,8 +82,16 @@ def build_args(form):
         args += ["--ai", ai]
         if ai == "claude" and form.get("accept_cost"):
             args += ["-y"]  # the paid API only runs after this explicit checkbox
-    if form.get("speakers") is False:
+    mode = form.get("speakers")
+    if mode is False or mode == "off":
         args += ["--no-speakers"]
+    elif mode in ("lecture", "discussion"):
+        args += ["--speakers", mode]
+        n = form.get("num_speakers")
+        if mode == "discussion" and n:
+            if not str(n).isdigit() or not 2 <= int(n) <= 20:
+                raise ValueError("number of speakers must be between 2 and 20")
+            args += ["--num-speakers", str(int(n))]
     if form.get("media") in ("copy", "link", "move"):
         args += ["--" + form["media"]]
     if form.get("deck") and form.get("deck_media") in ("copy", "link", "move"):
@@ -158,7 +166,7 @@ class Api:
     def defaults(self):
         cfg = config.load()
         last = _load_state().get("out_dir")
-        return {"language": cfg["language"], "ai": "auto", "speakers": bool(cfg["speakers"]), "media": cfg["media"], "deck_media": cfg["deck_media"],
+        return {"language": cfg["language"], "ai": "auto", "speakers": cfg["speakers"], "media": cfg["media"], "deck_media": cfg["deck_media"],
                 "out_dir": last if last and Path(last).is_dir() else str(Path.home() / "Documents"),
                 "app": APP_NAME}
 
