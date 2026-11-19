@@ -139,16 +139,26 @@ def forget_out_dir(path):
 
 
 def recent_out_dirs():
-    """The recent output folders that still exist, most recent first: [{path, label}]. The label is the folder's
-    name, or parent/name when two have the same name."""
+    """The recent output folders that still exist, most recent first: [{path, label}]. The label is parent/name
+    (output folders are often all called "AfterClass"), with more parents while two labels are the same."""
     state = _load_state()
     dirs = list(state.get("out_dirs", []))
     if state.get("out_dir") and state["out_dir"] not in dirs:
         dirs.append(state["out_dir"])  # remembered before the recent folders existed
     paths = [Path(d) for d in dirs if Path(d).is_dir()][:OUT_DIRS_MAX]
-    names = [p.name for p in paths]
-    return [{"path": str(p), "label": f"{p.parent.name}/{p.name}" if names.count(p.name) > 1 else p.name or str(p)}
-            for p in paths]
+
+    def label(p, depth):
+        parts = [x for x in p.parts if x != p.anchor]
+        return "/".join(parts[-depth:]) if len(parts) > depth else str(p)
+
+    depths = [2] * len(paths)
+    while True:
+        labels = [label(p, n) for p, n in zip(paths, depths)]
+        clash = [i for i, l in enumerate(labels) if labels.count(l) > 1 and depths[i] < len(paths[i].parts)]
+        if not clash:
+            return [{"path": str(p), "label": l} for p, l in zip(paths, labels)]
+        for i in clash:
+            depths[i] += 1
 
 
 def recent_lessons():
